@@ -10,7 +10,9 @@ use gpui::{
 };
 use gpui::{Window, canvas, deferred, div, phi, px, relative};
 use i18n::t;
-use input::{ToggleFullscreen, ToggleWindowFullscreen, WORKSPACE_CONTEXT};
+use input::{
+    ToggleFullscreen, ToggleLyrics, ToggleQueue, ToggleWindowFullscreen, WORKSPACE_CONTEXT,
+};
 use router::{Destination, navigate};
 use state::{AppSettings, Cover, FullscreenControlsAutohide, Playback, Queue, SideTab, Sonora};
 use ui::{
@@ -204,6 +206,14 @@ impl FullscreenView {
             self.aside.update(cx, |aside, cx| aside.show(tab, cx));
         }
         self.stir(cx);
+    }
+
+    pub fn toggle_side(&mut self, tab: SideTab, cx: &mut Context<Self>) {
+        let wanted = match self.panel == Some(tab) {
+            true => None,
+            false => Some(tab),
+        };
+        self.show(wanted, cx);
     }
 
     fn stir(&mut self, cx: &mut Context<Self>) {
@@ -1218,6 +1228,12 @@ impl Render for FullscreenView {
                 }
             }))
             .on_key_down(cx.listener(|this, _: &KeyDownEvent, _, cx| this.poke(cx)))
+            .on_action(
+                cx.listener(|this, _: &ToggleLyrics, _, cx| this.toggle_side(SideTab::Lyrics, cx)),
+            )
+            .on_action(
+                cx.listener(|this, _: &ToggleQueue, _, cx| this.toggle_side(SideTab::Queue, cx)),
+            )
             .child(
                 canvas(move |bounds, _, _| root_bounds.set(bounds), |_, _, _, _| {})
                     .absolute()

@@ -468,9 +468,18 @@ impl Root {
     }
 
     fn show_side(&self, tab: SideTab, cx: &mut Context<Self>) {
-        self.shells
-            .workspace
-            .update(cx, |workspace, cx| workspace.show_side(tab, cx));
+        match self.view {
+            RootView::Fullscreen => {
+                self.shells.fullscreen.update(cx, |fullscreen, cx| {
+                    fullscreen.toggle_side(tab, cx);
+                });
+            }
+            RootView::Workspace => {
+                self.shells
+                    .workspace
+                    .update(cx, |workspace, cx| workspace.show_side(tab, cx));
+            }
+        }
     }
 
     /// Tells the adaptive theme and the wake lock whether fullscreen is up. The ambient
