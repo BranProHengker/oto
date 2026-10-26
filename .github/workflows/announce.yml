@@ -1,0 +1,63 @@
+name: Announce release on Discord
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: The release tag to announce
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  announce:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.tag }}
+
+      - uses: taiki-e/install-action@parse-changelog
+
+      - name: Send release announcement
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_RELEASE_WEBHOOK }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          version="${RELEASE_TAG#v}"
+          # discord breaks the line at every newline, so join the wrapped continuation lines
+          notes="$(parse-changelog CHANGELOG.md "$version" | perl -0pe 's/\n  +(?=\S)/ /g')"
+          jq -n \
+            --arg tag "$RELEASE_TAG" \
+            --arg repo "$REPO" \
+            --arg notes "$notes" \
+            '{
+              username: "Sonora Releases",
+              embeds: [{
+                title: ("Sonora " + $tag),
+                url: ("https://github.com/" + $repo + "/releases/tag/" + $tag),
+                description: (
+                  if ($notes | length) > 4000 then
+                    $notes[0:3900] + "\n\n[Full notes on GitHub](https://github.com/" + $repo + "/blob/" + $tag + "/CHANGELOG.md)"
+                  else
+                    $notes
+                  end
+                ),
+                color: 5793266
+              }]
+            }' |
+          curl --fail-with-body \
+            --request POST \
+            --header "Content-Type: application/json" \
+            --data @- \
+            "$DISCORD_WEBHOOK_URL"

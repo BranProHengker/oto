@@ -1,0 +1,42 @@
+name: Feature request
+description: Suggest something Sonora should do
+labels: [enhancement, needs triage]
+
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What you are trying to do today and where Sonora gets in the way.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you want instead
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you considered
+    validations:
+      required: false
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Playback
+        - Library and browsing
+        - Local music
+        - Lyrics
+        - Appearance and themes
+        - Settings
+        - Packaging and distribution
+        - Something else
+    validations:
+      required: true

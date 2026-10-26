@@ -1,0 +1,214 @@
+name: ci
+
+on:
+  push:
+    branches: [dev]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_PROFILE_RELEASE_STRIP: symbols
+  RUST_BACKTRACE: 1
+  RUSTC_WRAPPER: sccache
+  SCCACHE_GHA_ENABLED: "true"
+
+jobs:
+  check:
+    name: fmt, clippy and tests
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential pkg-config cmake mold \
+            libasound2-dev libfontconfig1-dev libfreetype-dev libsqlite3-dev \
+            libx11-dev libxcb1-dev libxcursor-dev libxi-dev \
+            libxkbcommon-dev libxkbcommon-x11-dev libwayland-dev \
+            libvulkan-dev libdbus-1-dev
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: mozilla-actions/sccache-action@v0.0.9
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ci-check
+          cache-on-failure: true
+
+      - name: rustfmt
+        run: cargo fmt --all --check
+
+      - name: clippy
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+
+      - name: tests
+        run: cargo test --workspace --locked
+
+      - name: sccache stats
+        if: always()
+        run: sccache --show-stats
+
+  # The check job only ever sees the Linux side of a cfg. These two lint the other two
+  # platforms' code without paying for codegen, linking or an installer, which is the whole
+  # cost of a release build. A tag still builds every target for real through release.yml.
+  platforms:
+    name: clippy on ${{ matrix.target }}
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: aarch64-apple-darwin
+            os: macos-15
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+          components: clippy
+
+      - uses: mozilla-actions/sccache-action@v0.0.9
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: lint-${{ matrix.target }}
+          cache-on-failure: true
+
+      - name: clippy
+        run: cargo clippy --workspace --all-targets --locked --target ${{ matrix.target }} -- -D warnings
+
+      - name: sccache stats
+        if: always()
+        run: sccache --show-stats
+
+  build:
+    name: ${{ matrix.target }}
+    if: github.event_name != 'pull_request'
+    runs-on: ${{ matrix.os }}
+    env:
+      SIGNPATH_API_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-22.04
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-22.04-arm
+          - target: aarch64-apple-darwin
+            os: macos-15
+          - target: x86_64-apple-darwin
+            os: macos-15-intel
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+            arch: x64compatible
+            setup: Sonora-Setup
+          - target: aarch64-pc-windows-msvc
+            os: windows-11-arm
+            arch: arm64
+            setup: Sonora-Setup-arm64
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: system dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential pkg-config cmake mold \
+            libasound2-dev libfontconfig1-dev libfreetype-dev libsqlite3-dev \
+            libx11-dev libxcb1-dev libxcursor-dev libxi-dev \
+            libxkbcommon-dev libxkbcommon-x11-dev libwayland-dev \
+            libvulkan-dev libdbus-1-dev
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: mozilla-actions/sccache-action@v0.0.9
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+          cache-targets: false
+          cache-on-failure: true
+
+      - name: build
+        run: cargo build --release --locked --package sonora --target ${{ matrix.target }}
+
+      - name: sccache stats
+        if: always()
+        run: sccache --show-stats
+
+      # A manual run checks the SignPath setup with the self-signed test certificate. Pushes skip
+      # it, since a test signature is worth nothing to anyone downloading the build. Like the
+      # upload below, a failure here must not turn the build red.
+      - name: sign the executable
+        if: runner.os == 'Windows' && github.event_name == 'workflow_dispatch' && env.SIGNPATH_API_TOKEN != ''
+        continue-on-error: true
+        uses: ./.github/actions/sign
+        with:
+          file: target/${{ matrix.target }}/release/sonora.exe
+          artifact: unsigned-exe-${{ matrix.target }}
+          policy: test-signing
+          api-token: ${{ env.SIGNPATH_API_TOKEN }}
+
+      - name: stage the executable
+        shell: bash
+        env:
+          TARGET: ${{ matrix.target }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          case "$RUNNER_OS" in
+            Windows) cp "target/$TARGET/release/sonora.exe" "dist/sonora-${GITHUB_SHA:0:7}-$TARGET.exe" ;;
+            *)       cp "target/$TARGET/release/sonora" "dist/sonora-${GITHUB_SHA:0:7}-$TARGET" ;;
+          esac
+
+      - name: install Inno Setup
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: choco install innosetup --yes --no-progress
+
+      - name: build the Windows installer
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          TARGET: ${{ matrix.target }}
+          SONORA_ARCH: ${{ matrix.arch }}
+          SONORA_SETUP: ${{ matrix.setup }}
+        run: |
+          $env:SONORA_VERSION = "0.0.0"
+          $env:SONORA_EXE = (Resolve-Path "target/$env:TARGET/release/sonora.exe").Path
+          $env:SONORA_DIST = (Resolve-Path "dist").Path
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "scripts/windows/sonora.iss"
+
+      - name: sign the installer
+        if: runner.os == 'Windows' && github.event_name == 'workflow_dispatch' && env.SIGNPATH_API_TOKEN != ''
+        continue-on-error: true
+        uses: ./.github/actions/sign
+        with:
+          file: dist/${{ matrix.setup }}.exe
+          artifact: unsigned-setup-${{ matrix.target }}
+          policy: test-signing
+          api-token: ${{ env.SIGNPATH_API_TOKEN }}
+
+      # A convenience binary, not a release artefact: GitHub's artifact service times out often
+      # enough that it must not be what turns a green build red.
+      - uses: actions/upload-artifact@v4
+        continue-on-error: true
+        with:
+          name: build-${{ matrix.target }}
+          path: dist/*
+          if-no-files-found: error

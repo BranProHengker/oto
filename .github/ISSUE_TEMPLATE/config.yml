@@ -1,0 +1,6 @@
+blank_issues_enabled: false
+
+contact_links:
+  - name: Questions and general chat
+    url: https://discord.gg/a8N8Tx23rV
+    about: Ask in the Discord server. Issues are for bugs and feature requests.

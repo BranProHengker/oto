@@ -1,0 +1,82 @@
+# What the triage bot is allowed to do. It may only ever pick a label or a person named
+# here, and .github/triage/triage.sh drops anything else the model invents.
+#
+# The labels name parts of the app rather than crates. Every change touches views and state
+# whatever it is about, so a label for those would mark everything and sort nothing.
+#
+# A person with an empty `areas` list is never assigned. Fill in areas and hardware to put
+# someone into the rotation, and remember that GitHub refuses to assign a non-collaborator.
+
+labels:
+  bug: something that used to work, or clearly should, does not
+  enhancement: a request for behaviour Sonora does not have yet
+  documentation: the README, contributing guide or privacy notice reads wrong
+  question: the reporter wants to know how something works rather than reporting a defect
+  playback: audio output, stutter, gaps, seeking, volume, the equalizer, device switching
+  player: the player bar, the queue, transport controls, fullscreen, media keys, rich presence
+  lyrics: lyric fetching, timing, the lyrics view, any lyrics provider
+  library: playlists, albums, artists, history, pinned lists and the browsing screens
+  search: the search field and what it returns
+  settings: the settings screen, stored preferences, the updater
+  ui: rendering, layout, theming, fonts, the window and its chrome
+  spotify: signing in to Spotify, its library, its search, or anything its backend returns
+  youtube: signing in to YouTube Music, its library, its search, or its backend
+  subsonic: a Subsonic or Navidrome server
+  local: the local music folder, scanning, tags, embedded artwork, local playlists
+  i18n: a translation, a missing string, a wrong plural or locale selection, and nothing else
+  icons: the icon packs
+  webview: the cookie sign-in browser window
+  nix: the flake, the devShell, building under Nix
+  packaging: Flatpak, AUR, Homebrew, the disk image, the Windows installer, updates
+  ci: the release workflow or anything else under .github
+
+platforms:
+  linux: reproduces on Linux, or is specific to Wayland, X11, PipeWire or a Mesa driver
+  macos: reproduces on macOS, or is specific to AppKit, Gatekeeper or the disk image
+  windows: reproduces on Windows, or is specific to WebView2, MSVC or the installer
+
+people:
+  nolight132:
+    areas: [question, spotify, ui, lyrics, player, playback, packaging, settings, ci]
+    hardware: [linux, pipewire, wayland, niri]
+
+  zxsleebu:
+    areas: [question, ui, library, player, lyrics]
+    hardware: [linux, wayland, kde]
+
+  imizgun:
+    areas: [question, local, library, playback, ui]
+    hardware: [linux, wayland, niri, pipewire]
+
+  fx-got:
+    areas: [youtube, spotify, library, player, settings, ui]
+    hardware: [windows]
+
+  Makakashan:
+    areas: [i18n, packaging]
+    hardware: [linux, wayland, niri, pipewire]
+
+# What a report has to contain before anyone can act on it. The bot asks for whichever of
+# these a maintainer would be blocked without, once, and labels the issue needs-info until it
+# arrives. Each entry says when it applies, because only the first three always do: a log
+# covering the failure says more than steps ever could, and most of what looks wrong on screen
+# needs neither a log nor a driver.
+required:
+  - a Sonora version
+  - how Sonora was installed
+  - the operating system, and on Linux whether the session is Wayland or X11
+  - what the reporter was doing when it went wrong, when neither the report nor a log says
+  - a log excerpt from sonora.log covering the failure, for a crash, a hang, a sign-in
+    problem or anything audio related
+  - the GPU and its graphics driver, for a rendering fault, a blank window or a window that
+    will not draw
+
+# How hard .github/triage/duplicates.sh looks for an issue that already reports the new one.
+# `scan` is how many issues it reads the title of, newest first, open and closed alike, so
+# anything older than that is invisible and the number is what to raise when the repository
+# outgrows it. `shortlist` is how many of those get read in full, and `report` is the most the
+# comment ever lists.
+duplicates:
+  scan: 300
+  shortlist: 6
+  report: 3

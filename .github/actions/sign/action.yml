@@ -1,0 +1,52 @@
+name: sign through SignPath
+description: >
+  Uploads one Windows executable, has SignPath sign it with Sonora's Authenticode certificate and
+  puts the signed copy back at the same path. Waits for the request, so a policy with manual
+  approval holds the job until someone approves it.
+
+inputs:
+  file:
+    description: The executable to sign, replaced in place by its signed copy.
+    required: true
+  artifact:
+    description: A name for the unsigned upload, unique within the workflow run.
+    required: true
+  policy:
+    description: The SignPath signing policy slug, test-signing or release-signing.
+    required: true
+  api-token:
+    description: The API token of the SignPath CI user.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: upload the unsigned file
+      id: unsigned
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ inputs.artifact }}
+        path: ${{ inputs.file }}
+        retention-days: 1
+        if-no-files-found: error
+
+    - name: submit the signing request
+      uses: signpath/github-action-submit-signing-request@v3
+      with:
+        api-token: ${{ inputs.api-token }}
+        organization-id: 01c226e0-eb0d-4c10-b8a0-ff7185d57d19
+        project-slug: sonora
+        signing-policy-slug: ${{ inputs.policy }}
+        github-artifact-id: ${{ steps.unsigned.outputs.artifact-id }}
+        wait-for-completion-timeout-in-seconds: 3600
+        output-artifact-directory: ${{ runner.temp }}/signed-${{ inputs.artifact }}
+
+    - name: replace the file with its signed copy
+      shell: pwsh
+      env:
+        FILE: ${{ inputs.file }}
+        SIGNED: ${{ runner.temp }}/signed-${{ inputs.artifact }}
+      run: |
+        $signed = Join-Path $env:SIGNED (Split-Path $env:FILE -Leaf)
+        Copy-Item -Force $signed $env:FILE
+        Get-AuthenticodeSignature $env:FILE | Format-List Status, StatusMessage, SignerCertificate

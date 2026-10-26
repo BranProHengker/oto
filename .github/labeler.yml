@@ -1,0 +1,168 @@
+# Area labels for a pull request, derived from the paths it touches. These name parts of the
+# app, not crates: a change lands in views and state whatever it is about, so those two say
+# nothing and are deliberately absent. A path that maps to no area gets no label, which is
+# better than a label nobody can filter on.
+#
+# The workflow runs with sync-labels, so every label named here is owned by the machine and a
+# hand-added one survives only until the next push. Use a label that is not in this file, a
+# priority or help wanted, when a human needs to mark something.
+
+playback:
+  - changed-files:
+      - any-glob-to-any-file:
+          - crates/music/src/audio.rs
+          - crates/music/src/sink.rs
+          - crates/music/src/equalizer.rs
+          - crates/music/src/spectrum.rs
+          - crates/music/src/spotify/playback.rs
+          - crates/music/src/spotify/sink.rs
+          - crates/state/src/playback.rs
+          - crates/views/src/shared/visualizer.rs
+
+player:
+  - changed-files:
+      - any-glob-to-any-file:
+          - crates/state/src/queue.rs
+          - crates/state/src/remote.rs
+          - crates/state/src/discord.rs
+          - crates/views/src/chrome/player_bar.rs
+          - crates/views/src/chrome/sidebar_right.rs
+          - crates/views/src/shared/transport.rs
+          - crates/views/src/shells/fullscreen.rs
+
+lyrics:
+  - changed-files:
+      - any-glob-to-any-file:
+          - crates/music/src/lyrics/**
+          - crates/music/src/lrclib/**
+          - crates/music/src/musixmatch/**
+          - crates/music/src/binimum/**
+          - crates/music/src/kugou/**
+          - crates/music/src/netease/**
+          - crates/state/src/lyrics.rs
+          - crates/views/src/shells/fullscreen.rs
+
+library:
+  - changed-files:
+      - any-glob-to-any-file:
+          - crates/state/src/library.rs
+          - crates/state/src/catalog.rs
+          - crates/state/src/detail.rs
+          - crates/state/src/artist.rs
+          - crates/state/src/genre.rs
+          - crates/state/src/history.rs
+          - crates/state/src/home.rs
+          - crates/state/src/song.rs
+          - crates/state/src/pins.rs
+          - crates/state/src/profile.rs
+          - crates/views/src/screens/library/**
+          - crates/views/src/screens/home/**
+          - crates/views/src/screens/artist.rs
+          - crates/views/src/screens/detail.rs
+          - crates/views/src/screens/genre.rs
+          - crates/views/src/screens/history.rs
+          - crates/views/src/screens/song.rs
+          - crates/views/src/screens/user.rs
+          - crates/views/src/shared/album_grid.rs
+          - crates/views/src/shared/shelves.rs
+          - crates/views/src/shared/picks.rs
+          - crates/views/src/shared/pins.rs
+          - crates/views/src/shared/playlist_editor.rs
+          - crates/views/src/shared/track_card.rs
+          - crates/views/src/shared/tracks/**
+
+search:
+  - changed-files:
+      - any-glob-to-any-file:
+          - crates/state/src/search.rs
+          - crates/views/src/screens/search.rs
+
+settings:
+  - changed-files:
+      - any-glob-to-any-file:
+          - crates/state/src/settings.rs
+          - crates/state/src/usage.rs
+          - crates/state/src/updates.rs
+          - crates/views/src/screens/settings.rs
+          - crates/views/src/shared/about.rs
+
+ui:
+  - changed-files:
+      - any-glob-to-any-file:
+          - crates/ui/**
+          - crates/input/**
+          - crates/views/src/chrome/title_bar.rs
+          - crates/views/src/chrome/sidebar_left.rs
+          - crates/views/src/chrome/toolbar.rs
+          - crates/views/src/chrome/tools.rs
+          - crates/views/src/chrome/toasts.rs
+          - crates/views/src/shells/workspace.rs
+
+spotify:
+  - changed-files:
+      - any-glob-to-any-file: crates/music/src/spotify/**
+
+youtube:
+  - changed-files:
+      - any-glob-to-any-file: crates/music/src/youtube/**
+
+subsonic:
+  - changed-files:
+      - any-glob-to-any-file: crates/music/src/subsonic/**
+
+local:
+  - changed-files:
+      - any-glob-to-any-file: crates/music/src/local/**
+
+# Only when the change is nothing but translation work. A feature that happens to add a string
+# is not an i18n pull request, so every changed file has to fall inside this one pattern.
+i18n:
+  - changed-files:
+      - any-glob-to-all-files: "{assets/i18n/**,crates/i18n/**,scripts/i18n-coverage.py,README.md}"
+
+icons:
+  - changed-files:
+      - any-glob-to-any-file:
+          - crates/icons/**
+          - assets/icons/**
+          - scripts/fetch-icons.py
+
+webview:
+  - changed-files:
+      - any-glob-to-any-file: crates/webview/**
+
+nix:
+  - changed-files:
+      - any-glob-to-any-file:
+          - flake.nix
+          - flake.lock
+          - .envrc
+
+packaging:
+  - changed-files:
+      - any-glob-to-any-file:
+          - flatpak/**
+          - scripts/windows/**
+          - scripts/generate-icons.py
+          - scripts/generate-notices.py
+          - assets/linux/**
+          - assets/macos/**
+          - assets/windows/**
+          - assets/tray/**
+          - about.toml
+
+ci:
+  - changed-files:
+      - any-glob-to-any-file: .github/**
+
+# CHANGELOG.md is touched by almost every feature, so it is deliberately not here: it marks a
+# release note, not a documentation change.
+documentation:
+  - changed-files:
+      - any-glob-to-any-file:
+          - README.md
+          - CONTRIBUTING.md
+          - PRIVACY.md
+          - CLAUDE.md
+          - AGENTS.md
+          - docs/**

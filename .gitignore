@@ -1,0 +1,12 @@
+/target
+/result
+/.claude
+/.direnv
+/vendor
+__pycache__/
+/.idea
+/flatpak/flatpak-repo
+/flatpak/cargo-sources.json
+/flatpak/*.flatpak
+/flatpak/flatpak
+/.flatpak-builder

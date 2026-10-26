@@ -1,0 +1,70 @@
+name: stale
+
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  # A report nobody can act on. The clock only runs while the context is still missing, and
+  # the triage workflow takes the label off the moment the reporter supplies it.
+  unanswered:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/create-github-app-token@v3
+        id: buddy
+        if: vars.SONORA_BUDDY_APP_ID != ''
+        with:
+          app-id: ${{ vars.SONORA_BUDDY_APP_ID }}
+          private-key: ${{ secrets.SONORA_BUDDY_KEY }}
+
+      - uses: actions/stale@v11
+        with:
+          repo-token: ${{ steps.buddy.outputs.token || secrets.GITHUB_TOKEN }}
+          only-labels: needs-info
+          days-before-stale: 10
+          days-before-close: 7
+          stale-issue-label: stale
+          stale-issue-message: >-
+            Still waiting on the details asked for above. This closes in a week unless they
+            turn up, and a comment with them reopens the clock.
+          close-issue-message: >-
+            Closing this one, since there is not enough here to reproduce it. Comment with the
+            missing pieces and it can be reopened.
+          days-before-pr-stale: -1
+          days-before-pr-close: -1
+
+  # Everything else, on a much longer fuse. Anything on the roadmap, wanted, or already
+  # judged important is left alone.
+  dormant:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/create-github-app-token@v3
+        id: buddy
+        if: vars.SONORA_BUDDY_APP_ID != ''
+        with:
+          app-id: ${{ vars.SONORA_BUDDY_APP_ID }}
+          private-key: ${{ secrets.SONORA_BUDDY_KEY }}
+
+      - uses: actions/stale@v11
+        with:
+          repo-token: ${{ steps.buddy.outputs.token || secrets.GITHUB_TOKEN }}
+          exempt-issue-labels: roadmap,high priority,help wanted,good first issue,needs-info
+          exempt-all-milestones: true
+          days-before-stale: 150
+          days-before-close: 30
+          stale-issue-label: stale
+          stale-issue-message: >-
+            Nothing has moved here in five months. It closes in a month unless someone says it
+            still matters.
+          close-issue-message: >-
+            Closing this as dormant. It is not a judgement on the idea, and a comment asking for
+            it back is enough to have it reopened.
+          days-before-pr-stale: -1
+          days-before-pr-close: -1

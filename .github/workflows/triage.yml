@@ -1,0 +1,79 @@
+name: triage
+
+on:
+  issues:
+    types: [opened, edited, reopened]
+  issue_comment:
+    types: [created]
+  workflow_dispatch:
+    inputs:
+      issue:
+        description: the issue number to triage
+        required: true
+      dry_run:
+        description: decide and log it, change nothing
+        type: boolean
+        default: true
+      duplicates_only:
+        description: only look for an older issue that reports the same thing
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: triage-${{ github.event.issue.number || inputs.issue }}
+  cancel-in-progress: true
+
+jobs:
+  triage:
+    # Every new or edited issue, a comment only when the reporter is answering a request for
+    # the context the report was missing, and a hand-run for anything else. The bot's own
+    # comment can never match, so it cannot answer itself.
+    if: >-
+      github.event_name != 'issue_comment' ||
+      (github.event.issue.pull_request == null &&
+       github.event.comment.user.login == github.event.issue.user.login &&
+       contains(github.event.issue.labels.*.name, 'needs-info'))
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      # With the app configured the timeline says Sonora Buddy and carries its icon. Without
+      # it everything still works, signed github-actions.
+      - uses: actions/create-github-app-token@v3
+        id: buddy
+        if: vars.SONORA_BUDDY_APP_ID != ''
+        with:
+          app-id: ${{ vars.SONORA_BUDDY_APP_ID }}
+          private-key: ${{ secrets.SONORA_BUDDY_KEY }}
+
+      - name: label, assign and ask for what is missing
+        if: ${{ !inputs.duplicates_only }}
+        env:
+          GH_TOKEN: ${{ steps.buddy.outputs.token || secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          ISSUE: ${{ github.event.issue.number || inputs.issue }}
+          DRY_RUN: ${{ inputs.dry_run && '1' || '' }}
+          TRIAGE_API_KEY: ${{ secrets.TRIAGE_API_KEY }}
+          TRIAGE_BASE_URL: ${{ vars.TRIAGE_BASE_URL }}
+          TRIAGE_MODEL: ${{ vars.TRIAGE_MODEL }}
+        run: .github/triage/triage.sh
+
+      # Only on the way in. A comment answering a request for context is never a new report, and
+      # the script says nothing twice on its own.
+      - name: look for an issue that already reports this
+        if: github.event_name != 'issue_comment'
+        env:
+          GH_TOKEN: ${{ steps.buddy.outputs.token || secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          ISSUE: ${{ github.event.issue.number || inputs.issue }}
+          DRY_RUN: ${{ inputs.dry_run && '1' || '' }}
+          TRIAGE_API_KEY: ${{ secrets.TRIAGE_API_KEY }}
+          TRIAGE_BASE_URL: ${{ vars.TRIAGE_BASE_URL }}
+          TRIAGE_MODEL: ${{ vars.TRIAGE_MODEL }}
+        run: .github/triage/duplicates.sh

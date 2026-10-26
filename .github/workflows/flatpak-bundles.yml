@@ -1,0 +1,43 @@
+name: flatpak bundles
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: release whose .flatpak assets to replace with signed exports of the published repo
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends flatpak ostree
+
+      - name: fetch the published repo
+        run: git clone --depth 1 --branch flatpak-repo "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" site
+
+      - name: export the bundles
+        env:
+          TAG: ${{ inputs.tag }}
+        run: ./flatpak/export-bundles.sh site/repo "$TAG" dist
+
+      - name: replace the release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          gh release download "$TAG" -p SHA256SUMS -O sums
+          grep -v '\.flatpak$' sums > SHA256SUMS
+          (cd dist && sha256sum -- *.flatpak) >> SHA256SUMS
+          sort -k2 -o SHA256SUMS SHA256SUMS
+          cat SHA256SUMS
+          gh release upload "$TAG" dist/*.flatpak SHA256SUMS --clobber

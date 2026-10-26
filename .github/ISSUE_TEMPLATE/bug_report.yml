@@ -1,0 +1,124 @@
+name: Bug report
+description: Report something that is broken
+labels: [bug, needs triage]
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A log turns a bug report into a fix. Sonora writes one to
+        `~/.local/state/sonora/sonora.log` on Linux, `~/Library/Caches/sonora/sonora.log` on macOS
+        and `%LOCALAPPDATA%\sonora\sonora.log` on Windows. Reproduce the problem first, then attach
+        the tail of that file. `SONORA_LOG=debug` on the command line makes it more detailed.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happens
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Sonora version
+      description: The first line of the log file names it.
+      placeholder: 0.29.0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: install
+    attributes:
+      label: How you installed it
+      options:
+        - Flatpak
+        - AUR
+        - Nix
+        - Homebrew
+        - macOS disk image
+        - Windows installer
+        - Built from source
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Linux
+        - macOS
+        - Windows
+    validations:
+      required: true
+
+  - type: input
+    id: os-detail
+    attributes:
+      label: Distribution or OS version
+      placeholder: CachyOS, macOS 15.3, Windows 11 24H2
+    validations:
+      required: true
+
+  - type: dropdown
+    id: session
+    attributes:
+      label: Session type
+      description: Linux only.
+      options:
+        - Wayland
+        - X11
+        - Not on Linux
+    validations:
+      required: true
+
+  - type: input
+    id: desktop
+    attributes:
+      label: Desktop or compositor
+      description: Linux only.
+      placeholder: KDE, GNOME, Hyprland, niri
+    validations:
+      required: false
+
+  - type: input
+    id: gpu
+    attributes:
+      label: GPU and Vulkan driver
+      description: Anything visual needs this. `vulkaninfo --summary` on Linux prints the driver.
+      placeholder: AMD RX 7800 XT, RADV / Mesa 25.2
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Log
+      description: The tail of sonora.log covering the moment it went wrong. Do not paste a screenshot of it.
+      render: text
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before you submit
+      options:
+        - label: I searched the existing issues
+          required: true
+        - label: I am running the latest release
+          required: true

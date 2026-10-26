@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.nolight132.sonora</id>
+
+  <name>Sonora</name>
+  <developer id="io.github.nolight132">
+    <name>nolight132</name>
+  </developer>
+  <keywords>
+    <keyword>music</keyword>
+    <keyword>spotify</keyword>
+    <keyword>audio</keyword>
+    <keyword>player</keyword>
+  </keywords>
+  <summary>A native music streaming client, built with Rust and GPUI</summary>
+
+  <metadata_license>MIT</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+  <url type="homepage">https://github.com/sonorahq/sonora</url>
+
+  <supports>
+    <control>pointing</control>
+    <control>keyboard</control>
+    <control>touch</control>
+  </supports>
+
+  <description>
+    <p>
+      Sonora streams Spotify and YouTube Music and plays your local files from one native
+      desktop app built with Rust and GPUI, with lyrics, artist pages, playlists, and
+      system media controls.
+    </p>
+  </description>
+
+  <content_rating type="oars-1.1" />
+
+  <provides>
+    <mediatype>audio/mpeg</mediatype>
+    <mediatype>audio/flac</mediatype>
+    <mediatype>audio/mp4</mediatype>
+    <mediatype>audio/aac</mediatype>
+    <mediatype>audio/ogg</mediatype>
+    <mediatype>audio/opus</mediatype>
+    <mediatype>audio/x-wav</mediatype>
+    <mediatype>audio/x-aiff</mediatype>
+    <mediatype>audio/webm</mediatype>
+    <mediatype>audio/x-matroska</mediatype>
+    <mediatype>audio/x-wavpack</mediatype>
+    <mediatype>audio/x-ape</mediatype>
+  </provides>
+
+  <releases>
+    <release version="@VERSION@" date="@DATE@" />
+  </releases>
+
+  <launchable type="desktop-id">io.github.nolight132.sonora.desktop</launchable>
+
+  <screenshots>
+    <screenshot type="default">
+      <image>https://github.com/user-attachments/assets/d0357517-a28d-4c90-abd1-4f3e8d8cdedc</image>
+      <caption>GUI showing a playlist</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://github.com/user-attachments/assets/70979e4c-261f-4561-b671-04d28a9971a9</image>
+      <caption>GUI showing lyrics</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://github.com/user-attachments/assets/ff3b4284-25e2-4487-bf9b-60d8f56dc44d</image>
+      <caption>GUI showing an artist's information</caption>
+    </screenshot>
+  </screenshots>
+</component>
