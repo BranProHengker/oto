@@ -1,9 +1,6 @@
-# Contributing to Sonora
+# Contributing to Oto
 
-Before you build a feature, read the [vision](https://sonorahq.org/docs/vision) and the
-[roadmap](https://sonorahq.org/docs/roadmap). When unsure, please open an issue first.
-We hate closing pull requests for changes that don't align with the vision as much as
-you do.
+When unsure about a change or feature, please open an issue or discussion first.
 
 ## Building
 
@@ -24,7 +21,7 @@ open a pull request.
 
 ## Pull requests
 
-Open them against `dev`. Commits follow [Conventional Commits](https://www.conventionalcommits.org/)
+Open them against `main`. Commits follow [Conventional Commits](https://www.conventionalcommits.org/)
 with no body, and any major user-facing changes should be mentioned under `## [Unreleased]` in
 `CHANGELOG.md`.
 
@@ -43,4 +40,4 @@ without comment.
 
 ## License
 
-Sonora is GPL-3.0-or-later, and your contributions are licensed under the same terms.
+Oto is GPL-3.0-or-later, and your contributions are licensed under the same terms.

@@ -35,11 +35,11 @@ jobs:
           - target: x86_64-pc-windows-msvc
             os: windows-latest
             arch: x64compatible
-            setup: Sonora-Setup
+            setup: Oto-Setup
           - target: aarch64-pc-windows-msvc
             os: windows-11-arm
             arch: arm64
-            setup: Sonora-Setup-arm64
+            setup: Oto-Setup-arm64
     steps:
       - uses: actions/checkout@v5
 
@@ -91,20 +91,20 @@ jobs:
           case "$RUNNER_OS" in
             macOS)
               cp \
-                "target/$TARGET/release/sonora" \
-                "dist/sonora-$TARGET"
+                "target/$TARGET/release/oto" \
+                "dist/oto-$TARGET"
               ;;
 
             Windows)
               cp \
-                "target/$TARGET/release/sonora.exe" \
-                "dist/sonora-$VERSION-$TARGET.exe"
+                "target/$TARGET/release/oto.exe" \
+                "dist/oto-$VERSION-$TARGET.exe"
               ;;
 
             *)
               cp \
-                "target/$TARGET/release/sonora" \
-                "dist/sonora-$VERSION-$TARGET"
+                "target/$TARGET/release/oto" \
+                "dist/oto-$VERSION-$TARGET"
               ;;
           esac
 
@@ -127,7 +127,7 @@ jobs:
             $number = "0.0.0"
           }
           $env:SONORA_VERSION = $number
-          $env:SONORA_EXE = (Resolve-Path "target/$env:TARGET/release/sonora.exe").Path
+          $env:SONORA_EXE = (Resolve-Path "target/$env:TARGET/release/oto.exe").Path
           $env:SONORA_DIST = (Resolve-Path "dist").Path
           & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "scripts/windows/sonora.iss"
 
@@ -176,45 +176,45 @@ jobs:
           set -euo pipefail
 
           mkdir -p \
-            Sonora.app/Contents/MacOS \
-            Sonora.app/Contents/Resources
+            Oto.app/Contents/MacOS \
+            Oto.app/Contents/Resources
 
           lipo -create \
-            -output Sonora.app/Contents/MacOS/sonora \
-            darwin/sonora-aarch64-apple-darwin \
-            darwin/sonora-x86_64-apple-darwin
-          chmod +x Sonora.app/Contents/MacOS/sonora
-          lipo -info Sonora.app/Contents/MacOS/sonora
+            -output Oto.app/Contents/MacOS/oto \
+            darwin/oto-aarch64-apple-darwin \
+            darwin/oto-x86_64-apple-darwin
+          chmod +x Oto.app/Contents/MacOS/oto
+          lipo -info Oto.app/Contents/MacOS/oto
 
           cp \
             assets/macos/sonora.icns \
-            Sonora.app/Contents/Resources/
+            Oto.app/Contents/Resources/
 
           cp \
             COPYING \
-            Sonora.app/Contents/Resources/LICENSE
+            Oto.app/Contents/Resources/LICENSE
 
           cp \
             THIRD-PARTY.md \
-            Sonora.app/Contents/Resources/
+            Oto.app/Contents/Resources/
 
           cp \
             assets/fonts/LICENSE.txt \
-            Sonora.app/Contents/Resources/LICENSE.Inter
+            Oto.app/Contents/Resources/LICENSE.Inter
 
-          mkdir -p Sonora.app/Contents/Resources/icons
-          cp assets/icons/LICENSE Sonora.app/Contents/Resources/icons/LICENSE
+          mkdir -p Oto.app/Contents/Resources/icons
+          cp assets/icons/LICENSE Oto.app/Contents/Resources/icons/LICENSE
           for licence in assets/icons/*/LICENSE; do
             pack="$(basename "$(dirname "$licence")")"
-            cp "$licence" "Sonora.app/Contents/Resources/icons/LICENSE.$pack"
+            cp "$licence" "Oto.app/Contents/Resources/icons/LICENSE.$pack"
           done
 
           sed \
             "s/@VERSION@/$NUMBER/g" \
             assets/macos/Info.plist \
-            > Sonora.app/Contents/Info.plist
+            > Oto.app/Contents/Info.plist
 
-          plutil -lint Sonora.app/Contents/Info.plist
+          plutil -lint Oto.app/Contents/Info.plist
 
       - name: sign the bundle
         shell: bash
@@ -224,13 +224,13 @@ jobs:
           codesign \
             --force \
             --sign - \
-            Sonora.app
+            Oto.app
 
           codesign \
             --verify \
             --strict \
             --verbose=2 \
-            Sonora.app
+            Oto.app
 
       - name: create the disk image
         shell: bash
@@ -239,16 +239,16 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p dist staging
-          cp -R Sonora.app staging/
+          cp -R Oto.app staging/
           ln -s /Applications staging/Applications
           megabytes=$(du -ms staging | cut -f1)
           hdiutil create \
-            -volname Sonora \
+            -volname Oto \
             -srcfolder staging \
             -size "$((megabytes + 128))m" \
             -ov \
             -format UDZO \
-            "dist/sonora-$VERSION-macos.dmg"
+            "dist/oto-$VERSION-macos.dmg"
 
       - uses: actions/upload-artifact@v4
         with:
@@ -302,7 +302,7 @@ jobs:
           update=""
           case "$number" in
             "" | *-*) ;;
-            *) update="gh-releases-zsync|${GITHUB_REPOSITORY%/*}|${GITHUB_REPOSITORY#*/}|latest|sonora-*-$ARCH.AppImage.zsync" ;;
+            *) update="gh-releases-zsync|${GITHUB_REPOSITORY%/*}|${GITHUB_REPOSITORY#*/}|latest|oto-*-$ARCH.AppImage.zsync" ;;
           esac
 
           {
@@ -347,8 +347,8 @@ jobs:
           set -euo pipefail
 
           mkdir -p AppDir/usr/bin
-          cp "staged/sonora-$VERSION-$TARGET" AppDir/usr/bin/sonora
-          chmod +x AppDir/usr/bin/sonora
+          cp "staged/oto-$VERSION-$TARGET" AppDir/usr/bin/oto
+          chmod +x AppDir/usr/bin/oto
 
           # Every asset is compiled into the executable, so the AppDir carries the desktop entry
           # and the icons for the host's launcher and nothing else.
@@ -359,34 +359,34 @@ jobs:
           # entry the Flatpak and the distribution packages install stays as it is.
           homepage="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
           mkdir -p desktop
-          cp assets/linux/sonora.desktop desktop/sonora.desktop
+          cp assets/linux/oto.desktop desktop/oto.desktop
           {
-            echo "X-AppImage-Name=Sonora"
+            echo "X-AppImage-Name=Oto"
             echo "X-AppImage-Arch=$ARCH"
             echo "X-AppImage-Homepage=$homepage"
             if [ -n "$NUMBER" ]; then echo "X-AppImage-Version=$NUMBER"; fi
             if [ -n "$UPDATE" ]; then echo "X-AppImage-UpdateURL=$homepage"; fi
-          } >> desktop/sonora.desktop
-          desktop-file-validate desktop/sonora.desktop
+          } >> desktop/oto.desktop
+          desktop-file-validate desktop/oto.desktop
 
           ./linuxdeploy \
             --appdir AppDir \
-            --executable AppDir/usr/bin/sonora \
-            --desktop-file desktop/sonora.desktop \
-            --icon-file assets/linux/sonora.svg
+            --executable AppDir/usr/bin/oto \
+            --desktop-file desktop/oto.desktop \
+            --icon-file assets/linux/oto.svg
 
           # The Vulkan loader has to be the host's: it is what finds the host's ICD, and a loader
           # this old paired with a current driver is how an AppImage stops starting.
           rm -f AppDir/usr/lib/libvulkan.so.1*
 
-          mkdir -p AppDir/usr/share/doc/sonora/icons
-          cp COPYING AppDir/usr/share/doc/sonora/LICENSE
-          cp THIRD-PARTY.md AppDir/usr/share/doc/sonora/
-          cp assets/fonts/LICENSE.txt AppDir/usr/share/doc/sonora/LICENSE.Inter
-          cp assets/icons/LICENSE AppDir/usr/share/doc/sonora/icons/LICENSE
+          mkdir -p AppDir/usr/share/doc/oto/icons
+          cp COPYING AppDir/usr/share/doc/oto/LICENSE
+          cp THIRD-PARTY.md AppDir/usr/share/doc/oto/
+          cp assets/fonts/LICENSE.txt AppDir/usr/share/doc/oto/LICENSE.Inter
+          cp assets/icons/LICENSE AppDir/usr/share/doc/oto/icons/LICENSE
           for licence in assets/icons/*/LICENSE; do
             pack="$(basename "$(dirname "$licence")")"
-            cp "$licence" "AppDir/usr/share/doc/sonora/icons/LICENSE.$pack"
+            cp "$licence" "AppDir/usr/share/doc/oto/icons/LICENSE.$pack"
           done
 
       - name: build the AppImage
@@ -396,7 +396,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p dist
-          image="sonora-$VERSION-$ARCH.AppImage"
+          image="oto-$VERSION-$ARCH.AppImage"
 
           # Given update information, appimagetool embeds it and writes the .zsync that
           # AppImageUpdate diffs against beside the image, with a zsyncmake of its own.
@@ -415,13 +415,13 @@ jobs:
         run: |
           set -euo pipefail
           cd dist
-          image="sonora-$VERSION-$ARCH.AppImage"
+          image="oto-$VERSION-$ARCH.AppImage"
           "./$image" --appimage-extract > /dev/null
-          test -x squashfs-root/usr/bin/sonora
-          test -f squashfs-root/sonora.desktop
-          grep -qx "X-AppImage-Arch=$ARCH" squashfs-root/sonora.desktop
+          test -x squashfs-root/usr/bin/oto
+          test -f squashfs-root/oto.desktop
+          grep -qx "X-AppImage-Arch=$ARCH" squashfs-root/oto.desktop
           if [ -n "$NUMBER" ]; then
-            grep -qx "X-AppImage-Version=$NUMBER" squashfs-root/sonora.desktop
+            grep -qx "X-AppImage-Version=$NUMBER" squashfs-root/oto.desktop
           fi
           if [ -n "$UPDATE" ]; then
             test -f "$image.zsync"
@@ -430,9 +430,9 @@ jobs:
           else
             test ! -e "$image.zsync"
           fi
-          test -f squashfs-root/usr/share/doc/sonora/THIRD-PARTY.md
+          test -f squashfs-root/usr/share/doc/oto/THIRD-PARTY.md
           test ! -e squashfs-root/usr/lib/libvulkan.so.1
-          ldd squashfs-root/usr/bin/sonora
+          ldd squashfs-root/usr/bin/oto
           rm -rf squashfs-root
 
       - uses: actions/upload-artifact@v4
@@ -488,14 +488,16 @@ jobs:
         uses: flatpak/flatpak-github-actions/flatpak-builder@v6
         with:
           manifest-path: flatpak/flatpak-builder.yaml
-          bundle: sonora-${{ steps.meta.outputs.version }}-${{ matrix.variant.arch }}.flatpak
+          bundle: oto-${{ steps.meta.outputs.version }}-${{ matrix.variant.arch }}.flatpak
           arch: ${{ matrix.variant.arch }}
           upload-artifact: true
           artifact-name: flatpak-${{ matrix.variant.arch }}
 
   flatpak-repo:
     needs: flatpak
-    if: startsWith(github.ref, 'refs/tags/')
+    if: startsWith(github.ref, 'refs/tags/') && env.KEY != ''
+    env:
+      KEY: ${{ secrets.FLATPAK_GPG_KEY }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -549,7 +551,7 @@ jobs:
               site/repo "$bundle"
           done
           flatpak build-update-repo \
-            --title=Sonora \
+            --title=Oto \
             --generate-static-deltas \
             --prune \
             --prune-depth=3 \
@@ -586,7 +588,7 @@ jobs:
           git push --force "https://x-access-token:$TOKEN@github.com/$GITHUB_REPOSITORY" flatpak-repo
 
   release:
-    needs: [build, bundle, appimage, flatpak, flatpak-repo]
+    needs: [build, bundle, appimage]
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     permissions:
@@ -615,7 +617,7 @@ jobs:
             pack="$(basename "$(dirname "$licence")")"
             cp "$licence" "licenses/icons/LICENSE.$pack"
           done
-          tar -czf "dist/sonora-$VERSION-licenses.tar.gz" -C licenses .
+          tar -czf "dist/oto-$VERSION-licenses.tar.gz" -C licenses .
 
       - name: checksums
         run: cd dist && shasum -a 256 * > SHA256SUMS
@@ -639,7 +641,7 @@ jobs:
 
   announce:
     needs: release
-    if: startsWith(github.ref, 'refs/tags/')
+    if: startsWith(github.ref, 'refs/tags/') && secrets.DISCORD_RELEASE_WEBHOOK != ''
     uses: ./.github/workflows/announce.yml
     secrets: inherit
     with:

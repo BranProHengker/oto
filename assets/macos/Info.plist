@@ -5,17 +5,17 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleExecutable</key>
-	<string>sonora</string>
+	<string>oto</string>
 	<key>CFBundleIconFile</key>
 	<string>sonora</string>
 	<key>CFBundleIdentifier</key>
-	<string>dev.nolight.sonora</string>
+	<string>dev.oto.player</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>Sonora</string>
+	<string>Oto</string>
 	<key>CFBundleDisplayName</key>
-	<string>Sonora</string>
+	<string>Oto</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
