@@ -313,7 +313,7 @@ impl SettingsTab {
             Self::Lyrics => "icons/mic-vocal.svg",
             Self::Playback => "icons/play.svg",
             Self::Integrations => "icons/link.svg",
-            Self::LrcStudio => "icons/file-music.svg",
+            Self::LrcStudio => "icons/list-music.svg",
         }
     }
 
