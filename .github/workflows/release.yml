@@ -557,17 +557,7 @@ jobs:
           cp -R assets/linux/icons/hicolor/* "$pkg/usr/share/icons/hicolor/" 2>/dev/null || true
           cp COPYING "$pkg/usr/share/doc/oto/copyright"
 
-          cat <<EOF > "$pkg/DEBIAN/control"
-Package: oto
-Version: ${NUMBER}
-Section: sound
-Priority: optional
-Architecture: ${ARCH}
-Depends: libasound2, libfontconfig1, libfreetype6, libsqlite3-0, libx11-6, libxcb1, libxcursor1, libxi6, libxkbcommon0, libxkbcommon-x11-0, libwayland-client0, libvulkan1, libdbus-1-3
-Maintainer: BranProHengker <https://github.com/BranProHengker/oto>
-Description: A native music streaming and local player built with Rust and GPUI
- Oto is a lightweight native music streaming and local player with synchronized lyrics.
-EOF
+          printf "Package: oto\nVersion: %s\nSection: sound\nPriority: optional\nArchitecture: %s\nDepends: libasound2, libfontconfig1, libfreetype6, libsqlite3-0, libx11-6, libxcb1, libxcursor1, libxi6, libxkbcommon0, libxkbcommon-x11-0, libwayland-client0, libvulkan1, libdbus-1-3\nMaintainer: BranProHengker <https://github.com/BranProHengker/oto>\nDescription: A native music streaming and local player with synchronized lyrics\n" "$NUMBER" "$ARCH" > "$pkg/DEBIAN/control"
 
           dpkg-deb --build --root-owner-group "$pkg"
           mkdir -p dist
