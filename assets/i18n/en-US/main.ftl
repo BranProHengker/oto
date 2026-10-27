@@ -1408,3 +1408,17 @@ shortcut-remove-detail = Remove track from queue or playlist
 shortcut-deselect = Clear selection
 shortcut-deselect-detail = Clear active selection in table
 
+settings-tab-lrc-studio = LRC Studio
+settings-page-lrc-studio = LRC Studio
+lrc-studio-search-placeholder = Search song or artist for lyrics...
+lrc-studio-detect-button = Detect Current Song
+lrc-studio-convert-romaji = Convert to Dual-Line Romaji
+lrc-studio-converting = Converting via Gemini...
+lrc-studio-searching = Searching LRCLIB...
+lrc-studio-save-local = Save Beside Song (.lrc)
+lrc-studio-download = Download .lrc
+lrc-studio-no-lyrics = No synchronized lyrics found
+lrc-studio-edit-placeholder = Paste or edit .lrc lyrics here...
+lrc-studio-saved-toast = Lyrics saved successfully!
+
+

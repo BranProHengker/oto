@@ -159,11 +159,12 @@ pub enum SettingsPage {
     LyricsSources,
     MusicFolders,
     Shortcuts,
+    LrcStudio,
 }
 
 impl SettingsPage {
     /// Every page, the sections first and the drill-ins after them.
-    pub const ALL: [Self; 15] = [
+    pub const ALL: [Self; 16] = [
         Self::Providers,
         Self::General,
         Self::Appearance,
@@ -176,6 +177,7 @@ impl SettingsPage {
         Self::Discord,
         Self::Scrobbling,
         Self::About,
+        Self::LrcStudio,
         Self::LyricsSources,
         Self::MusicFolders,
         Self::Shortcuts,
@@ -198,6 +200,7 @@ impl SettingsPage {
             Self::LyricsSources => "lyrics-sources",
             Self::MusicFolders => "music-folders",
             Self::Shortcuts => "shortcuts",
+            Self::LrcStudio => "lrc-studio",
         }
     }
 
@@ -219,6 +222,7 @@ impl SettingsPage {
             Self::LyricsSources => "settings-page-lyrics-sources",
             Self::MusicFolders => "settings-page-music-folders",
             Self::Shortcuts => "settings-page-shortcuts",
+            Self::LrcStudio => "settings-page-lrc-studio",
         }
     }
 
@@ -245,6 +249,7 @@ impl SettingsPage {
             Self::Lyrics | Self::LyricsSources => SettingsTab::Lyrics,
             Self::Playback | Self::Sound | Self::Storage => SettingsTab::Playback,
             Self::Discord | Self::Scrobbling => SettingsTab::Integrations,
+            Self::LrcStudio => SettingsTab::LrcStudio,
         }
     }
 }
@@ -259,17 +264,19 @@ pub enum SettingsTab {
     Lyrics,
     Playback,
     Integrations,
+    LrcStudio,
 }
 
 impl SettingsTab {
     /// Every tab, in the order the header shows them.
-    pub const ALL: [Self; 6] = [
+    pub const ALL: [Self; 7] = [
         Self::General,
         Self::Providers,
         Self::Appearance,
         Self::Lyrics,
         Self::Playback,
         Self::Integrations,
+        Self::LrcStudio,
     ];
 
     pub fn id(self) -> &'static str {
@@ -280,6 +287,7 @@ impl SettingsTab {
             Self::Lyrics => "lyrics",
             Self::Playback => "playback",
             Self::Integrations => "integrations",
+            Self::LrcStudio => "lrc-studio",
         }
     }
 
@@ -292,6 +300,7 @@ impl SettingsTab {
             Self::Lyrics => "settings-page-lyrics",
             Self::Playback => "settings-page-playback",
             Self::Integrations => "settings-tab-integrations",
+            Self::LrcStudio => "settings-tab-lrc-studio",
         }
     }
 
@@ -304,6 +313,7 @@ impl SettingsTab {
             Self::Lyrics => "icons/mic-vocal.svg",
             Self::Playback => "icons/play.svg",
             Self::Integrations => "icons/link.svg",
+            Self::LrcStudio => "icons/file-music.svg",
         }
     }
 
@@ -324,6 +334,7 @@ impl SettingsTab {
                 SettingsPage::Storage,
             ],
             Self::Integrations => &[SettingsPage::Discord, SettingsPage::Scrobbling],
+            Self::LrcStudio => &[SettingsPage::LrcStudio],
         }
     }
 

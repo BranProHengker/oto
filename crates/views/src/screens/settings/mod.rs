@@ -32,6 +32,7 @@ mod general;
 mod header;
 mod layout;
 mod lyrics;
+mod lrc_studio;
 mod now_playing;
 mod playback;
 mod player_bar;
@@ -313,6 +314,7 @@ pub struct SettingsView {
     font_task: Option<Task<()>>,
     /// What the pages' previews keep between frames.
     previews: preview::Previews,
+    lrc_studio: lrc_studio::LrcStudioState,
 }
 
 impl SettingsView {
@@ -457,6 +459,7 @@ impl SettingsView {
             loading_fonts: false,
             font_task: None,
             previews,
+            lrc_studio: lrc_studio::LrcStudioState::new(cx),
         }
     }
 
@@ -552,6 +555,7 @@ impl SettingsView {
             SettingsPage::LyricsSources => self.lyrics_sources_groups(),
             SettingsPage::MusicFolders => self.music_folders_groups(),
             SettingsPage::Shortcuts => self.shortcuts_groups(),
+            SettingsPage::LrcStudio => Vec::new(),
         }
     }
 
@@ -583,6 +587,12 @@ impl SettingsView {
                 self.lazy((page.id(), 0_usize), cx, move |this, _, cx| match page {
                     SettingsPage::Providers => this.profile(cx).into_any_element(),
                     _ => this.mark(cx).into_any_element(),
+                })
+                .into_any_element(),
+            ),
+            SettingsPage::LrcStudio => Some(
+                self.lazy((page.id(), 0_usize), cx, move |this, window, cx| {
+                    this.lrc_studio_view(window, cx)
                 })
                 .into_any_element(),
             ),
