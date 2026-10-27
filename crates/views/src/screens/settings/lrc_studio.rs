@@ -23,6 +23,13 @@ pub(super) enum LrcMode {
     Edit,
 }
 
+#[derive(Clone, Debug, PartialEq, Default)]
+pub(super) struct StudioLine {
+    pub time: String,
+    pub original: String,
+    pub romaji: String,
+}
+
 #[derive(Clone, Debug, Deserialize)]
 #[allow(dead_code)]
 pub(super) struct LrcSearchResponse {
@@ -79,13 +86,12 @@ pub(super) struct LrcLineItem {
 
 pub(super) struct LrcStudioState {
     pub search_input: Entity<Input>,
-    pub edit_input: Entity<Input>,
+    pub line_time_input: Entity<Input>,
+    pub line_text_input: Entity<Input>,
+    pub selected_line_idx: Option<usize>,
+    pub lines: Vec<StudioLine>,
     pub results: Vec<LrcTrackItem>,
     pub selected_track: Option<LrcTrackItem>,
-    pub original_lrc: String,
-    pub romaji_lrc: String,
-    pub dual_lrc: String,
-    pub lines: Vec<LrcLineItem>,
     pub mode: LrcMode,
     pub is_searching: bool,
     pub is_converting: bool,
@@ -102,19 +108,21 @@ impl LrcStudioState {
                 .icon("icons/search.svg")
                 .clearable()
         });
-        let edit_input = cx.new(|cx| {
-            Input::new("lrc-studio-edit-placeholder", cx)
+        let line_time_input = cx.new(|cx| {
+            Input::new("lrc-studio-time-placeholder", cx).compact()
+        });
+        let line_text_input = cx.new(|cx| {
+            Input::new("lrc-studio-edit-placeholder", cx).compact()
         });
 
         Self {
             search_input,
-            edit_input,
+            line_time_input,
+            line_text_input,
+            selected_line_idx: None,
+            lines: Vec::new(),
             results: Vec::new(),
             selected_track: None,
-            original_lrc: String::new(),
-            romaji_lrc: String::new(),
-            dual_lrc: String::new(),
-            lines: Vec::new(),
             mode: LrcMode::Dual,
             is_searching: false,
             is_converting: false,
@@ -132,12 +140,16 @@ impl SettingsView {
         self.detect_current_song(cx);
 
         let search_input = self.lrc_studio.search_input.clone();
-        let edit_input = self.lrc_studio.edit_input.clone();
+        let line_time_input = self.lrc_studio.line_time_input.clone();
+        let line_text_input = self.lrc_studio.line_text_input.clone();
         let is_searching = self.lrc_studio.is_searching;
         let is_converting = self.lrc_studio.is_converting;
         let mode = self.lrc_studio.mode;
         let status = self.lrc_studio.status.clone();
         let has_local_path = self.lrc_studio.detected_local_path.is_some();
+        let lines_count = self.lrc_studio.lines.len();
+        let selected_idx = self.lrc_studio.selected_line_idx;
+
         let local_path_display = self
             .lrc_studio
             .detected_local_path
@@ -384,13 +396,12 @@ impl SettingsView {
                     .border_1()
                     .border_color(theme.border)
                     .child(
-                        // Workspace Header & Action Buttons
+                        // Header Title + Loaded Song Badge + Line Count
                         div()
                             .flex()
                             .items_center()
                             .justify_between()
-                            .flex_wrap()
-                            .gap_2()
+                            .w_full()
                             .child(
                                 div()
                                     .flex()
@@ -424,13 +435,26 @@ impl SettingsView {
                                     }),
                             )
                             .child(
-                                // Action buttons toolbar
                                 div()
-                                    .flex()
-                                    .items_center()
-                                    .gap_2()
+                                    .text_xs()
+                                    .text_color(theme.muted_foreground)
+                                    .child(format!("{lines_count} line(s)")),
+                            ),
+                    )
+                    .child(
+                        // Action Buttons Bar with Horizontal Scroll ("geser kanan kiri")
+                        div()
+                            .id("workspace-actions-scroll")
+                            .flex()
+                            .items_center()
+                            .gap_2()
+                            .w_full()
+                            .overflow_x_scroll()
+                            .py_0p5()
+                            .child(
+                                div()
+                                    .flex_shrink_0()
                                     .child(
-                                        // Generate Dual Romaji Button!
                                         Button::new("btn-generate-romaji")
                                             .label(if is_converting { "Generating Romaji..." } else { "Generate Dual Romaji" })
                                             .icon("icons/arrow-right-left.svg")
@@ -439,9 +463,13 @@ impl SettingsView {
                                             .on_click(cx.listener(|this, _, _, cx| {
                                                 this.trigger_convert_romaji(cx);
                                             })),
-                                    )
-                                    .when(has_local_path, |btn_group| {
-                                        btn_group.child(
+                                    ),
+                            )
+                            .when(has_local_path, |grp| {
+                                grp.child(
+                                    div()
+                                        .flex_shrink_0()
+                                        .child(
                                             Button::new("btn-save-beside")
                                                 .label(t!("lrc-studio-save-local"))
                                                 .icon("icons/download.svg")
@@ -450,8 +478,12 @@ impl SettingsView {
                                                 .on_click(cx.listener(|this, _, _, cx| {
                                                     this.save_beside_song(cx);
                                                 })),
-                                        )
-                                    })
+                                        ),
+                                )
+                            })
+                            .child(
+                                div()
+                                    .flex_shrink_0()
                                     .child(
                                         Button::new("btn-download")
                                             .label(t!("lrc-studio-download"))
@@ -461,20 +493,28 @@ impl SettingsView {
                                             .on_click(cx.listener(|this, _, _, cx| {
                                                 this.download_lrc_file(cx);
                                             })),
-                                    )
+                                    ),
+                            )
+                            .child(
+                                div()
+                                    .flex_shrink_0()
                                     .child(
                                         Button::new("btn-copy")
-                                            .label("Copy")
+                                            .label("Copy LRC")
                                             .icon("icons/copy.svg")
                                             .small()
                                             .ghost()
                                             .on_click(cx.listener(|this, _, _, cx| {
                                                 this.copy_lyrics_to_clipboard(cx);
                                             })),
-                                    )
+                                    ),
+                            )
+                            .child(
+                                div()
+                                    .flex_shrink_0()
                                     .child(
                                         Button::new("btn-paste")
-                                            .label("Paste")
+                                            .label("Paste from Clipboard")
                                             .icon("icons/clipboard-paste.svg")
                                             .small()
                                             .ghost()
@@ -485,264 +525,438 @@ impl SettingsView {
                             ),
                     )
                     .child(
-                        // Mode Switcher Tabs
-                        TabBar::new("lrc-modes")
-                            .items([
-                                Button::new("mode-dual")
-                                    .label("Dual-Line Romaji")
-                                    .icon("icons/arrow-right-left.svg")
-                                    .small()
-                                    .ghost()
-                                    .selected(mode == LrcMode::Dual)
-                                    .on_click(cx.listener(|this, _, _, cx| {
-                                        this.set_lrc_mode(LrcMode::Dual, cx);
-                                    })),
-                                Button::new("mode-romaji")
-                                    .label("Romaji Only")
-                                    .icon("icons/music-2.svg")
-                                    .small()
-                                    .ghost()
-                                    .selected(mode == LrcMode::Romaji)
-                                    .on_click(cx.listener(|this, _, _, cx| {
-                                        this.set_lrc_mode(LrcMode::Romaji, cx);
-                                    })),
-                                Button::new("mode-original")
-                                    .label("Original")
-                                    .icon("icons/music.svg")
-                                    .small()
-                                    .ghost()
-                                    .selected(mode == LrcMode::Original)
-                                    .on_click(cx.listener(|this, _, _, cx| {
-                                        this.set_lrc_mode(LrcMode::Original, cx);
-                                    })),
-                                Button::new("mode-edit")
-                                    .label("Edit Raw LRC")
-                                    .icon("icons/pencil.svg")
-                                    .small()
-                                    .ghost()
-                                    .selected(mode == LrcMode::Edit)
-                                    .on_click(cx.listener(|this, _, _, cx| {
-                                        this.set_lrc_mode(LrcMode::Edit, cx);
-                                    })),
-                            ]),
+                        // Mode Switcher Tabs with Horizontal Scroll ("geser kanan kiri")
+                        div()
+                            .id("workspace-modes-scroll")
+                            .flex()
+                            .items_center()
+                            .gap_2()
+                            .w_full()
+                            .overflow_x_scroll()
+                            .py_0p5()
+                            .child(
+                                TabBar::new("lrc-modes")
+                                    .items([
+                                        Button::new("mode-dual")
+                                            .label("Dual-Line Romaji")
+                                            .icon("icons/arrow-right-left.svg")
+                                            .small()
+                                            .ghost()
+                                            .selected(mode == LrcMode::Dual)
+                                            .on_click(cx.listener(|this, _, _, cx| {
+                                                this.set_lrc_mode(LrcMode::Dual, cx);
+                                            })),
+                                        Button::new("mode-romaji")
+                                            .label("Romaji Only")
+                                            .icon("icons/music-2.svg")
+                                            .small()
+                                            .ghost()
+                                            .selected(mode == LrcMode::Romaji)
+                                            .on_click(cx.listener(|this, _, _, cx| {
+                                                this.set_lrc_mode(LrcMode::Romaji, cx);
+                                            })),
+                                        Button::new("mode-original")
+                                            .label("Original")
+                                            .icon("icons/music.svg")
+                                            .small()
+                                            .ghost()
+                                            .selected(mode == LrcMode::Original)
+                                            .on_click(cx.listener(|this, _, _, cx| {
+                                                this.set_lrc_mode(LrcMode::Original, cx);
+                                            })),
+                                        Button::new("mode-edit")
+                                            .label("Edit Lines")
+                                            .icon("icons/pencil.svg")
+                                            .small()
+                                            .ghost()
+                                            .selected(mode == LrcMode::Edit)
+                                            .on_click(cx.listener(|this, _, _, cx| {
+                                                this.set_lrc_mode(LrcMode::Edit, cx);
+                                            })),
+                                    ]),
+                            ),
                     )
                     .child(
-                        // Lyrics Viewer or Raw Text Editor
-                        if mode == LrcMode::Edit {
+                        // Mode Content Panel
+                        if self.lrc_studio.lines.is_empty() {
                             div()
                                 .flex()
                                 .flex_col()
+                                .items_center()
+                                .justify_center()
                                 .gap_2()
-                                .p_3()
+                                .p_8()
                                 .rounded_lg()
                                 .bg(theme.background)
                                 .border_1()
                                 .border_color(theme.border)
                                 .child(
-                                    div()
-                                        .flex()
-                                        .items_center()
-                                        .justify_between()
-                                        .child(
-                                            div()
-                                                .text_xs()
-                                                .text_color(theme.muted_foreground)
-                                                .child("Edit or paste raw LRC with [mm:ss.xx] timestamps:"),
-                                        )
-                                        .child(
-                                            Button::new("btn-apply-edit")
-                                                .label("Apply Changes")
-                                                .icon("icons/check.svg")
-                                                .small()
-                                                .ghost()
-                                                .on_click(cx.listener(|this, _, _, cx| {
-                                                    this.apply_editor_changes(cx);
-                                                })),
-                                        ),
+                                    svg()
+                                        .path(icons::path("icons/list-music.svg"))
+                                        .size(px(32.))
+                                        .text_color(theme.muted_foreground),
                                 )
-                                .child(div().w_full().child(edit_input))
+                                .child(
+                                    div()
+                                        .text_sm()
+                                        .font_weight(FontWeight::SEMIBOLD)
+                                        .text_color(theme.foreground)
+                                        .child("No Lyrics in Workspace"),
+                                )
+                                .child(
+                                    div()
+                                        .text_xs()
+                                        .text_color(theme.muted_foreground)
+                                        .child("Search LRCLIB above, click 'Detect Current Song', or click 'Paste from Clipboard' below."),
+                                )
+                                .child(
+                                    Button::new("btn-empty-paste")
+                                        .label("Paste from Clipboard")
+                                        .icon("icons/clipboard-paste.svg")
+                                        .small()
+                                        .ghost()
+                                        .on_click(cx.listener(|this, _, _, cx| {
+                                            this.paste_lyrics_from_clipboard(cx);
+                                        })),
+                                )
                                 .into_any_element()
                         } else {
-                            let lines = self.render_active_lines(&theme);
-                            if lines.is_empty() {
-                                div()
-                                    .flex()
-                                    .flex_col()
-                                    .items_center()
-                                    .justify_center()
-                                    .gap_2()
-                                    .p_8()
-                                    .rounded_lg()
-                                    .bg(theme.background)
-                                    .border_1()
-                                    .border_color(theme.border)
-                                    .child(
-                                        svg()
-                                            .path(icons::path("icons/list-music.svg"))
-                                            .size(px(32.))
-                                            .text_color(theme.muted_foreground),
-                                    )
-                                    .child(
+                            div()
+                                .flex()
+                                .flex_col()
+                                .gap_2()
+                                .when(mode == LrcMode::Edit, |panel| {
+                                    // Crash-Safe Single-Line Editor Bar for Selected Line
+                                    let current_idx_display = selected_idx.map(|i| i + 1).unwrap_or(1);
+                                    let total_lines = self.lrc_studio.lines.len();
+
+                                    panel.child(
                                         div()
-                                            .text_sm()
-                                            .font_weight(FontWeight::SEMIBOLD)
-                                            .text_color(theme.foreground)
-                                            .child("No Lyrics Loaded"),
+                                            .flex()
+                                            .flex_col()
+                                            .gap_2()
+                                            .p_3()
+                                            .rounded_lg()
+                                            .bg(theme.background)
+                                            .border_1()
+                                            .border_color(theme.primary)
+                                            .child(
+                                                div()
+                                                    .flex()
+                                                    .items_center()
+                                                    .justify_between()
+                                                    .w_full()
+                                                    .child(
+                                                        div()
+                                                            .text_xs()
+                                                            .font_weight(FontWeight::SEMIBOLD)
+                                                            .text_color(theme.primary)
+                                                            .child(format!("Line Editor (Line {current_idx_display} of {total_lines}) - Click any line below to edit:")),
+                                                    )
+                                                    .child(
+                                                        div()
+                                                            .flex()
+                                                            .items_center()
+                                                            .gap_1()
+                                                            .child(
+                                                                Button::new("btn-prev-line")
+                                                                    .icon("icons/chevron-left.svg")
+                                                                    .small()
+                                                                    .ghost()
+                                                                    .disabled(selected_idx.unwrap_or(0) == 0)
+                                                                    .on_click(cx.listener(|this, _, _, cx| {
+                                                                        this.prev_line(cx);
+                                                                    })),
+                                                            )
+                                                            .child(
+                                                                Button::new("btn-next-line")
+                                                                    .icon("icons/chevron-right.svg")
+                                                                    .small()
+                                                                    .ghost()
+                                                                    .disabled(selected_idx.unwrap_or(0) + 1 >= total_lines)
+                                                                    .on_click(cx.listener(|this, _, _, cx| {
+                                                                        this.next_line(cx);
+                                                                    })),
+                                                            ),
+                                                    ),
+                                            )
+                                            .child(
+                                                div()
+                                                    .flex()
+                                                    .items_center()
+                                                    .gap_2()
+                                                    .w_full()
+                                                    .child(
+                                                        div()
+                                                            .w(px(90.))
+                                                            .flex_shrink_0()
+                                                            .child(line_time_input),
+                                                    )
+                                                    .child(
+                                                        div()
+                                                            .flex_1()
+                                                            .child(line_text_input),
+                                                    )
+                                                    .child(
+                                                        Button::new("btn-save-line")
+                                                            .label("Save Line")
+                                                            .icon("icons/check.svg")
+                                                            .small()
+                                                            .selected(true)
+                                                            .on_click(cx.listener(|this, _, _, cx| {
+                                                                this.save_current_line(cx);
+                                                            })),
+                                                    )
+                                                    .child(
+                                                        Button::new("btn-add-line")
+                                                            .label("Add Line")
+                                                            .icon("icons/plus.svg")
+                                                            .small()
+                                                            .ghost()
+                                                            .on_click(cx.listener(|this, _, _, cx| {
+                                                                this.insert_line_after(cx);
+                                                            })),
+                                                    )
+                                                    .child(
+                                                        Button::new("btn-del-line")
+                                                            .icon("icons/trash-2.svg")
+                                                            .small()
+                                                            .ghost()
+                                                            .destructive()
+                                                            .on_click(cx.listener(|this, _, _, cx| {
+                                                                this.delete_selected_line(cx);
+                                                            })),
+                                                    ),
+                                            ),
                                     )
-                                    .child(
-                                        div()
-                                            .text_xs()
-                                            .text_color(theme.muted_foreground)
-                                            .child("Search LRCLIB above, click 'Detect Current Song', or paste lyrics from clipboard."),
-                                    )
-                                    .child(
-                                        Button::new("btn-empty-paste")
-                                            .label("Paste from Clipboard")
-                                            .icon("icons/clipboard-paste.svg")
-                                            .small()
-                                            .ghost()
-                                            .on_click(cx.listener(|this, _, _, cx| {
-                                                this.paste_lyrics_from_clipboard(cx);
-                                            })),
-                                    )
-                                    .into_any_element()
-                            } else {
-                                div()
-                                    .id("lrc-preview-lines-list")
-                                    .flex()
-                                    .flex_col()
-                                    .gap_1p5()
-                                    .max_h(px(400.))
-                                    .overflow_y_scroll()
-                                    .p_3()
-                                    .rounded_lg()
-                                    .bg(theme.background)
-                                    .border_1()
-                                    .border_color(theme.border)
-                                    .children(lines)
-                                    .into_any_element()
-                            }
+                                })
+                                .child(
+                                    // Scrollable Lyrics View
+                                    div()
+                                        .id("lrc-preview-lines-list")
+                                        .flex()
+                                        .flex_col()
+                                        .gap_1p5()
+                                        .max_h(px(400.))
+                                        .overflow_y_scroll()
+                                        .p_3()
+                                        .rounded_lg()
+                                        .bg(theme.background)
+                                        .border_1()
+                                        .border_color(theme.border)
+                                        .children(self.render_lines(&theme, mode, selected_idx, cx)),
+                                )
+                                .into_any_element()
                         },
                     ),
             )
             .into_any_element()
     }
 
-    fn render_active_lines(&self, theme: &ui::Theme) -> Vec<AnyElement> {
-        let mode = self.lrc_studio.mode;
-
-        // If structured lines exist from Romaji API:
-        if !self.lrc_studio.lines.is_empty() && (mode == LrcMode::Dual || mode == LrcMode::Romaji) {
-            return self.lrc_studio
-                .lines
-                .iter()
-                .enumerate()
-                .map(|(idx, line)| {
-                    let time = line.time.as_deref().unwrap_or("00:00.00");
-                    let orig = line.original.as_deref().unwrap_or("");
-                    let romaji = line.romaji.as_deref().unwrap_or("");
-
-                    div()
-                        .id(ElementId::NamedInteger("lrc-line".into(), idx as u64))
-                        .flex()
-                        .items_start()
-                        .gap_3()
-                        .py_1()
-                        .px_2()
-                        .rounded_md()
-                        .hover(|s| s.bg(theme.secondary_hover))
-                        .child(
-                            div()
-                                .text_xs()
-                                .font_weight(FontWeight::MEDIUM)
-                                .text_color(theme.muted_foreground)
-                                .w(px(65.))
-                                .flex_shrink_0()
-                                .child(format!("[{time}]")),
-                        )
-                        .child(
-                            div()
-                                .flex()
-                                .flex_col()
-                                .gap_0p5()
-                                .flex_1()
-                                .when(mode == LrcMode::Dual, |col| {
-                                    col.child(
-                                        div()
-                                            .text_xs()
-                                            .font_weight(FontWeight::MEDIUM)
-                                            .text_color(theme.foreground)
-                                            .child(orig.to_string()),
-                                    )
-                                })
-                                .child(
-                                    div()
-                                        .text_xs()
-                                        .text_color(if mode == LrcMode::Dual { theme.primary } else { theme.foreground })
-                                        .child(romaji.to_string()),
-                                ),
-                        )
-                        .into_any_element()
-                })
-                .collect();
-        }
-
-        // Render from raw text lines (from LRCLIB or edited)
-        let source_text = match mode {
-            LrcMode::Dual => &self.lrc_studio.dual_lrc,
-            LrcMode::Romaji => &self.lrc_studio.romaji_lrc,
-            _ => &self.lrc_studio.original_lrc,
-        };
-
-        if source_text.trim().is_empty() {
-            return Vec::new();
-        }
-
-        source_text
-            .lines()
+    fn render_lines(
+        &self,
+        theme: &ui::Theme,
+        mode: LrcMode,
+        selected_idx: Option<usize>,
+        cx: &mut Context<Self>,
+    ) -> Vec<AnyElement> {
+        self.lrc_studio
+            .lines
+            .iter()
             .enumerate()
-            .map(|(idx, raw_line)| {
-                let trimmed = raw_line.trim();
-                let (time_part, text_part) = if trimmed.starts_with('[') {
-                    if let Some(close_idx) = trimmed.find(']') {
-                        (&trimmed[1..close_idx], trimmed[close_idx + 1..].trim())
-                    } else {
-                        ("", trimmed)
-                    }
-                } else {
-                    ("", trimmed)
-                };
+            .map(|(idx, line)| {
+                let is_selected = selected_idx == Some(idx);
+                let time = if line.time.is_empty() { "00:00.00" } else { &line.time };
+                let has_romaji = !line.romaji.is_empty();
 
                 div()
-                    .id(ElementId::NamedInteger("raw-line".into(), idx as u64))
+                    .id(ElementId::NamedInteger("lrc-line".into(), idx as u64))
                     .flex()
                     .items_start()
                     .gap_3()
-                    .py_0p5()
+                    .py_1()
                     .px_2()
                     .rounded_md()
-                    .hover(|s| s.bg(theme.secondary_hover))
-                    .when(!time_part.is_empty(), |row| {
-                        row.child(
-                            div()
-                                .text_xs()
-                                .font_weight(FontWeight::MEDIUM)
-                                .text_color(theme.muted_foreground)
-                                .w(px(65.))
-                                .flex_shrink_0()
-                                .child(format!("[{time_part}]")),
-                        )
+                    .cursor_pointer()
+                    .bg(if is_selected && mode == LrcMode::Edit {
+                        theme.selection
+                    } else {
+                        theme.background
                     })
+                    .border_1()
+                    .border_color(if is_selected && mode == LrcMode::Edit {
+                        theme.primary
+                    } else {
+                        theme.border
+                    })
+                    .hover(|s| s.bg(theme.secondary_hover))
+                    .on_click(cx.listener(move |this, _, _, cx| {
+                        this.select_line_for_edit(idx, cx);
+                    }))
                     .child(
                         div()
                             .text_xs()
-                            .text_color(theme.foreground)
+                            .font_weight(FontWeight::MEDIUM)
+                            .text_color(theme.muted_foreground)
+                            .w(px(65.))
+                            .flex_shrink_0()
+                            .child(format!("[{time}]")),
+                    )
+                    .child(
+                        div()
+                            .flex()
+                            .flex_col()
+                            .gap_0p5()
                             .flex_1()
-                            .child(text_part.to_string()),
+                            .when(mode != LrcMode::Romaji, |col| {
+                                col.child(
+                                    div()
+                                        .text_xs()
+                                        .font_weight(FontWeight::MEDIUM)
+                                        .text_color(theme.foreground)
+                                        .child(line.original.clone()),
+                                )
+                            })
+                            .when(
+                                (mode == LrcMode::Dual || mode == LrcMode::Romaji) && has_romaji,
+                                |col| {
+                                    col.child(
+                                        div()
+                                            .text_xs()
+                                            .text_color(if mode == LrcMode::Dual {
+                                                theme.primary
+                                            } else {
+                                                theme.foreground
+                                            })
+                                            .child(line.romaji.clone()),
+                                    )
+                                },
+                            ),
                     )
                     .into_any_element()
             })
             .collect()
+    }
+
+    fn select_line_for_edit(&mut self, idx: usize, cx: &mut Context<Self>) {
+        if idx >= self.lrc_studio.lines.len() {
+            return;
+        }
+
+        self.lrc_studio.selected_line_idx = Some(idx);
+        let line = &self.lrc_studio.lines[idx];
+        let time = line.time.clone();
+        let text = match self.lrc_studio.mode {
+            LrcMode::Romaji if !line.romaji.is_empty() => line.romaji.clone(),
+            _ => line.original.clone(),
+        };
+
+        self.lrc_studio
+            .line_time_input
+            .update(cx, |input, cx| input.set_text(time, cx));
+        self.lrc_studio
+            .line_text_input
+            .update(cx, |input, cx| input.set_text(text, cx));
+        cx.notify();
+    }
+
+    fn save_current_line(&mut self, cx: &mut Context<Self>) {
+        let Some(idx) = self.lrc_studio.selected_line_idx else {
+            return;
+        };
+        if idx >= self.lrc_studio.lines.len() {
+            return;
+        }
+
+        let new_time = self.lrc_studio.line_time_input.read(cx).text().trim().to_string();
+        let new_text = self.lrc_studio.line_text_input.read(cx).text().trim().to_string();
+
+        let line = &mut self.lrc_studio.lines[idx];
+        if !new_time.is_empty() {
+            line.time = new_time;
+        }
+
+        if self.lrc_studio.mode == LrcMode::Romaji && !line.romaji.is_empty() {
+            line.romaji = new_text;
+        } else {
+            line.original = new_text;
+        }
+
+        self.lrc_studio.status = Some((format!("Updated Line #{}", idx + 1), false));
+        cx.notify();
+    }
+
+    fn insert_line_after(&mut self, cx: &mut Context<Self>) {
+        let idx = self.lrc_studio.selected_line_idx.unwrap_or(self.lrc_studio.lines.len());
+        let insert_at = (idx + 1).min(self.lrc_studio.lines.len());
+
+        let prev_time = if idx < self.lrc_studio.lines.len() {
+            self.lrc_studio.lines[idx].time.clone()
+        } else {
+            "00:00.00".to_string()
+        };
+
+        self.lrc_studio.lines.insert(
+            insert_at,
+            StudioLine {
+                time: prev_time,
+                original: "New lyric line".to_string(),
+                romaji: String::new(),
+            },
+        );
+
+        self.select_line_for_edit(insert_at, cx);
+        self.lrc_studio.status = Some((format!("Inserted Line #{}", insert_at + 1), false));
+        cx.notify();
+    }
+
+    fn delete_selected_line(&mut self, cx: &mut Context<Self>) {
+        let Some(idx) = self.lrc_studio.selected_line_idx else {
+            return;
+        };
+        if idx >= self.lrc_studio.lines.len() {
+            return;
+        }
+
+        self.lrc_studio.lines.remove(idx);
+        let next_idx = if self.lrc_studio.lines.is_empty() {
+            None
+        } else {
+            Some(idx.min(self.lrc_studio.lines.len() - 1))
+        };
+
+        if let Some(i) = next_idx {
+            self.select_line_for_edit(i, cx);
+        } else {
+            self.lrc_studio.selected_line_idx = None;
+            self.lrc_studio
+                .line_time_input
+                .update(cx, |input, cx| input.set_text("", cx));
+            self.lrc_studio
+                .line_text_input
+                .update(cx, |input, cx| input.set_text("", cx));
+        }
+
+        self.lrc_studio.status = Some(("Line deleted".into(), false));
+        cx.notify();
+    }
+
+    fn prev_line(&mut self, cx: &mut Context<Self>) {
+        let Some(idx) = self.lrc_studio.selected_line_idx else {
+            return;
+        };
+        if idx > 0 {
+            self.select_line_for_edit(idx - 1, cx);
+        }
+    }
+
+    fn next_line(&mut self, cx: &mut Context<Self>) {
+        let Some(idx) = self.lrc_studio.selected_line_idx else {
+            return;
+        };
+        if idx + 1 < self.lrc_studio.lines.len() {
+            self.select_line_for_edit(idx + 1, cx);
+        }
     }
 
     fn detect_current_song(&mut self, cx: &mut Context<Self>) {
@@ -769,11 +983,7 @@ impl SettingsView {
                     if let Ok(content) = fs::read_to_string(&candidate) {
                         let trimmed = content.trim();
                         if !trimmed.is_empty() {
-                            self.lrc_studio.original_lrc = trimmed.to_string();
-                            self.lrc_studio.dual_lrc = trimmed.to_string();
-                            self.lrc_studio.lines.clear();
-                            self.lrc_studio.mode = LrcMode::Dual;
-                            self.lrc_studio.edit_input.update(cx, |input, cx| input.set_text(trimmed, cx));
+                            self.load_raw_lrc_string(trimmed, cx);
                             self.lrc_studio.status = Some(("Loaded existing .lrc from local music folder!".into(), false));
                         }
                     }
@@ -816,11 +1026,7 @@ impl SettingsView {
                 if let Ok(content) = fs::read_to_string(&candidate) {
                     let trimmed = content.trim();
                     if !trimmed.is_empty() {
-                        self.lrc_studio.original_lrc = trimmed.to_string();
-                        self.lrc_studio.dual_lrc = trimmed.to_string();
-                        self.lrc_studio.lines.clear();
-                        self.lrc_studio.mode = LrcMode::Dual;
-                        self.lrc_studio.edit_input.update(cx, |input, cx| input.set_text(trimmed, cx));
+                        self.load_raw_lrc_string(trimmed, cx);
                         self.lrc_studio.status = Some(("Loaded existing .lrc from song folder!".into(), false));
                     }
                 }
@@ -923,15 +1129,7 @@ impl SettingsView {
         self.lrc_studio.selected_track = Some(item.clone());
         let lyrics = item.synced_lyrics.or(item.plain_lyrics).unwrap_or_default();
 
-        self.lrc_studio.original_lrc = lyrics.clone();
-        self.lrc_studio.romaji_lrc = String::new();
-        self.lrc_studio.dual_lrc = lyrics.clone();
-        self.lrc_studio.lines.clear();
-        self.lrc_studio.mode = LrcMode::Dual;
-
-        self.lrc_studio
-            .edit_input
-            .update(cx, |input, cx| input.set_text(lyrics, cx));
+        self.load_raw_lrc_string(&lyrics, cx);
 
         let has_synced = self.lrc_studio.selected_track.as_ref().and_then(|t| t.synced_lyrics.as_ref()).is_some();
         let track_name = item.track_name.as_deref().unwrap_or("track");
@@ -944,48 +1142,30 @@ impl SettingsView {
     }
 
     fn set_lrc_mode(&mut self, mode: LrcMode, cx: &mut Context<Self>) {
-        if self.lrc_studio.mode == LrcMode::Edit {
-            let edited = self.lrc_studio.edit_input.read(cx).text().to_string();
-            self.lrc_studio.dual_lrc = edited;
-        }
-
         self.lrc_studio.mode = mode;
-        let content_to_show = match mode {
-            LrcMode::Dual => &self.lrc_studio.dual_lrc,
-            LrcMode::Romaji => &self.lrc_studio.romaji_lrc,
-            LrcMode::Original => &self.lrc_studio.original_lrc,
-            LrcMode::Edit => &self.lrc_studio.dual_lrc,
-        };
-
-        let copy = content_to_show.clone();
-        self.lrc_studio
-            .edit_input
-            .update(cx, |input, cx| input.set_text(copy, cx));
+        if mode == LrcMode::Edit && self.lrc_studio.selected_line_idx.is_none() && !self.lrc_studio.lines.is_empty() {
+            self.select_line_for_edit(0, cx);
+        }
         cx.notify();
     }
 
-    fn apply_editor_changes(&mut self, cx: &mut Context<Self>) {
-        let text = self.lrc_studio.edit_input.read(cx).text().to_string();
-        self.lrc_studio.dual_lrc = text.clone();
-        self.lrc_studio.original_lrc = text;
-        self.lrc_studio.lines.clear();
-        self.lrc_studio.mode = LrcMode::Dual;
-        self.lrc_studio.status = Some(("Lyrics updated in Workspace!".into(), false));
-        cx.notify();
+    fn load_raw_lrc_string(&mut self, text: &str, cx: &mut Context<Self>) {
+        self.lrc_studio.lines = parse_lrc_lines(text);
+        if !self.lrc_studio.lines.is_empty() {
+            self.select_line_for_edit(0, cx);
+        } else {
+            self.lrc_studio.selected_line_idx = None;
+        }
     }
 
     fn trigger_convert_romaji(&mut self, cx: &mut Context<Self>) {
-        let lyrics = if !self.lrc_studio.original_lrc.is_empty() {
-            self.lrc_studio.original_lrc.clone()
-        } else {
-            self.lrc_studio.edit_input.read(cx).text().to_string()
-        };
-
-        if lyrics.trim().is_empty() {
+        if self.lrc_studio.lines.is_empty() {
             self.lrc_studio.status = Some(("No lyrics to convert. Please search or paste lyrics first.".into(), true));
             cx.notify();
             return;
         }
+
+        let lyrics = self.generate_lrc_content(LrcMode::Original);
 
         self.lrc_studio.is_converting = true;
         self.lrc_studio.status = Some(("Generating Dual-Line Romaji via Gemini...".into(), false));
@@ -1015,17 +1195,20 @@ impl SettingsView {
                 this.lrc_studio.is_converting = false;
                 if let Some(resp) = result {
                     if resp.success {
-                        this.lrc_studio.romaji_lrc = resp.romaji_lrc.unwrap_or_default();
-                        this.lrc_studio.dual_lrc = resp.dual_lrc.unwrap_or_default();
-                        if let Some(lines) = resp.lines {
-                            this.lrc_studio.lines = lines;
+                        if let Some(api_lines) = resp.lines {
+                            this.lrc_studio.lines = api_lines
+                                .into_iter()
+                                .map(|l| StudioLine {
+                                    time: l.time.unwrap_or_else(|| "00:00.00".into()),
+                                    original: l.original.unwrap_or_default(),
+                                    romaji: l.romaji.unwrap_or_default(),
+                                })
+                                .collect();
                         }
                         this.lrc_studio.mode = LrcMode::Dual;
-
-                        let dual = this.lrc_studio.dual_lrc.clone();
-                        this.lrc_studio
-                            .edit_input
-                            .update(cx, |input, cx| input.set_text(dual, cx));
+                        if !this.lrc_studio.lines.is_empty() {
+                            this.select_line_for_edit(0, cx);
+                        }
 
                         if resp.is_japanese == Some(false) {
                             this.lrc_studio.status = Some(("Lyrics processed (no Japanese characters detected)".into(), false));
@@ -1044,30 +1227,36 @@ impl SettingsView {
         }).detach();
     }
 
-    fn current_export_lyrics(&self, cx: &Context<Self>) -> String {
-        match self.lrc_studio.mode {
-            LrcMode::Dual => {
-                if !self.lrc_studio.dual_lrc.is_empty() {
-                    self.lrc_studio.dual_lrc.clone()
-                } else {
-                    self.lrc_studio.original_lrc.clone()
+    fn generate_lrc_content(&self, mode: LrcMode) -> String {
+        let mut out = String::new();
+        for line in &self.lrc_studio.lines {
+            match mode {
+                LrcMode::Dual => {
+                    if !line.original.is_empty() {
+                        out.push_str(&format!("[{}] {}\n", line.time, line.original));
+                    }
+                    if !line.romaji.is_empty() {
+                        out.push_str(&format!("[{}] {}\n", line.time, line.romaji));
+                    }
+                }
+                LrcMode::Romaji => {
+                    let text = if !line.romaji.is_empty() {
+                        &line.romaji
+                    } else {
+                        &line.original
+                    };
+                    out.push_str(&format!("[{}] {}\n", line.time, text));
+                }
+                LrcMode::Original | LrcMode::Edit => {
+                    out.push_str(&format!("[{}] {}\n", line.time, line.original));
                 }
             }
-            LrcMode::Romaji => {
-                if !self.lrc_studio.romaji_lrc.is_empty() {
-                    self.lrc_studio.romaji_lrc.clone()
-                } else {
-                    self.lrc_studio.original_lrc.clone()
-                }
-            }
-            LrcMode::Original => self.lrc_studio.original_lrc.clone(),
-            LrcMode::Edit => self.lrc_studio.edit_input.read(cx).text().to_string(),
         }
+        out
     }
 
     fn save_beside_song(&mut self, cx: &mut Context<Self>) {
-        let content = self.current_export_lyrics(cx);
-        if content.trim().is_empty() {
+        if self.lrc_studio.lines.is_empty() {
             self.lrc_studio.status = Some(("Lyrics content is empty".into(), true));
             cx.notify();
             return;
@@ -1079,6 +1268,7 @@ impl SettingsView {
             return;
         };
 
+        let content = self.generate_lrc_content(self.lrc_studio.mode);
         let mut lrc_path = local_path;
         lrc_path.set_extension("lrc");
 
@@ -1095,13 +1285,13 @@ impl SettingsView {
     }
 
     fn download_lrc_file(&mut self, cx: &mut Context<Self>) {
-        let content = self.current_export_lyrics(cx);
-        if content.trim().is_empty() {
+        if self.lrc_studio.lines.is_empty() {
             self.lrc_studio.status = Some(("Lyrics content is empty".into(), true));
             cx.notify();
             return;
         }
 
+        let content = self.generate_lrc_content(self.lrc_studio.mode);
         let filename = match (
             self.lrc_studio.detected_title.as_deref(),
             self.lrc_studio.detected_artist.as_deref(),
@@ -1127,13 +1317,13 @@ impl SettingsView {
     }
 
     fn copy_lyrics_to_clipboard(&mut self, cx: &mut Context<Self>) {
-        let content = self.current_export_lyrics(cx);
-        if content.trim().is_empty() {
+        if self.lrc_studio.lines.is_empty() {
             self.lrc_studio.status = Some(("No lyrics to copy".into(), true));
             cx.notify();
             return;
         }
 
+        let content = self.generate_lrc_content(self.lrc_studio.mode);
         cx.write_to_clipboard(gpui::ClipboardItem::new_string(content));
         self.lrc_studio.status = Some(("Lyrics copied to clipboard!".into(), false));
         cx.notify();
@@ -1152,19 +1342,39 @@ impl SettingsView {
             return;
         }
 
-        self.lrc_studio.original_lrc = text.clone();
-        self.lrc_studio.dual_lrc = text.clone();
-        self.lrc_studio.romaji_lrc.clear();
-        self.lrc_studio.lines.clear();
-        self.lrc_studio.mode = LrcMode::Dual;
-
-        self.lrc_studio
-            .edit_input
-            .update(cx, |input, cx| input.set_text(text, cx));
-
-        self.lrc_studio.status = Some(("Pasted lyrics loaded into Workspace! Click 'Generate Dual Romaji' to convert.".into(), false));
+        self.load_raw_lrc_string(&text, cx);
+        let count = self.lrc_studio.lines.len();
+        self.lrc_studio.status = Some((format!("Loaded {count} lines from clipboard! Click 'Generate Dual Romaji' to convert."), false));
         cx.notify();
     }
+}
+
+fn parse_lrc_lines(content: &str) -> Vec<StudioLine> {
+    let mut lines = Vec::new();
+    for raw in content.lines() {
+        let trimmed = raw.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        if trimmed.starts_with('[')
+            && let Some(close_idx) = trimmed.find(']')
+        {
+            let time = trimmed[1..close_idx].trim().to_string();
+            let text = trimmed[close_idx + 1..].trim().to_string();
+            lines.push(StudioLine {
+                time,
+                original: text,
+                romaji: String::new(),
+            });
+            continue;
+        }
+        lines.push(StudioLine {
+            time: "00:00.00".to_string(),
+            original: trimmed.to_string(),
+            romaji: String::new(),
+        });
+    }
+    lines
 }
 
 fn urlencoding(input: &str) -> String {

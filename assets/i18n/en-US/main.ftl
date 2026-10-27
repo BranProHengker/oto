@@ -1418,7 +1418,8 @@ lrc-studio-searching = Searching LRCLIB...
 lrc-studio-save-local = Save Beside Song (.lrc)
 lrc-studio-download = Download .lrc
 lrc-studio-no-lyrics = No synchronized lyrics found
-lrc-studio-edit-placeholder = Paste or edit .lrc lyrics here...
+lrc-studio-edit-placeholder = Type lyric line text here...
+lrc-studio-time-placeholder = mm:ss.xx
 lrc-studio-saved-toast = Lyrics saved successfully!
 
 

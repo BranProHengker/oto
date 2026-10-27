@@ -581,7 +581,7 @@ impl Default for Values {
             discord_presence: false,
             discord_name: DiscordName::Sonora,
             discord_show_paused: false,
-            discord_badge: false,
+            discord_badge: true,
             discord_without_details: false,
             discord_hide_on_connect: false,
             discord_sonora_button: true,
