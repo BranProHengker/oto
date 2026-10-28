@@ -522,9 +522,37 @@ fn assets(presence: &Presence) -> Option<activity::Assets<'_>> {
         assets = assets.large_text(text);
     }
     if let Some((key, name)) = badge {
-        assets = assets.small_image(key).small_text(name);
+        let badge_image = provider_badge_image(key);
+        assets = assets.small_image(badge_image).small_text(name);
     }
     Some(assets)
+}
+
+fn provider_badge_image(key: &str) -> &str {
+    match key {
+        "spotify" => {
+            "https://cdn.discordapp.com/app-assets/1547350467904806923/1547731758114406433.png"
+        }
+        "youtube" => {
+            "https://cdn.discordapp.com/app-assets/1547350467904806923/1547731850523443320.png"
+        }
+        "apple" => {
+            "https://cdn.discordapp.com/app-assets/1547350467904806923/1549409427659169943.png"
+        }
+        "deezer" => {
+            "https://cdn.discordapp.com/app-assets/1547350467904806923/1549363993431384115.png"
+        }
+        "tidal" => {
+            "https://cdn.discordapp.com/app-assets/1547350467904806923/1561338144107003984.png"
+        }
+        "subsonic" => {
+            "https://cdn.discordapp.com/app-assets/1547350467904806923/1547731852209553518.png"
+        }
+        "local" => {
+            "https://raw.githubusercontent.com/BranProHengker/oto/main/assets/discord/local.png"
+        }
+        other => other,
+    }
 }
 
 /// The buttons the settings ask for, or nothing when there are none. The provider button links

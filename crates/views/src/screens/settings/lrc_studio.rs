@@ -465,33 +465,21 @@ impl SettingsView {
                                             })),
                                     ),
                             )
-                            .when(has_local_path, |grp| {
-                                grp.child(
-                                    div()
-                                        .flex_shrink_0()
-                                        .child(
-                                            Button::new("btn-save-beside")
-                                                .label(t!("lrc-studio-save-local"))
-                                                .icon("icons/download.svg")
-                                                .small()
-                                                .ghost()
-                                                .on_click(cx.listener(|this, _, _, cx| {
-                                                    this.save_beside_song(cx);
-                                                })),
-                                        ),
-                                )
-                            })
                             .child(
                                 div()
                                     .flex_shrink_0()
                                     .child(
-                                        Button::new("btn-download")
-                                            .label(t!("lrc-studio-download"))
+                                        Button::new("btn-save-beside")
+                                            .label(if has_local_path {
+                                                t!("lrc-studio-save-local")
+                                            } else {
+                                                t!("lrc-studio-download")
+                                            })
                                             .icon("icons/download.svg")
                                             .small()
                                             .ghost()
                                             .on_click(cx.listener(|this, _, _, cx| {
-                                                this.download_lrc_file(cx);
+                                                this.save_beside_song(cx);
                                             })),
                                     ),
                             )
@@ -1262,55 +1250,36 @@ impl SettingsView {
             return;
         }
 
-        let Some(local_path) = self.lrc_studio.detected_local_path.clone() else {
-            self.lrc_studio.status = Some(("No local audio file path detected for current track".into(), true));
-            cx.notify();
-            return;
-        };
-
         let content = self.generate_lrc_content(self.lrc_studio.mode);
-        let mut lrc_path = local_path;
-        lrc_path.set_extension("lrc");
-
-        match fs::write(&lrc_path, &content) {
-            Ok(_) => {
-                let file_name = lrc_path.file_name().unwrap_or_default().to_string_lossy();
-                self.lrc_studio.status = Some((format!("Saved {file_name} successfully beside song!"), false));
-            }
-            Err(e) => {
-                self.lrc_studio.status = Some((format!("Failed to save .lrc: {e}"), true));
-            }
-        }
-        cx.notify();
-    }
-
-    fn download_lrc_file(&mut self, cx: &mut Context<Self>) {
-        if self.lrc_studio.lines.is_empty() {
-            self.lrc_studio.status = Some(("Lyrics content is empty".into(), true));
-            cx.notify();
-            return;
-        }
-
-        let content = self.generate_lrc_content(self.lrc_studio.mode);
-        let filename = match (
-            self.lrc_studio.detected_title.as_deref(),
-            self.lrc_studio.detected_artist.as_deref(),
-        ) {
-            (Some(title), Some(artist)) => format!("{artist} - {title}.lrc"),
-            (Some(title), None) => format!("{title}.lrc"),
-            _ => "lyrics.lrc".to_string(),
+        let target = if let Some(ref local_path) = self.lrc_studio.detected_local_path {
+            let mut p = local_path.clone();
+            p.set_extension("lrc");
+            p
+        } else {
+            let filename = match (
+                self.lrc_studio.detected_title.as_deref(),
+                self.lrc_studio.detected_artist.as_deref(),
+            ) {
+                (Some(title), Some(artist)) => format!("{artist} - {title}.lrc"),
+                (Some(title), None) => format!("{title}.lrc"),
+                _ => "lyrics.lrc".to_string(),
+            };
+            let safe_filename = filename.replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], "_");
+            let dest_dir = dirs::audio_dir().or_else(dirs::download_dir).unwrap_or_else(|| PathBuf::from("."));
+            dest_dir.join(&safe_filename)
         };
-
-        let safe_filename = filename.replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], "_");
-        let dest_dir = dirs::download_dir().or_else(dirs::audio_dir).unwrap_or_else(|| PathBuf::from("."));
-        let target = dest_dir.join(&safe_filename);
 
         match fs::write(&target, &content) {
             Ok(_) => {
-                self.lrc_studio.status = Some((format!("Downloaded to {}", target.display()), false));
+                let file_name = target.file_name().unwrap_or_default().to_string_lossy();
+                if self.lrc_studio.detected_local_path.is_some() {
+                    self.lrc_studio.status = Some((format!("Saved {file_name} successfully beside song!"), false));
+                } else {
+                    self.lrc_studio.status = Some((format!("Saved to {}", target.display()), false));
+                }
             }
             Err(e) => {
-                self.lrc_studio.status = Some((format!("Failed to download: {e}"), true));
+                self.lrc_studio.status = Some((format!("Failed to save .lrc: {e}"), true));
             }
         }
         cx.notify();
