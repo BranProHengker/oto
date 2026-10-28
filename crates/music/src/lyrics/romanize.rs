@@ -2,7 +2,7 @@ use deunicode::deunicode_char;
 
 use crate::{LyricsLine, RomanizedText, WritingSystem};
 
-pub(super) fn apply(lines: &mut [LyricsLine]) {
+pub fn apply(lines: &mut [LyricsLine]) {
     let system = detect(lines.iter().flat_map(|line| {
         std::iter::once(line.text.as_str())
             .chain(line.secondary.iter().map(|lane| lane.text.as_str()))
@@ -29,9 +29,17 @@ pub(super) fn apply(lines: &mut [LyricsLine]) {
     }
 }
 
-pub(crate) fn plain(text: &str) -> Option<RomanizedText> {
+pub fn plain(text: &str) -> Option<RomanizedText> {
     let system = detect(std::iter::once(text))?;
     convert(text, system)
+}
+
+pub fn romanize_batch(texts: &[&str]) -> Vec<Option<String>> {
+    let system = detect(texts.iter().copied());
+    let Some(system) = system else {
+        return texts.iter().map(|t| plain(t).map(|r| r.text)).collect();
+    };
+    texts.iter().map(|t| convert(t, system).map(|r| r.text)).collect()
 }
 
 fn detect<'a>(texts: impl Iterator<Item = &'a str>) -> Option<WritingSystem> {

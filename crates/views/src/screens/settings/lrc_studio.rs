@@ -209,14 +209,30 @@ impl SettingsView {
                                     ),
                             )
                             .child(
-                                Button::new("detect-song-btn")
-                                    .label(t!("lrc-studio-detect-button"))
-                                    .icon("icons/refresh-cw.svg")
-                                    .small()
-                                    .ghost()
-                                    .on_click(cx.listener(|this, _, _, cx| {
-                                        this.trigger_detect_and_search(cx);
-                                    })),
+                                div()
+                                    .flex()
+                                    .items_center()
+                                    .gap_2()
+                                    .child(
+                                        Button::new("import-player-lyrics-btn")
+                                            .label("Import Player Lyrics")
+                                            .icon("icons/disc-3.svg")
+                                            .small()
+                                            .selected(true)
+                                            .on_click(cx.listener(|this, _, _, cx| {
+                                                this.import_from_player_lyrics(cx);
+                                            })),
+                                    )
+                                    .child(
+                                        Button::new("detect-song-btn")
+                                            .label(t!("lrc-studio-detect-button"))
+                                            .icon("icons/refresh-cw.svg")
+                                            .small()
+                                            .ghost()
+                                            .on_click(cx.listener(|this, _, _, cx| {
+                                                this.trigger_detect_and_search(cx);
+                                            })),
+                                    ),
                             ),
                     )
                     .child(
@@ -455,11 +471,39 @@ impl SettingsView {
                                 div()
                                     .flex_shrink_0()
                                     .child(
+                                        Button::new("btn-import-player")
+                                            .label("Import Player Lyrics")
+                                            .icon("icons/disc-3.svg")
+                                            .small()
+                                            .selected(true)
+                                            .on_click(cx.listener(|this, _, _, cx| {
+                                                this.import_from_player_lyrics(cx);
+                                            })),
+                                    ),
+                            )
+                            .child(
+                                div()
+                                    .flex_shrink_0()
+                                    .child(
+                                        Button::new("btn-romaji-offline")
+                                            .label("Romaji (Offline Free)")
+                                            .icon("icons/music-2.svg")
+                                            .small()
+                                            .ghost()
+                                            .on_click(cx.listener(|this, _, _, cx| {
+                                                this.generate_offline_romaji(cx);
+                                            })),
+                                    ),
+                            )
+                            .child(
+                                div()
+                                    .flex_shrink_0()
+                                    .child(
                                         Button::new("btn-generate-romaji")
-                                            .label(if is_converting { "Generating Romaji..." } else { "Generate Dual Romaji" })
+                                            .label(if is_converting { "Calling API..." } else { "AI Romaji (API)" })
                                             .icon("icons/arrow-right-left.svg")
                                             .small()
-                                            .selected(!is_converting)
+                                            .ghost()
                                             .on_click(cx.listener(|this, _, _, cx| {
                                                 this.trigger_convert_romaji(cx);
                                             })),
@@ -595,17 +639,33 @@ impl SettingsView {
                                     div()
                                         .text_xs()
                                         .text_color(theme.muted_foreground)
-                                        .child("Search LRCLIB above, click 'Detect Current Song', or click 'Paste from Clipboard' below."),
+                                        .child("Import from currently playing song, search LRCLIB, or paste from clipboard:"),
                                 )
                                 .child(
-                                    Button::new("btn-empty-paste")
-                                        .label("Paste from Clipboard")
-                                        .icon("icons/clipboard-paste.svg")
-                                        .small()
-                                        .ghost()
-                                        .on_click(cx.listener(|this, _, _, cx| {
-                                            this.paste_lyrics_from_clipboard(cx);
-                                        })),
+                                    div()
+                                        .flex()
+                                        .items_center()
+                                        .gap_2()
+                                        .child(
+                                            Button::new("btn-empty-import")
+                                                .label("Import Player Lyrics")
+                                                .icon("icons/disc-3.svg")
+                                                .small()
+                                                .selected(true)
+                                                .on_click(cx.listener(|this, _, _, cx| {
+                                                    this.import_from_player_lyrics(cx);
+                                                })),
+                                        )
+                                        .child(
+                                            Button::new("btn-empty-paste")
+                                                .label("Paste from Clipboard")
+                                                .icon("icons/clipboard-paste.svg")
+                                                .small()
+                                                .ghost()
+                                                .on_click(cx.listener(|this, _, _, cx| {
+                                                    this.paste_lyrics_from_clipboard(cx);
+                                                })),
+                                        ),
                                 )
                                 .into_any_element()
                         } else {
@@ -1146,6 +1206,141 @@ impl SettingsView {
         }
     }
 
+    fn import_from_player_lyrics(&mut self, cx: &mut Context<Self>) {
+        let lyrics_entity = state::Sonora::global(cx).lyrics.clone();
+        let lyrics = lyrics_entity.read(cx);
+        let Some(hit) = lyrics.current() else {
+            self.lrc_studio.status = Some((
+                "No lyrics currently active in player. Play a song or wait for lyrics to load.".into(),
+                true,
+            ));
+            cx.notify();
+            return;
+        };
+
+        let source = hit.source;
+        let count;
+        match &hit.lyrics {
+            music::Lyrics::Synced { lines } => {
+                count = lines.len();
+                self.lrc_studio.lines = lines
+                    .iter()
+                    .map(|line| {
+                        let time = format_duration_lrc(line.start);
+                        let original = line.text.clone();
+                        let romaji = line
+                            .romanized
+                            .as_ref()
+                            .map(|r| r.text.clone())
+                            .unwrap_or_else(|| {
+                                music::lyrics::romanize::plain(&line.text)
+                                    .map(|r| r.text)
+                                    .unwrap_or_default()
+                            });
+                        StudioLine {
+                            time,
+                            original,
+                            romaji,
+                        }
+                    })
+                    .collect();
+            }
+            music::Lyrics::Plain { text, romanized } => {
+                let parsed = parse_lrc_lines(text);
+                count = parsed.len();
+                let romaji_fallback = romanized.as_ref().map(|r| r.text.clone());
+                self.lrc_studio.lines = parsed
+                    .into_iter()
+                    .map(|mut l| {
+                        if l.romaji.is_empty() {
+                            if let Some(ref r) = romaji_fallback {
+                                l.romaji = r.clone();
+                            } else {
+                                l.romaji = music::lyrics::romanize::plain(&l.original)
+                                    .map(|r| r.text)
+                                    .unwrap_or_default();
+                            }
+                        }
+                        l
+                    })
+                    .collect();
+            }
+        }
+
+        self.lrc_studio.selected_track = Some(LrcTrackItem {
+            id: 0,
+            track_name: Some(hit.title.clone()),
+            artist_name: Some(hit.artist.clone()),
+            album_name: hit.album.clone(),
+            duration: hit.duration.map(|d| d.as_secs_f64()),
+            instrumental: hit.instrumental,
+            plain_lyrics: None,
+            synced_lyrics: None,
+        });
+
+        if !self.lrc_studio.lines.is_empty() {
+            self.select_line_for_edit(0, cx);
+        }
+        self.lrc_studio.mode = LrcMode::Dual;
+        self.lrc_studio.status = Some((
+            format!("Imported {count} lines from {source} (100% free, 0 API tokens)!"),
+            false,
+        ));
+        cx.notify();
+    }
+
+    fn generate_offline_romaji(&mut self, cx: &mut Context<Self>) {
+        if self.lrc_studio.lines.is_empty() {
+            self.lrc_studio.status = Some((
+                "No lyrics to convert. Please search, import, or paste lyrics first.".into(),
+                true,
+            ));
+            cx.notify();
+            return;
+        }
+
+        let texts: Vec<&str> = self
+            .lrc_studio
+            .lines
+            .iter()
+            .map(|l| l.original.as_str())
+            .collect();
+        let romanized_results = music::lyrics::romanize::romanize_batch(&texts);
+
+        let mut converted_count = 0;
+        for (line, maybe_romaji) in self
+            .lrc_studio
+            .lines
+            .iter_mut()
+            .zip(romanized_results)
+        {
+            if let Some(romaji) = maybe_romaji
+                && !romaji.is_empty()
+            {
+                line.romaji = romaji;
+                converted_count += 1;
+            }
+        }
+
+        self.lrc_studio.mode = LrcMode::Dual;
+        if !self.lrc_studio.lines.is_empty() {
+            self.select_line_for_edit(0, cx);
+        }
+
+        if converted_count > 0 {
+            self.lrc_studio.status = Some((
+                format!("Generated offline Romaji for {converted_count} lines (Free, 0 API tokens)!"),
+                false,
+            ));
+        } else {
+            self.lrc_studio.status = Some((
+                "Processed lyrics offline (no non-Latin or Japanese text detected)".into(),
+                false,
+            ));
+        }
+        cx.notify();
+    }
+
     fn trigger_convert_romaji(&mut self, cx: &mut Context<Self>) {
         if self.lrc_studio.lines.is_empty() {
             self.lrc_studio.status = Some(("No lyrics to convert. Please search or paste lyrics first.".into(), true));
@@ -1318,8 +1513,16 @@ impl SettingsView {
     }
 }
 
+fn format_duration_lrc(d: std::time::Duration) -> String {
+    let total_secs = d.as_secs();
+    let mins = total_secs / 60;
+    let secs = total_secs % 60;
+    let centis = d.subsec_millis() / 10;
+    format!("{mins:02}:{secs:02}.{centis:02}")
+}
+
 fn parse_lrc_lines(content: &str) -> Vec<StudioLine> {
-    let mut lines = Vec::new();
+    let mut raw_lines = Vec::new();
     for raw in content.lines() {
         let trimmed = raw.trim();
         if trimmed.is_empty() {
@@ -1330,19 +1533,39 @@ fn parse_lrc_lines(content: &str) -> Vec<StudioLine> {
         {
             let time = trimmed[1..close_idx].trim().to_string();
             let text = trimmed[close_idx + 1..].trim().to_string();
+            raw_lines.push((time, text));
+            continue;
+        }
+        raw_lines.push(("00:00.00".to_string(), trimmed.to_string()));
+    }
+
+    let mut lines: Vec<StudioLine> = Vec::new();
+    for (time, text) in raw_lines {
+        // If inline "Original / Romaji"
+        if let Some((left, right)) = text.split_once(" / ") {
             lines.push(StudioLine {
                 time,
-                original: text,
-                romaji: String::new(),
+                original: left.trim().to_string(),
+                romaji: right.trim().to_string(),
             });
             continue;
         }
+
+        // If duplicate timestamp matching previous line and previous line has empty romaji
+        if let Some(prev) = lines.last_mut()
+            && prev.time == time && prev.romaji.is_empty() && !text.is_empty()
+        {
+            prev.romaji = text;
+            continue;
+        }
+
         lines.push(StudioLine {
-            time: "00:00.00".to_string(),
-            original: trimmed.to_string(),
+            time,
+            original: text,
             romaji: String::new(),
         });
     }
+
     lines
 }
 
