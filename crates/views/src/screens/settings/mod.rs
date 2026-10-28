@@ -1135,7 +1135,7 @@ impl SettingsView {
                 self.shortcut_row(t!("shortcut-font-reset"), "secondary-0")
             }
             Slot::ShortcutDismiss => self.shortcut_row(t!("shortcut-dismiss"), "escape"),
-            Slot::ShortcutQuit => self.shortcut_row(t!("shortcut-quit"), "secondary-q"),
+            Slot::ShortcutQuit => self.shortcut_row(t!("shortcut-quit"), "cmd-q"),
             Slot::ShortcutUndo => self.shortcut_row(t!("shortcut-undo"), "secondary-z"),
             Slot::ShortcutRedo => {
                 let key = match cfg!(target_os = "macos") {

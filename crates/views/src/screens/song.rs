@@ -4,7 +4,7 @@ use gpui::{
     Window, div, px,
 };
 use i18n::t;
-use music::{Credit, Track};
+use music::{Credit, Encoding, Track, TrackSignal};
 use router::{Destination, Link as _};
 use state::{Playback, SongDetail, Sonora};
 use ui::{
@@ -375,9 +375,24 @@ impl SongView {
                             true => t!("song-explicit"),
                             false => t!("song-clean"),
                         },
-                    )),
+                    ))
+                    .child(Fact::new(t!("song-audio-format"), self.audio_format(track, cx)).striped(true)),
             )
             .into_any_element()
+    }
+
+    fn audio_format(&self, track: &Track, cx: &Context<Self>) -> SharedString {
+        if let Some(format) = track.format.as_deref() {
+            return SharedString::from(format.to_owned());
+        }
+        let playback = self.playback.read(cx);
+        let playing_id = playback.track().and_then(|t| t.id.as_deref());
+        if playing_id == track.id.as_deref()
+            && let Some(Some(signal)) = playback.track_signal()
+        {
+            return SharedString::from(format_signal(signal));
+        }
+        t!("common-not-available")
     }
 
     fn loading(&self, cx: &Context<Self>) -> AnyElement {
@@ -595,5 +610,23 @@ impl Render for SongView {
             )
             .children(self.menu(cx))
             .children(self.about_dialog(cx))
+    }
+}
+
+fn format_signal(signal: &TrackSignal) -> String {
+    let rate_str = if signal.rate.is_multiple_of(1000) {
+        format!("{} kHz", signal.rate / 1000)
+    } else {
+        format!("{:.1} kHz", signal.rate as f64 / 1000.0)
+    };
+    match signal.encoding {
+        Some(Encoding::Flac { depth, .. }) => format!("FLAC {depth}-bit / {rate_str}"),
+        Some(Encoding::Alac { depth }) => format!("ALAC {depth}-bit / {rate_str}"),
+        Some(Encoding::Pcm { depth }) => format!("PCM {depth}-bit / {rate_str}"),
+        Some(Encoding::Aac { kbps }) => format!("AAC {kbps} kbps ({rate_str})"),
+        Some(Encoding::Vorbis { kbps }) => format!("Ogg Vorbis {kbps} kbps ({rate_str})"),
+        Some(Encoding::Mp3 { kbps }) => format!("MP3 {kbps} kbps ({rate_str})"),
+        Some(Encoding::Opus { kbps }) => format!("Opus {kbps} kbps ({rate_str})"),
+        Some(Encoding::Other) | None => rate_str,
     }
 }

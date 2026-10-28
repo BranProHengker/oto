@@ -19,7 +19,7 @@ use ui::{
 };
 use ui::{
     ColumnSpec, FilterChange, Listing as _, MIN_CONTENT, Pending, Pin, PinKind, Scrollbar,
-    Scroller, TableDelegate, TableEvent, TableState, Text, Toggle, runtime, table,
+    Scroller, TableDelegate, TableEvent, TableState, Text, runtime, table,
 };
 
 use crate::shared::menus::{album_menu, playlist_menu};
@@ -173,7 +173,7 @@ impl DetailView {
                 }
             });
             let source = source.table(cx.weak_entity());
-            let mut delegate = TableDelegate::new(source, width, cx);
+            let mut delegate = TableDelegate::new(source, width, cx).with_column_menu(&PINNED);
             delegate.set_layout(saved, cx);
             TableState::new(delegate, cx).follow(scroll)
         });
@@ -879,28 +879,6 @@ impl DetailView {
         self.table.clone().cycle_sort(key, cx);
         cx.notify();
     }
-
-    fn toggles(&self, cx: &App) -> Vec<Toggle> {
-        self.table
-            .read(cx)
-            .delegate()
-            .toggles(cx)
-            .into_iter()
-            .filter(|toggle| !PINNED.contains(&toggle.key))
-            .collect()
-    }
-
-    fn toggle_column(&mut self, key: &'static str, cx: &mut Context<Self>) {
-        if PINNED.contains(&key) {
-            return;
-        }
-
-        let mut layout = self.table.layout(cx);
-        layout.toggle(key);
-        self.table.clone().set_layout(layout, cx);
-        self.persist(cx);
-        cx.notify();
-    }
 }
 
 impl Tooled for DetailView {
@@ -909,16 +887,10 @@ impl Tooled for DetailView {
     }
 
     fn tools(&self, cx: &App) -> Vec<AnyElement> {
-        let columned = self.me.clone();
         let sifted = self.me.clone();
         let sorted = self.me.clone();
 
         vec![
-            tools::columns(&self.popovers, self.toggles(cx), move |key, cx| {
-                columned
-                    .update(cx, |view, cx| view.toggle_column(key, cx))
-                    .ok();
-            }),
             tools::filters(
                 &self.popovers,
                 &self.sliders,

@@ -74,6 +74,8 @@ pub struct Track {
     pub tags: Vec<String>,
     pub languages: Vec<String>,
     pub credits: Vec<Credit>,
+    #[serde(default)]
+    pub format: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

@@ -475,6 +475,7 @@ song-language = Language
 song-content = Content
 song-explicit = Explicit
 song-clean = Clean
+song-audio-format = Audio format
 artist-about = About the artist
 artist-about-fallback = Explore the artist's popular songs and releases.
 artist-about-open = Go to artist

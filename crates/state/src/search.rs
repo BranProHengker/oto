@@ -62,7 +62,7 @@ pub struct PlaylistHit {
 
 #[derive(Clone)]
 pub enum Hit {
-    Song(Track),
+    Song(Box<Track>),
     Artist(ArtistHit),
     Album(AlbumHit),
     Playlist(PlaylistHit),
@@ -397,7 +397,7 @@ fn songs(library: &[Track], catalog: &[Track], query: &Query) -> Vec<Scored> {
         scored.push(Scored {
             score,
             popularity: track.popularity,
-            hit: Hit::Song(track.clone()),
+            hit: Hit::Song(Box::new(track.clone())),
         });
     }
 
@@ -734,6 +734,7 @@ mod tests {
             tags: Vec::new(),
             languages: Vec::new(),
             credits: Vec::new(),
+            format: None,
         }
     }
 

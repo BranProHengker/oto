@@ -4,7 +4,7 @@ use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::path::Path;
 
-use lofty::file::{AudioFile, TaggedFileExt};
+use lofty::file::{AudioFile, FileType, TaggedFile, TaggedFileExt};
 use lofty::picture::{MimeType, Picture, PictureType};
 use lofty::prelude::Accessor;
 use lofty::probe::Probe;
@@ -17,8 +17,8 @@ use symphonia::core::probe::Hint;
 
 use super::id3;
 use crate::{
-    Album, ArtistRef, LOCAL_ALBUM_PREFIX, LOCAL_ARTIST_PREFIX, LOCAL_TRACK_PREFIX, ReleaseType,
-    Track,
+    Album, ArtistRef, Credit, LOCAL_ALBUM_PREFIX, LOCAL_ARTIST_PREFIX, LOCAL_TRACK_PREFIX,
+    ReleaseType, Track,
 };
 
 const COVER_NAMES: &[&str] = &[
@@ -257,6 +257,8 @@ pub struct Tagged {
     pub year: Option<i32>,
     /// The release type the tags name, `None` when they name neither a type nor a compilation.
     pub release: Option<ReleaseType>,
+    /// The record label the tags name, empty when they name none.
+    pub label: String,
 }
 
 struct FallbackProbe {
@@ -269,6 +271,13 @@ struct FallbackProbe {
     disc_number: u32,
     year: Option<i32>,
     release: Vec<String>,
+    genres: Vec<String>,
+    composers: Vec<String>,
+    languages: Vec<String>,
+    label: Option<String>,
+    codec: Option<String>,
+    sample_rate: Option<u32>,
+    bit_depth: Option<u8>,
     compilation: bool,
     cover_data: Option<(Vec<u8>, String)>,
 }
@@ -338,8 +347,25 @@ fn probe_symphonia_at(path: &Path, skip: u64) -> Option<FallbackProbe> {
     let mut disc_number = 0;
     let mut year = None;
     let mut release = Vec::new();
+    let mut genres = Vec::new();
+    let mut composers = Vec::new();
+    let mut languages = Vec::new();
+    let mut label = None;
     let mut compilation = false;
     let mut cover_data = None;
+
+    let (codec, sample_rate, bit_depth) = probed
+        .format
+        .tracks()
+        .first()
+        .map(|track| {
+            (
+                Some(format!("{:?}", track.codec_params.codec).to_uppercase()),
+                track.codec_params.sample_rate,
+                track.codec_params.bits_per_sample.map(|b| b as u8),
+            )
+        })
+        .unwrap_or_default();
 
     let mut collect_metadata = |rev: &symphonia::core::meta::MetadataRevision| {
         for tag in rev.tags() {
@@ -377,6 +403,18 @@ fn probe_symphonia_at(path: &Path, skip: u64) -> Option<FallbackProbe> {
                 }
                 Some(StandardTagKey::MusicBrainzReleaseType) => {
                     release.extend(clean_val(&tag.value));
+                }
+                Some(StandardTagKey::Genre) => {
+                    genres.extend(clean_val(&tag.value));
+                }
+                Some(StandardTagKey::Composer) => {
+                    composers.extend(clean_val(&tag.value));
+                }
+                Some(StandardTagKey::Language) => {
+                    languages.extend(clean_val(&tag.value));
+                }
+                Some(StandardTagKey::Label) if label.is_none() => {
+                    label = clean_val(&tag.value);
                 }
                 Some(StandardTagKey::Compilation) => {
                     compilation |= flagged(&tag.value.to_string());
@@ -417,6 +455,13 @@ fn probe_symphonia_at(path: &Path, skip: u64) -> Option<FallbackProbe> {
         disc_number,
         year,
         release,
+        genres,
+        composers,
+        languages,
+        label,
+        codec,
+        sample_rate,
+        bit_depth,
         compilation,
         cover_data,
     })
@@ -567,14 +612,47 @@ pub fn track_from_file(
             .and_then(|fb| release_type(fb.release.iter().map(String::as_str), fb.compilation)),
     };
 
-    let tags: Vec<String> = tag
-        .map(|tag| {
-            tag.get_strings(ItemKey::Genre)
-                .map(|s| s.trim().to_owned())
-                .filter(|s| !s.is_empty())
-                .collect()
-        })
-        .unwrap_or_default();
+    let format = detect_format(tagged.as_ref(), fallback.as_ref(), path);
+
+    let (genres, composers, languages, label) = match (tag, fallback) {
+        (Some(tag), _) => {
+            let listed = |key| clean_multiple(tag.get_strings(key));
+            (
+                listed(ItemKey::Genre),
+                listed(ItemKey::Composer),
+                listed(ItemKey::Language),
+                listed(ItemKey::Label)
+                    .into_iter()
+                    .chain(listed(ItemKey::Publisher))
+                    .next()
+                    .unwrap_or_default(),
+            )
+        }
+        (None, Some(fb)) => (
+            fb.genres,
+            fb.composers,
+            fb.languages,
+            fb.label.unwrap_or_default(),
+        ),
+        (None, None) => Default::default(),
+    };
+    // The view credits the track artists itself only while the track has no credits at all.
+    let credits = match composers.is_empty() {
+        true => Vec::new(),
+        false => track_artist_refs
+            .iter()
+            .map(|artist| Credit {
+                name: artist.name.clone(),
+                role: "Main artist".to_owned(),
+                id: artist.id.clone(),
+            })
+            .chain(composers.into_iter().map(|name| Credit {
+                name,
+                role: "Composer".to_owned(),
+                id: None,
+            }))
+            .collect(),
+    };
 
     Some(Tagged {
         track: Track {
@@ -594,14 +672,16 @@ pub fn track_from_file(
             explicit: false,
             track_number,
             disc_number,
-            tags,
-            languages: Vec::new(),
-            credits: Vec::new(),
+            tags: genres,
+            languages: languages.iter().map(|code| language_code(code)).collect(),
+            credits,
+            format,
         },
         album_artist,
         album_artists,
         year,
         release,
+        label,
     })
 }
 
@@ -614,6 +694,7 @@ pub fn album_from_tracks(
     tracks: &[Track],
     year: i32,
     release: ReleaseType,
+    label: String,
 ) -> Album {
     let artists = artist_refs
         .iter()
@@ -631,8 +712,11 @@ pub fn album_from_tracks(
         release_type: release,
         year,
         track_count: tracks.len() as u32,
-        release_date: String::new(),
-        label: String::new(),
+        release_date: match year > 0 {
+            true => year.to_string(),
+            false => String::new(),
+        },
+        label,
         copyrights: Vec::new(),
         added_at: tracks.iter().filter_map(|track| track.added_at).max(),
     }
@@ -794,6 +878,148 @@ fn release_type<'a>(
 /// Whether a flag tag such as `COMPILATION` or `TCMP` is set, which taggers write as `1`.
 fn flagged(value: &str) -> bool {
     matches!(value.trim(), "1" | "true" | "True" | "TRUE")
+}
+
+/// The two-letter code the views name a language by. Tags use three-letter ISO 639-2 codes, and a
+/// value the views do not know, such as a full name, stays as written.
+fn language_code(code: &str) -> String {
+    let short = match code.to_ascii_lowercase().as_str() {
+        "ara" => "ar",
+        "ger" | "deu" => "de",
+        "eng" => "en",
+        "spa" => "es",
+        "fre" | "fra" => "fr",
+        "hin" => "hi",
+        "ita" => "it",
+        "jpn" => "ja",
+        "kor" => "ko",
+        "por" => "pt",
+        "rus" => "ru",
+        "tur" => "tr",
+        "ukr" => "uk",
+        "chi" | "zho" => "zh",
+        _ => return code.to_owned(),
+    };
+    short.to_owned()
+}
+
+fn detect_format(
+    tagged: Option<&TaggedFile>,
+    fallback: Option<&FallbackProbe>,
+    path: &Path,
+) -> Option<String> {
+    if let Some(file) = tagged {
+        let props = file.properties();
+        let depth = props.bit_depth();
+        let rate = props.sample_rate();
+        let kbps = props.audio_bitrate().or_else(|| props.overall_bitrate());
+
+        let rate_str = rate.map(|r| {
+            if r.is_multiple_of(1000) {
+                format!("{} kHz", r / 1000)
+            } else {
+                format!("{:.1} kHz", r as f64 / 1000.0)
+            }
+        });
+
+        match file.file_type() {
+            FileType::Flac => {
+                let depth_str = depth.map(|d| format!("{d}-bit")).unwrap_or_default();
+                return Some(match (depth_str.is_empty(), rate_str) {
+                    (false, Some(rate)) => format!("FLAC {depth_str} / {rate}"),
+                    (false, None) => format!("FLAC {depth_str}"),
+                    (true, Some(rate)) => format!("FLAC / {rate}"),
+                    (true, None) => "FLAC".to_owned(),
+                });
+            }
+            FileType::Wav | FileType::Aiff => {
+                let name = match file.file_type() {
+                    FileType::Wav => "WAV",
+                    _ => "AIFF",
+                };
+                let depth_str = depth.map(|d| format!("{d}-bit")).unwrap_or_default();
+                return Some(match (depth_str.is_empty(), rate_str) {
+                    (false, Some(rate)) => format!("{name} {depth_str} / {rate}"),
+                    (false, None) => format!("{name} {depth_str}"),
+                    (true, Some(rate)) => format!("{name} / {rate}"),
+                    (true, None) => name.to_owned(),
+                });
+            }
+            FileType::Mpeg => {
+                return Some(match (kbps, rate_str) {
+                    (Some(kbps), Some(rate)) => format!("MP3 {kbps} kbps ({rate})"),
+                    (Some(kbps), None) => format!("MP3 {kbps} kbps"),
+                    (None, Some(rate)) => format!("MP3 ({rate})"),
+                    (None, None) => "MP3".to_owned(),
+                });
+            }
+            FileType::Aac => {
+                return Some(match (kbps, rate_str) {
+                    (Some(kbps), Some(rate)) => format!("AAC {kbps} kbps ({rate})"),
+                    (Some(kbps), None) => format!("AAC {kbps} kbps"),
+                    (None, Some(rate)) => format!("AAC ({rate})"),
+                    (None, None) => "AAC".to_owned(),
+                });
+            }
+            FileType::Mp4 => {
+                let is_alac = depth.is_some();
+                let name = if is_alac { "ALAC" } else { "AAC" };
+                if is_alac {
+                    let depth_str = depth.map(|d| format!("{d}-bit")).unwrap_or_default();
+                    return Some(match (depth_str.is_empty(), rate_str) {
+                        (false, Some(rate)) => format!("ALAC {depth_str} / {rate}"),
+                        (false, None) => format!("ALAC {depth_str}"),
+                        (true, Some(rate)) => format!("ALAC / {rate}"),
+                        (true, None) => "ALAC".to_owned(),
+                    });
+                }
+                return Some(match (kbps, rate_str) {
+                    (Some(kbps), Some(rate)) => format!("{name} {kbps} kbps ({rate})"),
+                    (Some(kbps), None) => format!("{name} {kbps} kbps"),
+                    (None, Some(rate)) => format!("{name} ({rate})"),
+                    (None, None) => name.to_owned(),
+                });
+            }
+            FileType::Vorbis => {
+                return Some(match (kbps, rate_str) {
+                    (Some(kbps), Some(rate)) => format!("Ogg Vorbis {kbps} kbps ({rate})"),
+                    (Some(kbps), None) => format!("Ogg Vorbis {kbps} kbps"),
+                    (None, Some(rate)) => format!("Ogg Vorbis ({rate})"),
+                    (None, None) => "Ogg Vorbis".to_owned(),
+                });
+            }
+            FileType::Opus => {
+                return Some(match (kbps, rate_str) {
+                    (Some(kbps), Some(rate)) => format!("Opus {kbps} kbps ({rate})"),
+                    (Some(kbps), None) => format!("Opus {kbps} kbps"),
+                    (None, Some(rate)) => format!("Opus ({rate})"),
+                    (None, None) => "Opus".to_owned(),
+                });
+            }
+            _ => {}
+        }
+    }
+
+    if let Some(fb) = fallback && let Some(ref codec) = fb.codec {
+        let rate_str = fb.sample_rate.map(|r| {
+            if r.is_multiple_of(1000) {
+                format!("{} kHz", r / 1000)
+            } else {
+                format!("{:.1} kHz", r as f64 / 1000.0)
+            }
+        });
+        let depth_str = fb.bit_depth.map(|d| format!("{d}-bit")).unwrap_or_default();
+        return Some(match (depth_str.is_empty(), rate_str) {
+            (false, Some(rate)) => format!("{codec} {depth_str} / {rate}"),
+            (false, None) => format!("{codec} {depth_str}"),
+            (true, Some(rate)) => format!("{codec} ({rate})"),
+            (true, None) => codec.clone(),
+        });
+    }
+
+    path.extension()
+        .and_then(|ext| ext.to_str())
+        .map(|ext| ext.to_uppercase())
 }
 
 #[cfg(test)]
@@ -985,6 +1211,7 @@ mod tests {
             &[older, newer],
             2026,
             ReleaseType::Album,
+            String::new(),
         );
 
         assert_eq!(album.added_at, Some(2_000));

@@ -600,7 +600,11 @@ impl Root {
                 Box::new(move |cx| matches!(history.read(cx).state(), HistoryState::Loading))
             }
             Destination::Library(_) => shelf(Shelf::Streaming),
-            Destination::Local(_) => shelf(Shelf::Local),
+            Destination::Local(_) => {
+                let session = Sonora::global(cx).session.clone();
+                let local = shelf(Shelf::Local);
+                Box::new(move |cx| session.read(cx).scanning() || local(cx))
+            }
             Destination::Album(_) => {
                 let detail = self.screens.album_detail.clone()?;
                 Box::new(move |cx| detail.read(cx).is_loading())

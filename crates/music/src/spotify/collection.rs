@@ -167,6 +167,7 @@ fn track_from(uri: &str, track: &TrackMessage) -> Track {
                 })
             })
             .collect(),
+        format: None,
     }
 }
 

@@ -91,12 +91,12 @@ impl RenderOnce for Kbd {
 fn label(part: &str) -> SharedString {
     let mac = cfg!(target_os = "macos");
     match (part, mac) {
-        ("secondary" | "cmd", true) => SharedString::new_static("⌘"),
+        ("secondary" | "cmd" | "win" | "super", true) => SharedString::new_static("⌘"),
         ("ctrl", true) => SharedString::new_static("⌃"),
         ("alt", true) => SharedString::new_static("⌥"),
         ("shift", true) => SharedString::new_static("⇧"),
         ("secondary" | "ctrl", false) => i18n::lookup("key-ctrl", None),
-        ("cmd", false) => i18n::lookup("key-super", None),
+        ("cmd" | "win" | "super", false) => i18n::lookup("key-super", None),
         ("alt", false) => i18n::lookup("key-alt", None),
         ("shift", false) => i18n::lookup("key-shift", None),
         (part, _) => named(part),

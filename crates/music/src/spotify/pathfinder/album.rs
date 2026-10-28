@@ -264,6 +264,7 @@ fn track_from(track: PathTrack, album: &Album) -> Result<Track> {
         tags: Vec::new(),
         languages: Vec::new(),
         credits: Vec::new(),
+        format: None,
     })
 }
 

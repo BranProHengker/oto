@@ -13,6 +13,34 @@ pub fn track(song: Child, cover: Option<String>) -> Track {
         song.artists.as_ref(),
         song.display_artist,
     );
+    let format = match (
+        song.suffix.as_deref(),
+        song.bit_depth,
+        song.sampling_rate,
+        song.bit_rate,
+    ) {
+        (Some(ext), Some(depth), Some(rate), _) if depth > 0 && rate > 0 => {
+            let khz = if rate % 1000 == 0 {
+                format!("{} kHz", rate / 1000)
+            } else {
+                format!("{:.1} kHz", rate as f64 / 1000.0)
+            };
+            Some(format!("{} {depth}-bit / {khz}", ext.to_uppercase()))
+        }
+        (Some(ext), _, Some(rate), Some(kbps)) if kbps > 0 && rate > 0 => {
+            let khz = if rate % 1000 == 0 {
+                format!("{} kHz", rate / 1000)
+            } else {
+                format!("{:.1} kHz", rate as f64 / 1000.0)
+            };
+            Some(format!("{} {kbps} kbps ({khz})", ext.to_uppercase()))
+        }
+        (Some(ext), _, _, Some(kbps)) if kbps > 0 => {
+            Some(format!("{} {kbps} kbps", ext.to_uppercase()))
+        }
+        (Some(ext), _, _, _) => Some(ext.to_uppercase()),
+        _ => None,
+    };
     Track {
         id: Some(song.id.clone()),
         name: song.title,
@@ -33,6 +61,7 @@ pub fn track(song: Child, cover: Option<String>) -> Track {
         tags: Vec::new(),
         languages: Vec::new(),
         credits: Vec::new(),
+        format,
     }
 }
 

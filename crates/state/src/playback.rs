@@ -129,7 +129,8 @@ const RESUME_STEP: Duration = Duration::from_secs(5);
 /// reports the track as ended. Apple's license asks for renewal 13 minutes after it is issued,
 /// and that clock starts at the load rather than the pause, so this leaves room for a long track.
 const STALE_PAUSE: Duration = Duration::from_secs(5 * 60);
-const TAPER_DB: f32 = 50.;
+const TAPER_DB: f32 = 35.;
+const MAX_GAIN: f32 = 1.35;
 const SIMILAR_LIMIT: usize = 20;
 
 /// How few tracks may be left to play before radio asks for the next batch of suggestions.
@@ -234,7 +235,7 @@ fn shifted(base: Duration, seconds: f64) -> Duration {
 fn gain(level: f32) -> f32 {
     match level.clamp(0., 1.) {
         level if level <= 0. => 0.,
-        level => 10f32.powf(TAPER_DB * (level - 1.) / 20.),
+        level => MAX_GAIN * 10f32.powf(TAPER_DB * (level - 1.) / 20.),
     }
 }
 
@@ -3391,10 +3392,10 @@ mod tests {
     use super::{LiveClock, gain};
 
     #[test]
-    fn never_amplifies_past_unity() {
-        assert_eq!(gain(1.), 1.);
+    fn amplifies_to_max_gain() {
+        assert_eq!(gain(1.), super::MAX_GAIN);
         for step in 0..=100 {
-            assert!(gain(step as f32 / 100.) <= 1.);
+            assert!(gain(step as f32 / 100.) <= super::MAX_GAIN);
         }
     }
 
@@ -3402,7 +3403,7 @@ mod tests {
     fn silences_a_closed_slider() {
         assert_eq!(gain(0.), 0.);
         assert_eq!(gain(-1.), 0.);
-        assert_eq!(gain(2.), 1.);
+        assert_eq!(gain(2.), super::MAX_GAIN);
     }
 
     #[test]
@@ -3417,7 +3418,7 @@ mod tests {
 
     #[test]
     fn halves_the_slider_to_the_taper_midpoint() {
-        let expected = 10f32.powf(-super::TAPER_DB / 40.);
+        let expected = super::MAX_GAIN * 10f32.powf(-super::TAPER_DB / 40.);
         assert!((gain(0.5) - expected).abs() < 1e-6);
     }
 

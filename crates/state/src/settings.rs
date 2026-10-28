@@ -1429,9 +1429,11 @@ impl AppSettings {
         self.schedule_save(cx);
     }
 
+    /// Persists playback's volume without invalidating views that observe preferences.
+    /// Live volume changes are published by `Playback`, not by settings.
     pub fn set_volume(&mut self, volume: f32, cx: &mut Context<Self>) {
         self.state.volume = volume.clamp(0., 1.);
-        self.schedule_state_save(cx);
+        self.save_state_quietly(cx);
     }
 
     pub fn set_normalisation(&mut self, normalisation: bool, cx: &mut Context<Self>) {

@@ -48,6 +48,8 @@ const AHEAD: f32 = 0.6;
 const REVEAL: f32 = 0.6;
 const ACTIVE_VERSE_GROWTH: Pixels = px(2.);
 const FULLSCREEN_VERSE_GROWTH: Pixels = px(3.);
+/// How much larger than the lane text unsynced lyrics are set, while staying below a synced verse.
+const PLAIN_LYRICS_GROWTH: f32 = 1.15;
 const LYRICS_HORIZONTAL_INSET_REM: f32 = 1.5;
 // The largest window fullscreen lyrics keep their own size in. A larger one grows them by its
 // share of this one, so a verse keeps its size relative to the window.
@@ -1645,26 +1647,52 @@ impl Aside {
             }
             (None, LyricsState::Ready) => {
                 match self.lyrics.read(cx).current().map(|hit| &hit.lyrics) {
-                    Some(music::Lyrics::Plain { text, romanized }) => vec![
-                        div()
-                            .w_full()
-                            .max_w(reach)
-                            .px_2()
-                            .flex()
-                            .flex_col()
-                            .gap_1()
-                            .text_size(lane_size)
-                            .font_weight(FontWeight::SEMIBOLD)
-                            .text_color(theme.muted_foreground)
-                            .child(SharedString::from(text.clone()))
-                            .when_some(
-                                selected_romanization(romanized, romanization_scripts),
-                                |this, text| {
-                                    this.child(romanized_lyrics_lane(text, lane_size, &theme))
-                                },
-                            )
-                            .into_any_element(),
-                    ],
+                    Some(music::Lyrics::Plain { text, romanized }) => {
+                        let romanized = selected_romanization(romanized, romanization_scripts);
+                        let romanized_lines = romanized
+                            .as_deref()
+                            .map_or_else(Vec::new, |text| text.lines().collect::<Vec<_>>());
+                        let plain_size = (lane_size * PLAIN_LYRICS_GROWTH).round();
+                        vec![
+                            div()
+                                .w_full()
+                                .max_w(reach)
+                                .px_2()
+                                .flex()
+                                .flex_col()
+                                .gap_1()
+                                .text_size(plain_size)
+                                .font_weight(FontWeight::SEMIBOLD)
+                                .text_color(theme.foreground)
+                                .map(|this| match romanized.is_some() {
+                                    false => this.child(SharedString::from(text.clone())),
+                                    true => this.children(text.lines().enumerate().map(
+                                        |(index, line)| {
+                                            div()
+                                                .flex()
+                                                .flex_col()
+                                                .child(div().child(SharedString::from(line.to_owned())))
+                                                .when_some(
+                                                    romanized_lines
+                                                        .get(index)
+                                                        .filter(|line| !line.is_empty()),
+                                                    |this, line| {
+                                                        this.child(
+                                                            romanized_lyrics_lane(
+                                                                (*line).to_owned(),
+                                                                lane_size,
+                                                                &theme,
+                                                            )
+                                                            .font_weight(FontWeight::NORMAL),
+                                                        )
+                                                    },
+                                                )
+                                        },
+                                    )),
+                                })
+                                .into_any_element(),
+                        ]
+                    }
                     _ => vec![wordless("lyrics-missing", "icons/mic-off.svg")],
                 }
             }
