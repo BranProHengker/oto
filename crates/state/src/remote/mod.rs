@@ -20,8 +20,8 @@ use self::souvlaki::Controls;
 #[cfg(any(target_os = "linux", target_os = "freebsd"))]
 use mpris::Controls;
 
-const BUS_NAME: &str = "sonora";
-const DISPLAY_NAME: &str = "Sonora";
+const BUS_NAME: &str = "oto";
+const DISPLAY_NAME: &str = "Oto";
 /// How far the position may stray from where steady playback would have put it before the
 /// widget is told the track was seeked.
 const SEEK_SLACK: Duration = Duration::from_secs(2);

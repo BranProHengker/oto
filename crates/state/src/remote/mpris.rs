@@ -12,8 +12,8 @@ use tokio::sync::mpsc;
 use super::{BUS_NAME, Command, DISPLAY_NAME};
 use crate::{PlaybackState, Repeat};
 
-/// The desktop entry a native install ships, `sonora.desktop`.
-const DESKTOP_ENTRY: &str = "sonora";
+/// The desktop entry a native install ships, `oto.desktop`.
+const DESKTOP_ENTRY: &str = "oto";
 
 /// A change to publish on the MPRIS player, applied in the order it was sent.
 enum Update {
@@ -103,7 +103,7 @@ impl Controls {
     }
 }
 
-/// Registers `org.mpris.MediaPlayer2.sonora` and routes every request the player accepts
+/// Registers `org.mpris.MediaPlayer2.oto` and routes every request the player accepts
 /// into `commands`.
 async fn build(commands: mpsc::UnboundedSender<Command>) -> mpris_server::zbus::Result<Player> {
     let desktop_entry = std::env::var("FLATPAK_ID").unwrap_or_else(|_| DESKTOP_ENTRY.to_owned());
@@ -225,7 +225,7 @@ fn metadata(track: &Track, cover: Option<&str>) -> Metadata {
 fn track_id(track: &Track) -> TrackId {
     let mut hasher = DefaultHasher::new();
     track.id.as_ref().unwrap_or(&track.name).hash(&mut hasher);
-    TrackId::try_from(format!("/app/sonora/track/t{:016x}", hasher.finish()))
+    TrackId::try_from(format!("/app/oto/track/t{:016x}", hasher.finish()))
         .unwrap_or(TrackId::NO_TRACK)
 }
 
