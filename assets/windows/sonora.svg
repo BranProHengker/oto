@@ -1,5 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
   <title>Oto - Melodic Note</title>
+  <rect x="2" y="2" width="252" height="252" rx="56" fill="#FFFFFF" stroke="rgba(0,0,0,0.08)" stroke-width="2"/>
   <path fill-rule="evenodd" clip-rule="evenodd" d="
     M 96 112
     C 69.49 112 48 133.49 48 160
