@@ -354,6 +354,8 @@ jobs:
           # and the icons for the host's launcher and nothing else.
           mkdir -p AppDir/usr/share/icons
           cp -R assets/linux/icons/hicolor AppDir/usr/share/icons/
+          mkdir -p AppDir/usr/share/icons/hicolor/scalable/apps
+          cp assets/linux/oto.svg AppDir/usr/share/icons/hicolor/scalable/apps/oto.svg
 
           # The keys AppImage managers identify and version the app by go into a copy, so the
           # entry the Flatpak and the distribution packages install stays as it is.
@@ -373,7 +375,12 @@ jobs:
             --appdir AppDir \
             --executable AppDir/usr/bin/oto \
             --desktop-file desktop/oto.desktop \
-            --icon-file assets/linux/oto.svg
+            --icon-file assets/linux/icons/hicolor/512x512/apps/oto.png
+
+          # appimagetool strictly requires <icon>.png and .DirIcon at the root of AppDir
+          cp assets/linux/icons/hicolor/256x256/apps/oto.png AppDir/oto.png
+          cp assets/linux/icons/hicolor/256x256/apps/oto.png AppDir/.DirIcon
+          cp desktop/oto.desktop AppDir/oto.desktop
 
           # The Vulkan loader has to be the host's: it is what finds the host's ICD, and a loader
           # this old paired with a current driver is how an AppImage stops starting.

@@ -517,7 +517,7 @@ impl SettingsView {
                                     .flex_shrink_0()
                                     .child(
                                         Button::new("btn-generate-romaji")
-                                            .label(if is_converting { "Calling API..." } else { "AI Romaji (API)" })
+                                            .label(if is_converting { "Calling Avttr Studio..." } else { "Generate Romaji (Avttr Studio)" })
                                             .icon("icons/arrow-right-left.svg")
                                             .small()
                                             .ghost()
