@@ -69,7 +69,7 @@ pub use controls::WindowControls;
 #[cfg(any(target_os = "linux", target_os = "freebsd"))]
 pub use controls::WindowFrame;
 pub use deck::Deck;
-pub use drag::{Edge, Ghost, drop_gap, drop_marker, grip};
+pub use drag::{Edge, Ghost, drop_gap, drop_into, drop_marker, grip};
 pub use explicit::ExplicitBadge;
 pub use filters::{
     Filter, FilterChange, FlagAxis, RangeAxis, RangeScrubber, RangeState, SortAxis, Unit,

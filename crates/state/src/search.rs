@@ -79,11 +79,12 @@ impl Hit {
     }
 }
 
+/// What the provider answered a search with, before it is ranked against the library.
 #[derive(Default)]
-struct Catalog {
-    tracks: Vec<Track>,
-    albums: Vec<Album>,
-    playlists: Vec<Playlist>,
+pub(crate) struct Catalog {
+    pub(crate) tracks: Vec<Track>,
+    pub(crate) albums: Vec<Album>,
+    pub(crate) playlists: Vec<Playlist>,
 }
 
 impl Catalog {
@@ -355,7 +356,10 @@ impl Search {
     }
 }
 
-fn rank(
+/// The hits for `asked`, best first: the provider's `catalog` and what the library holds that
+/// fits, artists drawn from both. The command line ranks with this too, so it finds what the
+/// search page finds.
+pub(crate) fn rank(
     library: &[Track],
     albums: &[Album],
     playlists: &[Playlist],

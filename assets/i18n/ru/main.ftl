@@ -104,6 +104,7 @@ menu-add-tracks-to-playlist = { $count ->
    *[other] Добавить { $count } треков в плейлист
 }
 menu-new-playlist = Новый плейлист
+menu-import-playlist = Импортировать плейлист…
 menu-edit-tags = Изменить теги
 menu-no-playlists = Нет плейлистов
 menu-search-playlists = Поиск плейлиста
@@ -174,8 +175,9 @@ menu-copy = Копировать
 menu-paste = Вставить
 menu-select-all = Выделить всё
 menu-remove-from-queue = Убрать из очереди
-menu-rename-playlist = Переименовать плейлист
+menu-edit-playlist = Редактировать плейлист
 menu-delete-playlist = Удалить плейлист
+menu-export-playlist = Экспортировать плейлист…
 menu-add-playlist-to-library = Добавить в медиатеку
 menu-remove-playlist-from-library = Удалить из медиатеки
 menu-library-add = Добавить в медиатеку
@@ -197,7 +199,12 @@ menu-play-artist = Воспроизвести исполнителя
 # playlist editor
 playlist-name-placeholder = Название плейлиста
 playlist-create-title = Создать плейлист
-playlist-rename-title = Переименовать плейлист
+playlist-edit-title = Редактировать плейлист
+playlist-cover-choose = Выбрать картинку
+playlist-cover-remove = Убрать обложку
+playlist-cover-unopenable = Sonora не может открыть этот файл
+playlist-cover-too-large = Картинка больше 40 МБ
+playlist-cover-not-a-picture = Это не картинка в JPEG, PNG или WebP
 playlist-delete-title = Удалить плейлист
 playlist-delete-confirm = Удалить «{ $name }»? Это действие нельзя отменить.
 playlist-again-title = Добавить ещё раз?
@@ -1111,6 +1118,9 @@ saver-fps = { $fps } FPS
 
 toast-playlist-created = Плейлист создан
 toast-playlist-renamed = Плейлист переименован
+toast-playlist-updated = Плейлист обновлён
+toast-playlist-cover-changed = Обложка плейлиста изменена
+toast-playlist-cover-removed = Обложка плейлиста убрана
 toast-playlist-deleted = Плейлист удалён
 toast-local-delete-failed = Не удалось удалить часть файлов треков
 toast-playlist-added = Плейлист добавлен в медиатеку
@@ -1122,6 +1132,14 @@ toast-track-removed-unnamed = Удалено из плейлиста
 toast-playlist-failed = Не удалось сохранить изменение
 toast-playlist-busy = Другое изменение ещё выполняется
 toast-playlist-signed-out = Войдите, чтобы менять плейлисты
+toast-playlist-imported = Плейлист { $name } импортирован
+toast-playlist-imported-partly = Плейлист { $name } импортирован без { $count ->
+        [one] { $count } трека, которого
+       *[other] { $count } треков, которых
+    } нет в медиатеке
+toast-playlist-import-empty = Ни одного трека из { $name } нет в медиатеке
+toast-playlist-exported = Плейлист экспортирован
+toast-file-dialog-failed = Не удалось открыть окно выбора файла
 toast-queued-track = { $name } добавлен в очередь
 toast-next-track = { $name } прозвучит следующим
 toast-last-track = { $name } прозвучит в конце

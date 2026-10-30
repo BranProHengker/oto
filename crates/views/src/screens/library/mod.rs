@@ -1142,9 +1142,12 @@ impl Render for LibraryView {
                     .source()
                     .menu()
                     .for_track(&track, cx),
-                LibraryMenu::Background => new_playlist_menu(cx.listener(|this, _, window, cx| {
-                    this.create_playlist(window, cx);
-                })),
+                LibraryMenu::Background => new_playlist_menu(
+                    self.shelf,
+                    cx.listener(|this, _, window, cx| {
+                        this.create_playlist(window, cx);
+                    }),
+                ),
             };
             Popup::new(position, menu).on_close(cx.listener(|this, _, _, cx| {
                 this.context_menu = None;
@@ -1273,8 +1276,19 @@ impl Tooled for LibraryView {
                 .into_any_element()
         });
 
+        let import = (self.section == Section::Playlists && self.shelf.local()).then(|| {
+            Button::new("import-playlist")
+                .icon("icons/file-music.svg")
+                .tooltip("menu-import-playlist")
+                .small()
+                .ghost()
+                .on_click(|_, _, cx| local::import_playlist(cx))
+                .into_any_element()
+        });
+
         let mut tools = Vec::new();
         tools.extend(create);
+        tools.extend(import);
         let switchable = !self.section.listing();
         tools.extend(switchable.then(|| {
             tools::views(&self.popovers, self.mode(), move |mode, cx| {

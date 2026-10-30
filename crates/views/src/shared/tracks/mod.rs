@@ -24,7 +24,7 @@ use ui::{
 
 use crate::shared::cells;
 use crate::shared::confirm::{Confirm, Kind};
-use crate::shared::pins::Pinned as _;
+use crate::shared::pins::{Pinned as _, origin_tag};
 
 pub(crate) use columns::{
     HISTORY_COLUMNS, LIBRARY_COLUMNS, TrackField, album_columns, artist_columns, playlist_columns,
@@ -263,6 +263,16 @@ impl TrackSource {
 
     pub(crate) fn whence(&self, cx: &App) -> Option<Origin> {
         self.whence.as_ref().and_then(|whence| whence(cx))
+    }
+
+    /// The origin tag a song dragged from this table carries, for a move. A song its playlist
+    /// holds more than once stays a copy, since the provider would take out every copy and the
+    /// Undo would bring back one.
+    fn origin_tag(&self, track: &Track, tracks: &[Track], cx: &App) -> Option<String> {
+        let origin = self.whence(cx)?;
+        let once = origin.whence != state::Whence::Playlist
+            || tracks.iter().filter(|other| other.id == track.id).count() == 1;
+        once.then(|| origin_tag(&origin)).flatten()
     }
 
     pub(crate) fn table(mut self, table: WeakEntity<TableState<TrackSource>>) -> Self {
@@ -679,7 +689,9 @@ impl TableSource for TrackSource {
     }
 
     fn pin(&self, row: usize, cx: &App) -> Option<Pin> {
-        self.provider.tracks(cx).get(row)?.pin()
+        let tracks = self.provider.tracks(cx);
+        let track = tracks.get(row)?;
+        Some(track.pin()?.origin(self.origin_tag(track, tracks, cx)))
     }
 
     fn cell(&self, cell: Cell<TrackField>, cx: &mut App) -> AnyElement {

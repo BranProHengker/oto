@@ -101,6 +101,7 @@ pub struct FullscreenView {
     volume_held: bool,
     muted: Option<f32>,
     large: Option<SharedString>,
+    full: Option<SharedString>,
     revision: usize,
     track_menu: ItemMenu,
     context_menu: Option<(music::Track, Point<Pixels>)>,
@@ -157,6 +158,7 @@ impl FullscreenView {
             volume_held: false,
             muted: None,
             large: None,
+            full: None,
             revision: 0,
             track_menu: ItemMenu::new(playlist_scrollbar, cx),
             context_menu: None,
@@ -408,21 +410,27 @@ impl FullscreenView {
             }
             None => (None, None, false),
         };
-        let cover_large = album
-            .as_deref()
-            .and_then(|album| self.cover.read(cx).large_for(album));
+        let cover = self.cover.read(cx);
+        let cover_large = album.as_deref().and_then(|album| cover.large_for(album));
+        let cover_full = album.as_deref().and_then(|album| cover.full_for(album));
         let local = local_id || small.as_ref().is_some_and(|url| url.starts_with("file://"));
         // Only upgrade resolution for non-local tracks, since a local cover is always
         // the full resolution picture. The track's own embedded cover is prioritized
-        // over the cover of its album.
-        let large =
-            cover_large.filter(|url| !local && small.is_some() && Some(*url) != small.as_deref());
+        // over the cover of its album. Each larger cover fades in over the one below, so the
+        // thumbnail shows only until the large cover lands.
+        let upgrades = |url: &&str| !local && small.is_some() && Some(*url) != small.as_deref();
+        let large = cover_large.filter(upgrades);
+        let full = cover_full
+            .filter(upgrades)
+            .filter(|url| Some(*url) != large);
 
-        if self.large.as_deref() != large {
+        if self.large.as_deref() != large || self.full.as_deref() != full {
             self.large = large.map(SharedString::from);
+            self.full = full.map(SharedString::from);
             self.revision += 1;
         }
         let large = self.large.clone();
+        let full = self.full.clone();
         let revision = self.revision;
         let waiting = !local && album.is_some() && cover_large.is_none();
 
@@ -450,23 +458,28 @@ impl FullscreenView {
                                 .soft(waiting),
                         ),
                     )
-                    .when_some(large, |this, url| {
-                        this.child(
-                            div()
-                                .absolute()
-                                .top(pad)
-                                .left(pad)
-                                .child(
-                                    Artwork::new(Some(url))
-                                        .size(raster_side)
-                                        .corner_radius(radius)
-                                        .overlay(),
+                    .children(
+                        [("cover-large", large), ("cover-full", full)]
+                            .into_iter()
+                            .filter_map(|(layer, url)| {
+                                let url = url?;
+                                Some(
+                                    div()
+                                        .absolute()
+                                        .top(pad)
+                                        .left(pad)
+                                        .child(
+                                            Artwork::new(Some(url))
+                                                .size(raster_side)
+                                                .corner_radius(radius)
+                                                .overlay(),
+                                        )
+                                        .motion((layer, revision), Motion::Slow, |art, t| {
+                                            art.opacity(t)
+                                        }),
                                 )
-                                .motion(("cover-large", revision), Motion::Slow, |art, t| {
-                                    art.opacity(t)
-                                }),
-                        )
-                    }),
+                            }),
+                    ),
             )
     }
 

@@ -88,6 +88,14 @@ impl Icon {
     }
 }
 
+impl Drop for Icon {
+    fn drop(&mut self) {
+        if let Some(handle) = self.handle.take() {
+            drop(handle.shutdown());
+        }
+    }
+}
+
 fn spawn(item: Item) -> Result<Handle<Item>> {
     // A sandbox cannot own `org.kde.StatusNotifierItem-<pid>-<n>`, and a manifest cannot
     // grant it: flatpak's own-name wildcard only matches a `.*` suffix. The watcher

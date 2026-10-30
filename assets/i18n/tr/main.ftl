@@ -100,6 +100,7 @@ column-tracks = Parçalar
 menu-add-to-playlist = Çalma listesine ekle
 menu-add-tracks-to-playlist = { $count } parçayı çalma listesine ekle
 menu-new-playlist = Yeni çalma listesi
+menu-import-playlist = Çalma listesini içe aktar…
 menu-edit-tags = Etiketleri düzenle
 menu-no-playlists = Çalma listesi yok
 menu-search-playlists = Çalma listesi ara
@@ -140,8 +141,9 @@ menu-copy = Kopyala
 menu-paste = Yapıştır
 menu-select-all = Tümünü seç
 menu-remove-from-queue = Sıradan çıkar
-menu-rename-playlist = Çalma listesini yeniden adlandır
+menu-edit-playlist = Çalma listesini düzenle
 menu-delete-playlist = Çalma listesini sil
+menu-export-playlist = Çalma listesini dışa aktar…
 menu-add-playlist-to-library = Kitaplığa ekle
 menu-remove-playlist-from-library = Kitaplıktan çıkar
 menu-library-add = Kitaplığa ekle
@@ -159,7 +161,12 @@ menu-play-artist = Sanatçıyı çal
 # playlist editor
 playlist-name-placeholder = Çalma listesi adı
 playlist-create-title = Çalma listesi oluştur
-playlist-rename-title = Çalma listesini yeniden adlandır
+playlist-edit-title = Çalma listesini düzenle
+playlist-cover-choose = Resim seç
+playlist-cover-remove = Kapağı kaldır
+playlist-cover-unopenable = Sonora bu dosyayı açamıyor
+playlist-cover-too-large = Bu resim 40 MB’tan büyük
+playlist-cover-not-a-picture = Bu dosya JPEG, PNG veya WebP resmi değil
 playlist-delete-title = Çalma listesini sil
 playlist-delete-confirm = “{ $name }” silinsin mi? Bu işlem geri alınamaz.
 playlist-again-title = Yeniden eklensin mi?
@@ -1050,6 +1057,9 @@ saver-fps = { $fps } FPS
 
 toast-playlist-created = Çalma listesi oluşturuldu
 toast-playlist-renamed = Çalma listesi yeniden adlandırıldı
+toast-playlist-updated = Çalma listesi güncellendi
+toast-playlist-cover-changed = Çalma listesinin kapağı değişti
+toast-playlist-cover-removed = Çalma listesinin kapağı kaldırıldı
 toast-playlist-deleted = Çalma listesi silindi
 toast-local-delete-failed = Bazı parça dosyaları silinemedi
 toast-playlist-added = Çalma listesi kitaplığına eklendi
@@ -1061,6 +1071,14 @@ toast-track-removed-unnamed = Çalma listesinden çıkarıldı
 toast-playlist-failed = Bu değişiklik kaydedilemedi
 toast-playlist-busy = Başka bir değişiklik hâlâ sürüyor
 toast-playlist-signed-out = Çalma listelerini değiştirmek için oturum aç
+toast-playlist-imported = { $name } içe aktarıldı
+toast-playlist-imported-partly = { $name } içe aktarıldı, kitaplığında olmayan { $count ->
+        [one] bir şarkı
+       *[other] { $count } şarkı
+    } dışarıda bırakıldı
+toast-playlist-import-empty = { $name } içindeki şarkıların hiçbiri kitaplığında yok
+toast-playlist-exported = Çalma listesi dışa aktarıldı
+toast-file-dialog-failed = Dosya penceresi açılamadı
 toast-queued-track = { $name } sıraya eklendi
 toast-next-track = Sırada { $name } çalacak
 toast-last-track = { $name } en son çalacak

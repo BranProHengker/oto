@@ -334,12 +334,12 @@ impl Paced {
         if self.output.failed() {
             return Err(self.disconnected());
         }
-        self.output.sink().play();
+        self.output.play();
         Ok(())
     }
 
     pub fn pause(&self) {
-        self.output.sink().pause();
+        self.output.pause();
     }
 
     pub fn set_volume(&self, gain: f32) {

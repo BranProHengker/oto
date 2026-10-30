@@ -103,6 +103,7 @@ menu-add-tracks-to-playlist = { $count ->
    *[other] Ajouter { $count } titres à une playlist
 }
 menu-new-playlist = Nouvelle playlist
+menu-import-playlist = Importer une playlist…
 menu-edit-tags = Modifier les tags
 menu-no-playlists = Aucune playlist
 menu-search-playlists = Rechercher une playlist
@@ -167,8 +168,9 @@ menu-copy = Copier
 menu-paste = Coller
 menu-select-all = Tout sélectionner
 menu-remove-from-queue = Retirer de la file d'attente
-menu-rename-playlist = Renommer la playlist
+menu-edit-playlist = Modifier la playlist
 menu-delete-playlist = Supprimer la playlist
+menu-export-playlist = Exporter la playlist…
 menu-add-playlist-to-library = Ajouter à la bibliothèque
 menu-remove-playlist-from-library = Retirer de la bibliothèque
 menu-library-add = Ajouter à la bibliothèque
@@ -188,7 +190,12 @@ menu-play-artist = Lire l'artiste
 # playlist editor
 playlist-name-placeholder = Nom de la playlist
 playlist-create-title = Créer une playlist
-playlist-rename-title = Renommer la playlist
+playlist-edit-title = Modifier la playlist
+playlist-cover-choose = Choisir une image
+playlist-cover-remove = Retirer la couverture
+playlist-cover-unopenable = Sonora ne peut pas ouvrir ce fichier
+playlist-cover-too-large = Cette image dépasse 40 Mo
+playlist-cover-not-a-picture = Ce fichier n'est pas une image JPEG, PNG ou WebP
 playlist-delete-title = Supprimer la playlist
 playlist-delete-confirm = Supprimer « { $name } » ? Cette action est irréversible.
 playlist-again-title = L'ajouter encore ?
@@ -1079,6 +1086,9 @@ saver-fps = { $fps } FPS
 
 toast-playlist-created = Playlist créée
 toast-playlist-renamed = Playlist renommée
+toast-playlist-updated = Playlist mise à jour
+toast-playlist-cover-changed = Couverture de la playlist modifiée
+toast-playlist-cover-removed = Couverture de la playlist retirée
 toast-playlist-deleted = Playlist supprimée
 toast-local-delete-failed = Certains fichiers de titres n'ont pas pu être supprimés
 toast-playlist-added = Playlist ajoutée à votre bibliothèque
@@ -1090,6 +1100,14 @@ toast-track-removed-unnamed = Retiré de la playlist
 toast-playlist-failed = Cette modification n'a pas pu être enregistrée
 toast-playlist-busy = Une autre modification est encore en cours
 toast-playlist-signed-out = Connectez-vous pour modifier des playlists
+toast-playlist-imported = Import terminé : { $name }
+toast-playlist-imported-partly = Import terminé : { $name }, sans { $count ->
+        [one] un titre absent
+       *[other] { $count } titres absents
+    } de votre bibliothèque
+toast-playlist-import-empty = Aucun titre de { $name } n'est dans votre bibliothèque
+toast-playlist-exported = Playlist exportée
+toast-file-dialog-failed = Impossible d'ouvrir la boîte de dialogue
 toast-queued-track = { $name } ajouté à la file d'attente
 toast-next-track = { $name } sera lu juste après
 toast-last-track = { $name } sera lu en dernier

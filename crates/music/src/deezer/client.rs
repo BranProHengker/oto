@@ -14,6 +14,7 @@ use serde_json::{Value, json};
 use tokio::sync::RwLock;
 use tokio::time::Instant;
 
+use crate::cover::{self, CoverLimits};
 use crate::deezer::{decrypt, wire};
 use crate::engine::Loudness;
 use crate::{
@@ -25,6 +26,23 @@ use crate::{
 const GATEWAY: &str = "https://www.deezer.com/ajax/gw-light.php";
 const PUBLIC: &str = "https://api.deezer.com";
 const MEDIA: &str = "https://media.deezer.com/v1/get_url";
+/// Trades the `arl` cookie for the short-lived bearer token the newer Deezer hosts take.
+const ARL_LOGIN: &str = "https://auth.deezer.com/login/arl?jo=p&rto=c&i=c";
+/// Where the web app uploads a playlist picture, answering a token that names it.
+const PICTURE_UPLOAD: &str = "https://upload.deezer.com/v2/playlist/picture";
+/// Deezer's GraphQL endpoint, which the web app edits a playlist's picture through.
+const PIPE: &str = "https://pipe.deezer.com/api";
+/// The web app redraws every playlist picture as a 1200 pixel JPEG before it uploads one.
+const COVER_LIMITS: CoverLimits = CoverLimits {
+    side: 1200,
+    bytes: 4 * 1024 * 1024,
+};
+const SET_PICTURE: &str = "mutation UpdatePlaylist($input: PlaylistUpdateMutationInput!) { \
+    updatePlaylist(input: $input) { playlist { id } } }";
+const RESET_PICTURE: &str = "mutation ResetDefaultPlaylistCover($input: ResetDefaultPlaylistCoverInput!) { \
+    resetDefaultPlaylistCover(input: $input) { __typename \
+    ... on ResetDefaultPlaylistCoverMutationOutput { playlist { id } } \
+    ... on ResetDefaultPlaylistCoverMutationError { playlistNotFound userIsNotPlaylistOwner isLovedTracksPlaylist } } }";
 
 /// The audio formats `get_url` knows, best first. The license decides which ones come back.
 const FORMATS: [&str; 3] = ["FLAC", "MP3_320", "MP3_128"];
@@ -249,6 +267,94 @@ impl DeezerClient {
 
     async fn user_id(&self) -> String {
         self.inner.session.read().await.profile.id.clone()
+    }
+
+    /// A bearer token for `auth.deezer.com`'s newer hosts, minted from the `arl`. It lives a
+    /// few minutes, so each use asks for a fresh one.
+    async fn jwt(&self) -> Result<String> {
+        let answer: Value = self
+            .inner
+            .http
+            .post(ARL_LOGIN)
+            .header("Cookie", format!("arl={}", self.inner.arl))
+            .header("Accept", "application/json")
+            .header("Content-Length", "0")
+            .send()
+            .await
+            .context("cannot reach deezer's login")?
+            .error_for_status()
+            .context("deezer refused the arl login")?
+            .json()
+            .await
+            .context("deezer's login answered no json")?;
+        wire::text(&answer, &["jwt"])
+            .filter(|jwt| !jwt.is_empty())
+            .map(str::to_owned)
+            .context("deezer's login answered no token")
+    }
+
+    /// Uploads a JPEG as a playlist picture and answers the token `updatePlaylist` takes.
+    async fn upload_picture(&self, jwt: &str, jpeg: Vec<u8>) -> Result<String> {
+        let boundary = format!("sonora{:016x}", fastrand::u64(..));
+        let mut body = format!(
+            "--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"cover.jpg\"\r\nContent-Type: image/jpeg\r\n\r\n"
+        )
+        .into_bytes();
+        body.extend_from_slice(&jpeg);
+        body.extend_from_slice(format!("\r\n--{boundary}--\r\n").as_bytes());
+        let answer: Value = self
+            .inner
+            .http
+            .post(PICTURE_UPLOAD)
+            .bearer_auth(jwt)
+            .header(
+                "Content-Type",
+                format!("multipart/form-data; boundary={boundary}"),
+            )
+            .body(body)
+            .send()
+            .await
+            .context("cannot reach deezer's upload")?
+            .error_for_status()
+            .context("deezer refused the picture")?
+            .json()
+            .await
+            .context("deezer's upload answered no json")?;
+        match &answer["error"] {
+            Value::Object(map) if !map.is_empty() => bail!("deezer refused the picture: {map:?}"),
+            Value::Array(list) if !list.is_empty() => bail!("deezer refused the picture: {list:?}"),
+            _ => {}
+        }
+        wire::text(&answer, &["results"])
+            .filter(|token| !token.is_empty())
+            .map(str::to_owned)
+            .context("deezer's upload answered no picture")
+    }
+
+    /// Runs one GraphQL mutation on `pipe.deezer.com` and fails on any error it reports.
+    async fn pipe(&self, jwt: &str, query: &str, input: Value) -> Result<Value> {
+        let answer: Value = self
+            .inner
+            .http
+            .post(PIPE)
+            .bearer_auth(jwt)
+            .header("Origin", "https://www.deezer.com")
+            .json(&json!({ "query": query, "variables": { "input": input } }))
+            .send()
+            .await
+            .context("cannot reach deezer's pipe")?
+            .error_for_status()
+            .context("deezer's pipe refused the request")?
+            .json()
+            .await
+            .context("deezer's pipe answered no json")?;
+        if let Some(errors) = answer["errors"]
+            .as_array()
+            .filter(|errors| !errors.is_empty())
+        {
+            bail!("deezer's pipe reported {errors:?}");
+        }
+        Ok(answer)
     }
 
     /// A gateway call with the current api token. One retry with a refreshed token when the
@@ -766,6 +872,34 @@ impl MusicApi for DeezerClient {
 
     async fn set_playlist_public(&self, _playlist_id: &str, _public: bool) -> Result<()> {
         bail!("deezer cannot change a playlist's visibility")
+    }
+
+    async fn set_playlist_cover(&self, playlist_id: &str, image: Option<&[u8]>) -> Result<()> {
+        let jwt = self.jwt().await?;
+        match image {
+            Some(image) => {
+                let jpeg = cover::square_jpeg(image, COVER_LIMITS)?;
+                let picture = self.upload_picture(&jwt, jpeg).await?;
+                self.pipe(
+                    &jwt,
+                    SET_PICTURE,
+                    json!({ "playlistId": playlist_id, "picture": picture }),
+                )
+                .await
+                .context("cannot attach the picture")?;
+            }
+            None => {
+                let answer = self
+                    .pipe(&jwt, RESET_PICTURE, json!({ "playlistId": playlist_id }))
+                    .await
+                    .context("cannot reset the picture")?;
+                let reset = &answer["data"]["resetDefaultPlaylistCover"];
+                if reset["__typename"] != "ResetDefaultPlaylistCoverMutationOutput" {
+                    bail!("deezer would not reset the picture: {reset}");
+                }
+            }
+        }
+        Ok(())
     }
 
     async fn add_track_to_playlist(&self, playlist_id: &str, track_id: &str) -> Result<()> {

@@ -15,7 +15,13 @@ const INSTALLER: &str = match cfg!(target_arch = "aarch64") {
 };
 const SUMS: &str = "SHA256SUMS";
 const UNINSTALLER: &str = "unins000.exe";
-const RUNNING: &str = env!("CARGO_PKG_VERSION");
+/// The version this build shows and reports. The nightly workflow sets `SONORA_VERSION` at
+/// compile time; every other build reads the manifest.
+pub const VERSION: &str = match option_env!("SONORA_VERSION") {
+    Some(version) => version,
+    None => env!("CARGO_PKG_VERSION"),
+};
+const RUNNING: &str = VERSION;
 const INSTALLABLE: bool = cfg!(target_os = "windows");
 const AGENT: &str = concat!(
     "sonora/",

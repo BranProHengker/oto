@@ -9,6 +9,7 @@ bundled-sqlite = ["rusqlite/bundled", "music/bundled-sqlite", "storage/bundled-s
 
 [dependencies]
 anyhow.workspace = true
+cli.workspace = true
 async-trait.workspace = true
 dirs.workspace = true
 discord-rich-presence.workspace = true

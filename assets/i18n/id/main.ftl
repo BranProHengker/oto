@@ -103,6 +103,7 @@ menu-add-tracks-to-playlist = { $count ->
    *[other] Tambahkan { $count } lagu ke playlist
 }
 menu-new-playlist = Playlist baru
+menu-import-playlist = Impor playlist…
 menu-edit-tags = Edit tag
 menu-no-playlists = Tidak ada playlist
 menu-search-playlists = Cari playlist
@@ -164,8 +165,9 @@ menu-copy = Salin
 menu-paste = Tempel
 menu-select-all = Pilih semua
 menu-remove-from-queue = Hapus dari antrean
-menu-rename-playlist = Ganti nama playlist
+menu-edit-playlist = Edit playlist
 menu-delete-playlist = Hapus playlist
+menu-export-playlist = Ekspor playlist…
 menu-add-playlist-to-library = Simpan ke Koleksi
 menu-remove-playlist-from-library = Hapus dari Koleksi
 menu-library-add = Tambahkan ke Koleksi
@@ -185,7 +187,12 @@ menu-play-artist = Putar artis
 # playlist editor
 playlist-name-placeholder = Nama playlist
 playlist-create-title = Buat playlist
-playlist-rename-title = Ganti nama playlist
+playlist-edit-title = Edit playlist
+playlist-cover-choose = Pilih gambar
+playlist-cover-remove = Hapus sampul
+playlist-cover-unopenable = Sonora tidak bisa membuka file ini
+playlist-cover-too-large = Gambar ini lebih besar dari 40 MB
+playlist-cover-not-a-picture = File ini bukan gambar JPEG, PNG, atau WebP
 playlist-delete-title = Hapus playlist
 playlist-delete-confirm = Hapus “{ $name }”? Tindakan ini tidak dapat dibatalkan.
 playlist-again-title = Tambahkan lagi?
@@ -1075,6 +1082,9 @@ saver-fps = { $fps } FPS
 
 toast-playlist-created = Playlist berhasil dibuat
 toast-playlist-renamed = Nama playlist berhasil diubah
+toast-playlist-updated = Playlist diperbarui
+toast-playlist-cover-changed = Sampul playlist diganti
+toast-playlist-cover-removed = Sampul playlist dihapus
 toast-playlist-deleted = Playlist berhasil dihapus
 toast-local-delete-failed = Beberapa file lagu tidak dapat dihapus
 toast-playlist-added = Playlist ditambahkan ke koleksi Anda
@@ -1082,10 +1092,19 @@ toast-playlist-removed = Playlist dihapus dari koleksi Anda
 toast-playlist-visibility = Visibilitas playlist diubah
 toast-track-added = Ditambahkan ke { $name }
 toast-track-removed = Dihapus dari { $name }
+toast-track-moved = Dipindahkan ke { $name }
 toast-track-removed-unnamed = Dihapus dari playlist
 toast-playlist-failed = Perubahan tidak dapat disimpan
 toast-playlist-busy = Perubahan lain masih diproses
 toast-playlist-signed-out = Masuk akun untuk mengubah playlist
+toast-playlist-imported = { $name } berhasil diimpor
+toast-playlist-imported-partly = { $name } berhasil diimpor tanpa { $count ->
+        [one] satu lagu
+       *[other] { $count } lagu
+    } yang tidak ada di koleksi Anda
+toast-playlist-import-empty = Tidak ada lagu dari { $name } yang ada di koleksi Anda
+toast-playlist-exported = Playlist berhasil diekspor
+toast-file-dialog-failed = Dialog file tidak dapat dibuka
 toast-queued-track = { $name } ditambahkan ke antrean
 toast-next-track = { $name } akan diputar berikutnya
 toast-last-track = { $name } akan diputar terakhir

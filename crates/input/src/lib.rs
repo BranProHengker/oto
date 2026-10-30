@@ -98,6 +98,7 @@ fn shared() -> Vec<KeyBinding> {
         KeyBinding::new("alt-left", NavigateBack, None),
         KeyBinding::new("alt-right", NavigateForward, None),
         KeyBinding::new("cmd-q", Quit, None),
+        KeyBinding::new("ctrl-q", Quit, None),
         KeyBinding::new("win-q", Quit, None),
         KeyBinding::new("super-q", Quit, None),
         KeyBinding::new("shift-cmd-r", Refresh, None),

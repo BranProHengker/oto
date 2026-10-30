@@ -103,6 +103,7 @@ menu-add-tracks-to-playlist = { $count ->
    *[other] Add { $count } tracks to playlist
 }
 menu-new-playlist = New playlist
+menu-import-playlist = Import playlist…
 menu-edit-tags = Edit tags
 menu-no-playlists = No playlists
 menu-search-playlists = Search a playlist
@@ -164,8 +165,9 @@ menu-copy = Copy
 menu-paste = Paste
 menu-select-all = Select all
 menu-remove-from-queue = Remove from queue
-menu-rename-playlist = Rename playlist
+menu-edit-playlist = Edit playlist
 menu-delete-playlist = Delete playlist
+menu-export-playlist = Export playlist…
 menu-add-playlist-to-library = Add to Library
 menu-remove-playlist-from-library = Remove from Library
 menu-library-add = Add to Library
@@ -185,7 +187,12 @@ menu-play-artist = Play artist
 # playlist editor
 playlist-name-placeholder = Playlist name
 playlist-create-title = Create playlist
-playlist-rename-title = Rename playlist
+playlist-edit-title = Edit playlist
+playlist-cover-choose = Choose picture
+playlist-cover-remove = Remove cover
+playlist-cover-unopenable = Sonora can't open this file
+playlist-cover-too-large = This picture is larger than 40 MB
+playlist-cover-not-a-picture = This file is not a JPEG, PNG or WebP picture
 playlist-delete-title = Delete playlist
 playlist-delete-confirm = Delete “{ $name }”? This cannot be undone.
 playlist-again-title = Add it again?
@@ -1078,6 +1085,9 @@ saver-fps = { $fps } FPS
 
 toast-playlist-created = Playlist created
 toast-playlist-renamed = Playlist renamed
+toast-playlist-updated = Playlist updated
+toast-playlist-cover-changed = Playlist cover changed
+toast-playlist-cover-removed = Playlist cover removed
 toast-playlist-deleted = Playlist deleted
 toast-local-delete-failed = Some track files could not be deleted
 toast-playlist-added = Playlist added to your library
@@ -1085,10 +1095,19 @@ toast-playlist-removed = Playlist removed from your library
 toast-playlist-visibility = Playlist visibility changed
 toast-track-added = Added to { $name }
 toast-track-removed = Removed from { $name }
+toast-track-moved = Moved to { $name }
 toast-track-removed-unnamed = Removed from the playlist
 toast-playlist-failed = That change could not be saved
 toast-playlist-busy = Another change is still running
 toast-playlist-signed-out = Sign in to change playlists
+toast-playlist-imported = Imported { $name }
+toast-playlist-imported-partly = Imported { $name }, leaving out { $count ->
+        [one] one song
+       *[other] { $count } songs
+    } not in your library
+toast-playlist-import-empty = None of the songs in { $name } are in your library
+toast-playlist-exported = Playlist exported
+toast-file-dialog-failed = Could not open the file dialog
 toast-queued-track = { $name } added to the queue
 toast-next-track = { $name } plays next
 toast-last-track = { $name } plays last

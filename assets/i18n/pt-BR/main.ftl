@@ -103,6 +103,7 @@ menu-add-tracks-to-playlist = { $count ->
    *[other] Adicionar { $count } faixas à playlist
 }
 menu-new-playlist = Nova playlist
+menu-import-playlist = Importar playlist…
 menu-edit-tags = Editar tags
 menu-no-playlists = Nenhuma playlist
 menu-search-playlists = Pesquisar playlist
@@ -164,8 +165,9 @@ menu-copy = Copiar
 menu-paste = Colar
 menu-select-all = Selecionar tudo
 menu-remove-from-queue = Remover da fila
-menu-rename-playlist = Renomear playlist
+menu-edit-playlist = Editar playlist
 menu-delete-playlist = Excluir playlist
+menu-export-playlist = Exportar playlist…
 menu-add-playlist-to-library = Adicionar à Biblioteca
 menu-remove-playlist-from-library = Remover da Biblioteca
 menu-library-add = Adicionar à Biblioteca
@@ -185,7 +187,12 @@ menu-play-artist = Tocar artista
 # playlist editor
 playlist-name-placeholder = Nome da playlist
 playlist-create-title = Criar playlist
-playlist-rename-title = Renomear playlist
+playlist-edit-title = Editar playlist
+playlist-cover-choose = Escolher imagem
+playlist-cover-remove = Remover capa
+playlist-cover-unopenable = O Sonora não consegue abrir este arquivo
+playlist-cover-too-large = Esta imagem tem mais de 40 MB
+playlist-cover-not-a-picture = Este arquivo não é uma imagem JPEG, PNG ou WebP
 playlist-delete-title = Excluir playlist
 playlist-delete-confirm = Excluir "{ $name }"? Isto não pode ser desfeito.
 playlist-again-title = Adicionar novamente?
@@ -1075,6 +1082,9 @@ saver-fps = { $fps } FPS
 
 toast-playlist-created = Playlist criada
 toast-playlist-renamed = Playlist renomeada
+toast-playlist-updated = Playlist atualizada
+toast-playlist-cover-changed = Capa da playlist alterada
+toast-playlist-cover-removed = Capa da playlist removida
 toast-playlist-deleted = Playlist excluída
 toast-local-delete-failed = Alguns arquivos de faixa não puderam ser excluídos
 toast-playlist-added = Playlist adicionada à sua biblioteca
@@ -1086,6 +1096,14 @@ toast-track-removed-unnamed = Removida da playlist
 toast-playlist-failed = Não foi possível salvar a alteração
 toast-playlist-busy = Outra alteração ainda está em andamento
 toast-playlist-signed-out = Faça login para alterar playlists
+toast-playlist-imported = Playlist { $name } importada
+toast-playlist-imported-partly = Playlist { $name } importada sem { $count ->
+        [one] uma música que não está
+       *[other] { $count } músicas que não estão
+    } na sua biblioteca
+toast-playlist-import-empty = Nenhuma música de { $name } está na sua biblioteca
+toast-playlist-exported = Playlist exportada
+toast-file-dialog-failed = Não foi possível abrir a janela de arquivos
 toast-queued-track = { $name } adicionada à fila
 toast-next-track = { $name } tocará a seguir
 toast-last-track = { $name } tocará por último

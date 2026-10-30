@@ -10,6 +10,7 @@ use state::{
 use ui::{Menu, MenuItem, MenuSearch, Pin, PinKind, Scrollbar, SubmenuState};
 
 use crate::shared::confirm::Confirm;
+use crate::shared::local;
 use crate::shared::pins::Pinned as _;
 use crate::shared::playlist_editor::{Edit, PlaylistEditor};
 use crate::shared::tag_editor::TagEditor;
@@ -264,6 +265,7 @@ impl ItemMenu {
                                         Edit::Again {
                                             playlist: playlist.clone(),
                                             track: track_ids[0].clone(),
+                                            leaving: None,
                                         },
                                         window,
                                         cx,
@@ -965,20 +967,28 @@ pub(crate) fn playlist_menu(playlist: Playlist, playback: Entity<Playback>, cx: 
         true => visibility
             .into_iter()
             .chain([
-                MenuItem::new("rename-playlist", t!("menu-rename-playlist"))
+                MenuItem::new("edit-playlist", t!("menu-edit-playlist"))
                     .icon("icons/pencil.svg")
                     .on_click({
                         let playlist = playlist.clone();
                         move |_, window, cx| {
-                            PlaylistEditor::open(Edit::Rename(playlist.clone()), window, cx);
+                            PlaylistEditor::open(Edit::Details(playlist.clone()), window, cx);
                         }
                     }),
                 MenuItem::new("delete-playlist", t!("menu-delete-playlist"))
                     .icon("icons/trash-2.svg")
-                    .on_click(move |_, window, cx| {
-                        PlaylistEditor::open(Edit::Delete(playlist.clone()), window, cx);
+                    .on_click({
+                        let playlist = playlist.clone();
+                        move |_, window, cx| {
+                            PlaylistEditor::open(Edit::Delete(playlist.clone()), window, cx);
+                        }
                     }),
             ])
+            .chain(imported.then(|| {
+                MenuItem::new("export-playlist", t!("menu-export-playlist"))
+                    .icon("icons/square-arrow-out-up-right.svg")
+                    .on_click(move |_, _, cx| local::export_playlist(playlist.clone(), cx))
+            }))
             .collect(),
         false => vec![playlist_library_item(playlist.clone(), cx)],
     };
@@ -1291,14 +1301,23 @@ fn playlist_library_item(playlist: Playlist, cx: &App) -> MenuItem {
     }
 }
 
+/// The menu behind the playlists of a library page. A local shelf also offers to import an
+/// M3U file.
 pub(crate) fn new_playlist_menu(
+    shelf: Shelf,
     on_create: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
 ) -> Menu {
-    Menu::new("playlist-background-menu").item(
-        MenuItem::new("create-playlist", t!("menu-new-playlist"))
-            .icon("icons/plus.svg")
-            .on_click(on_create),
-    )
+    Menu::new("playlist-background-menu")
+        .item(
+            MenuItem::new("create-playlist", t!("menu-new-playlist"))
+                .icon("icons/plus.svg")
+                .on_click(on_create),
+        )
+        .items(shelf.local().then(|| {
+            MenuItem::new("import-playlist", t!("menu-import-playlist"))
+                .icon("icons/file-music.svg")
+                .on_click(|_, _, cx| local::import_playlist(cx))
+        }))
 }
 
 /// What a download item in a menu acts on as a whole.

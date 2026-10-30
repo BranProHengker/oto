@@ -79,8 +79,8 @@ impl Shown {
     }
 }
 
-struct Installed {
-    _tray: Entity<Tray>,
+pub struct Installed {
+    pub tray: Entity<Tray>,
 }
 
 impl Global for Installed {}
@@ -93,7 +93,7 @@ pub fn install(show: impl Fn(&mut App) + 'static, cx: &mut App) -> bool {
         return false;
     };
     let tray = cx.new(|cx| Tray::new(icon, receiver, show, cx));
-    cx.set_global(Installed { _tray: tray });
+    cx.set_global(Installed { tray });
     Icon::hosted()
 }
 
@@ -171,6 +171,12 @@ impl Tray {
         tray.place(cx);
         tray.follow(cx);
         tray
+    }
+
+    /// Shuts down the tray icon and removes it from the status notifier watcher or system tray.
+    pub fn shutdown(&mut self) {
+        self.placed = false;
+        self.icon.place(false).ok();
     }
 
     /// Puts the icon in the tray, or takes it out, following `tray_icon` alone. An icon that cannot

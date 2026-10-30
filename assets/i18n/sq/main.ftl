@@ -103,6 +103,7 @@ menu-add-tracks-to-playlist = { $count ->
    *[other] Shto { $count } këngë te lista e luajtjes
 }
 menu-new-playlist = Listë e re luajtjeje
+menu-import-playlist = Importo listë luajtjeje…
 menu-edit-tags = Ndrysho etiketat
 menu-no-playlists = Asnjë listë luajtjeje
 menu-search-playlists = Kërko një listë luajtjeje
@@ -164,8 +165,9 @@ menu-copy = Kopjo
 menu-paste = Ngjit
 menu-select-all = Përzgjidh të gjitha
 menu-remove-from-queue = Hiq nga radha
-menu-rename-playlist = Riemërto listën e luajtjes
+menu-edit-playlist = Ndrysho listën e luajtjes
 menu-delete-playlist = Fshi listën e luajtjes
+menu-export-playlist = Eksporto listën e luajtjes…
 menu-add-playlist-to-library = Shto te Biblioteka
 menu-remove-playlist-from-library = Hiq nga Biblioteka
 menu-library-add = Shto te Biblioteka
@@ -185,7 +187,12 @@ menu-play-artist = Luaj artistin
 # playlist editor
 playlist-name-placeholder = Emri i listës së luajtjes
 playlist-create-title = Krijo listë luajtjeje
-playlist-rename-title = Riemërto listën e luajtjes
+playlist-edit-title = Ndrysho listën e luajtjes
+playlist-cover-choose = Zgjidh figurë
+playlist-cover-remove = Hiq kopertinën
+playlist-cover-unopenable = Sonora nuk e hap dot këtë skedar
+playlist-cover-too-large = Kjo figurë është më e madhe se 40 MB
+playlist-cover-not-a-picture = Ky skedar nuk është figurë JPEG, PNG ose WebP
 playlist-delete-title = Fshi listën e luajtjes
 playlist-delete-confirm = Fshi “{ $name }”? Kjo nuk mund të zhbëhet.
 playlist-again-title = Ta shtosh përsëri?
@@ -1075,6 +1082,9 @@ saver-fps = { $fps } FPS
 
 toast-playlist-created = Lista e luajtjes u krijua
 toast-playlist-renamed = Lista e luajtjes u riemërtua
+toast-playlist-updated = Lista e luajtjes u përditësua
+toast-playlist-cover-changed = Kopertina e listës së luajtjes u ndryshua
+toast-playlist-cover-removed = Kopertina e listës së luajtjes u hoq
 toast-playlist-deleted = Lista e luajtjes u fshi
 toast-local-delete-failed = Disa skedarë këngësh nuk mund të fshiheshin
 toast-playlist-added = Lista e luajtjes u shtua te biblioteka
@@ -1086,6 +1096,14 @@ toast-track-removed-unnamed = U hoq nga lista e luajtjes
 toast-playlist-failed = Ai ndryshim nuk mund të ruhej
 toast-playlist-busy = Një ndryshim tjetër është ende në vazhdim
 toast-playlist-signed-out = Hyr për të ndryshuar listat e luajtjes
+toast-playlist-imported = U importua { $name }
+toast-playlist-imported-partly = U importua { $name }, pa { $count ->
+        [one] një këngë që nuk është
+       *[other] { $count } këngë që nuk janë
+    } në bibliotekën tënde
+toast-playlist-import-empty = Asnjë këngë nga { $name } nuk është në bibliotekën tënde
+toast-playlist-exported = Lista e luajtjes u eksportua
+toast-file-dialog-failed = Dritarja e skedarëve nuk mund të hapej
 toast-queued-track = { $name } u shtua në radhë
 toast-next-track = { $name } luhet e radhës
 toast-last-track = { $name } luhet e fundit

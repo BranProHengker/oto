@@ -496,6 +496,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 
 [[package]]
+name = "atomic_float"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "628d228f918ac3b82fe590352cc719d30664a0c13ca3a60266fe02c7132d480a"
+
+[[package]]
 name = "atspi"
 version = "0.29.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -938,6 +944,63 @@ dependencies = [
  "crypto-common",
  "inout",
  "zeroize",
+]
+
+[[package]]
+name = "clap"
+version = "4.6.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "aa8876b300ab35ba921adea3dfd70157a46249b33f95c9084ae5709785478946"
+dependencies = [
+ "clap_builder",
+ "clap_derive",
+]
+
+[[package]]
+name = "clap_builder"
+version = "4.6.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ec0797fb7aeb1406c84efac526901f7ec3ead2124f946b494e72879d4b54704d"
+dependencies = [
+ "anstyle",
+ "clap_lex",
+]
+
+[[package]]
+name = "clap_complete"
+version = "4.6.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "037e2a1a92236d0aff7e845093f64661d6df4c02c9fcc61a60e9e1d736fa392f"
+dependencies = [
+ "clap",
+]
+
+[[package]]
+name = "clap_derive"
+version = "4.6.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f9c751b79415d4e559e3d1fcf128e09e720eb673a06d26cf6f392d37d75b66e0"
+dependencies = [
+ "heck 0.5.0",
+ "proc-macro2",
+ "quote",
+ "syn 3.0.3",
+]
+
+[[package]]
+name = "clap_lex"
+version = "1.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1c133bc6a41be0d194c306b5506d15e6feeea7b1d6604bd3f8310dfb2ca96486"
+
+[[package]]
+name = "cli"
+version = "0.44.2"
+dependencies = [
+ "clap",
+ "clap_complete",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -4270,6 +4333,7 @@ dependencies = [
  "futures",
  "gethostname",
  "http",
+ "image",
  "jiff",
  "kakasi",
  "librespot-core",
@@ -6281,6 +6345,7 @@ name = "rodio"
 version = "0.22.2"
 source = "git+https://github.com/RustAudio/rodio?rev=880aaba54b00aead53651ed1ccbdb672d1375a95#880aaba54b00aead53651ed1ccbdb672d1375a95"
 dependencies = [
+ "atomic_float",
  "cpal",
  "dasp_sample",
  "rubato",
@@ -7101,6 +7166,7 @@ version = "0.44.2"
 dependencies = [
  "anyhow",
  "block2 0.6.2",
+ "cli",
  "dirs",
  "embed",
  "env_logger",
@@ -7216,6 +7282,7 @@ dependencies = [
  "anyhow",
  "ashpd",
  "async-trait",
+ "cli",
  "dirs",
  "discord-rich-presence",
  "embed",
@@ -9836,7 +9903,7 @@ dependencies = [
 [[package]]
 name = "ytmusic"
 version = "0.1.0"
-source = "git+https://github.com/sonorahq/ytmusic-rs?rev=a8fb6f5#a8fb6f570abc828b3e899a112f9c8dfbb2e17439"
+source = "git+https://github.com/sonorahq/ytmusic-rs?rev=d47b3ae#d47b3ae3212084e6f3f3027d06b0a9d29dcdcfb9"
 dependencies = [
  "anyhow",
  "async-trait",

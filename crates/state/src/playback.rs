@@ -64,7 +64,7 @@ enum Intent {
 
 /// Where fetched tracks go in the queue.
 #[derive(Clone, Copy)]
-enum QueuePlacement {
+pub enum QueuePlacement {
     /// Right after the current track.
     Next,
     /// After the tracks queued by hand, ahead of the rest of the source.
@@ -1194,6 +1194,16 @@ impl Playback {
     /// Queues a track after everything already lined up, or starts playing it when nothing is.
     pub fn play_last(&mut self, track: Track, cx: &mut Context<Self>) {
         self.announce(vec![track], None, QueuePlacement::Last, cx);
+    }
+
+    pub fn enqueue_tracks(
+        &mut self,
+        tracks: Vec<Track>,
+        origin: Option<Origin>,
+        placement: QueuePlacement,
+        cx: &mut Context<Self>,
+    ) {
+        self.announce(tracks, origin, placement, cx);
     }
 
     /// Queues tracks the user picked together after everything already lined up, or starts

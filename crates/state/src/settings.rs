@@ -610,7 +610,7 @@ impl Default for Values {
             romanization_scripts: RomanizationScripts::default(),
             adaptive_menu: false,
             check_updates: cfg!(target_os = "windows"),
-            close_to_tray: true,
+            close_to_tray: !cfg!(target_os = "linux"),
             tray_icon: true,
             stay_awake: true,
             language: i18n::AUTO.to_owned(),

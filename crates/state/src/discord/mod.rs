@@ -24,8 +24,8 @@ const MAX_START_DRIFT_SECONDS: u64 = 2;
 const MAX_TEXT_UTF16_UNITS: usize = 128;
 /// What the status says when it names the music rather than a service.
 const MUSIC: &str = "Music";
-/// Where the Sonora button sends a friend who presses it.
-const SONORA_URL: &str = "https://sonorahq.org";
+/// Where the Oto button sends a friend who presses it.
+const OTO_URL: &str = "https://github.com/BranProHengker/oto/releases";
 
 struct Attached {
     _discord: Entity<Discord>,
@@ -580,7 +580,7 @@ fn buttons(
     if settings.discord_sonora_button() {
         buttons.push(Button {
             label: "Get Oto".to_string(),
-            url: SONORA_URL.to_string(),
+            url: OTO_URL.to_string(),
         });
     }
     (!buttons.is_empty()).then_some(buttons)

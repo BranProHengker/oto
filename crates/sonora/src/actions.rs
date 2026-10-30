@@ -15,7 +15,15 @@ const FONT_STEP: f32 = 1.;
 pub fn register(lingers: bool, cx: &mut App) {
     cx.bind_keys(input::bindings());
 
-    cx.on_action(|_: &Quit, cx: &mut App| cx.quit());
+    cx.on_action(|_: &Quit, cx: &mut App| {
+        let tray = cx
+            .try_global::<crate::tray::Installed>()
+            .map(|installed| installed.tray.clone());
+        if let Some(tray) = tray {
+            tray.update(cx, |tray, _| tray.shutdown());
+        }
+        cx.quit();
+    });
     cx.on_action(|_: &Hide, cx: &mut App| cx.hide());
     cx.on_action(|_: &HideOthers, cx: &mut App| cx.hide_other_apps());
     cx.on_action(|_: &ShowAll, cx: &mut App| cx.unhide_other_apps());
@@ -27,7 +35,15 @@ pub fn register(lingers: bool, cx: &mut App) {
         let close_to_tray = Sonora::global(cx).settings.read(cx).close_to_tray();
         match lingers && close_to_tray {
             true => crate::dock::show(false),
-            false => cx.quit(),
+            false => {
+                let tray = cx
+                    .try_global::<crate::tray::Installed>()
+                    .map(|installed| installed.tray.clone());
+                if let Some(tray) = tray {
+                    tray.update(cx, |tray, _| tray.shutdown());
+                }
+                cx.quit();
+            }
         }
     })
     .detach();
