@@ -255,24 +255,41 @@ impl SettingsView {
                             ),
                     )
                     .when_some(local_path_display, |card, path| {
-                        let lrc_path = format!("{}.lrc", path.trim_end_matches(".mp3").trim_end_matches(".flac").trim_end_matches(".m4a").trim_end_matches(".wav").trim_end_matches(".ogg"));
+                        let lrc_path = Path::new(&path).with_extension("lrc").to_string_lossy().to_string();
                         card.child(
                             div()
                                 .flex()
                                 .items_center()
+                                .justify_between()
                                 .gap_2()
                                 .child(
-                                    svg()
-                                        .path(icons::path("icons/folder-plus.svg"))
-                                        .size(px(14.))
-                                        .flex_shrink_0()
-                                        .text_color(theme.primary),
+                                    div()
+                                        .flex()
+                                        .items_center()
+                                        .gap_2()
+                                        .child(
+                                            svg()
+                                                .path(icons::path("icons/folder-plus.svg"))
+                                                .size(px(14.))
+                                                .flex_shrink_0()
+                                                .text_color(theme.primary),
+                                        )
+                                        .child(
+                                            div()
+                                                .text_xs()
+                                                .text_color(theme.primary)
+                                                .child(format!("Target: {}", lrc_path)),
+                                        ),
                                 )
                                 .child(
-                                    div()
-                                        .text_xs()
-                                        .text_color(theme.primary)
-                                        .child(format!("Target: {}", lrc_path)),
+                                    Button::new("save-target-lrc-btn")
+                                        .label("Save to .lrc")
+                                        .icon("icons/download.svg")
+                                        .small()
+                                        .selected(true)
+                                        .on_click(cx.listener(|this, _, _, cx| {
+                                            this.save_beside_song(cx);
+                                        })),
                                 ),
                         )
                     }),
@@ -1024,7 +1041,8 @@ impl SettingsView {
                 self.lrc_studio.detected_artist = Some(artist.clone());
                 self.lrc_studio.detected_local_path = local_path.clone();
 
-                // If local path has an existing .lrc file, auto-load it!
+                // 1. If local path has an existing .lrc file, auto-load it!
+                let mut loaded = false;
                 if let Some(ref p) = local_path {
                     let mut candidate = p.clone();
                     candidate.set_extension("lrc");
@@ -1033,8 +1051,14 @@ impl SettingsView {
                         if !trimmed.is_empty() {
                             self.load_raw_lrc_string(trimmed, cx);
                             self.lrc_studio.status = Some(("Loaded existing .lrc from local music folder!".into(), false));
+                            loaded = true;
                         }
                     }
+                }
+
+                // 2. If no local .lrc, auto-import from player in RAM (Apple Music, Spotify, etc.)
+                if !loaded && state::Sonora::global(cx).lyrics.read(cx).current().is_some() {
+                    self.import_from_player_lyrics(cx);
                 }
 
                 // Fill search input if empty
@@ -1047,6 +1071,12 @@ impl SettingsView {
                     self.lrc_studio
                         .search_input
                         .update(cx, |input, cx| input.set_text(query, cx));
+                }
+            } else if self.lrc_studio.lines.is_empty() {
+                // If workspace is still empty (e.g. lyrics were fetching when view first rendered),
+                // auto-import from active player lyrics in RAM once ready
+                if state::Sonora::global(cx).lyrics.read(cx).current().is_some() {
+                    self.import_from_player_lyrics(cx);
                 }
             }
         }
@@ -1067,7 +1097,8 @@ impl SettingsView {
             self.lrc_studio.detected_artist = Some(artist.clone());
             self.lrc_studio.detected_local_path = local_path.clone();
 
-            // Check if local file has .lrc
+            // 1. Check if local file has .lrc
+            let mut loaded = false;
             if let Some(ref p) = local_path {
                 let mut candidate = p.clone();
                 candidate.set_extension("lrc");
@@ -1076,8 +1107,15 @@ impl SettingsView {
                     if !trimmed.is_empty() {
                         self.load_raw_lrc_string(trimmed, cx);
                         self.lrc_studio.status = Some(("Loaded existing .lrc from song folder!".into(), false));
+                        loaded = true;
                     }
                 }
+            }
+
+            // 2. If no local .lrc, auto-import from active player RAM lyrics
+            if !loaded && state::Sonora::global(cx).lyrics.read(cx).current().is_some() {
+                self.import_from_player_lyrics(cx);
+                loaded = true;
             }
 
             let query = if artist.is_empty() {
@@ -1089,7 +1127,10 @@ impl SettingsView {
                 .search_input
                 .update(cx, |input, cx| input.set_text(query, cx));
 
-            self.trigger_search(cx);
+            // Only trigger LRCLIB network search if lyrics were not found locally or in RAM
+            if !loaded {
+                self.trigger_search(cx);
+            }
         } else {
             self.lrc_studio.status = Some(("No song currently playing in Oto".into(), true));
             cx.notify();
@@ -1289,8 +1330,19 @@ impl SettingsView {
         cx.notify();
     }
 
+    fn ensure_lyrics_loaded(&mut self, cx: &mut Context<Self>) -> bool {
+        if !self.lrc_studio.lines.is_empty() {
+            return true;
+        }
+        if state::Sonora::global(cx).lyrics.read(cx).current().is_some() {
+            self.import_from_player_lyrics(cx);
+            return !self.lrc_studio.lines.is_empty();
+        }
+        false
+    }
+
     fn generate_offline_romaji(&mut self, cx: &mut Context<Self>) {
-        if self.lrc_studio.lines.is_empty() {
+        if !self.ensure_lyrics_loaded(cx) {
             self.lrc_studio.status = Some((
                 "No lyrics to convert. Please search, import, or paste lyrics first.".into(),
                 true,
@@ -1342,7 +1394,7 @@ impl SettingsView {
     }
 
     fn trigger_convert_romaji(&mut self, cx: &mut Context<Self>) {
-        if self.lrc_studio.lines.is_empty() {
+        if !self.ensure_lyrics_loaded(cx) {
             self.lrc_studio.status = Some(("No lyrics to convert. Please search or paste lyrics first.".into(), true));
             cx.notify();
             return;
@@ -1439,8 +1491,8 @@ impl SettingsView {
     }
 
     fn save_beside_song(&mut self, cx: &mut Context<Self>) {
-        if self.lrc_studio.lines.is_empty() {
-            self.lrc_studio.status = Some(("Lyrics content is empty".into(), true));
+        if !self.ensure_lyrics_loaded(cx) {
+            self.lrc_studio.status = Some(("No lyrics to save. Please import, search, or paste lyrics first.".into(), true));
             cx.notify();
             return;
         }
@@ -1481,8 +1533,8 @@ impl SettingsView {
     }
 
     fn copy_lyrics_to_clipboard(&mut self, cx: &mut Context<Self>) {
-        if self.lrc_studio.lines.is_empty() {
-            self.lrc_studio.status = Some(("No lyrics to copy".into(), true));
+        if !self.ensure_lyrics_loaded(cx) {
+            self.lrc_studio.status = Some(("No lyrics to copy. Please import, search, or paste lyrics first.".into(), true));
             cx.notify();
             return;
         }
@@ -1553,7 +1605,7 @@ fn parse_lrc_lines(content: &str) -> Vec<StudioLine> {
 
         // If duplicate timestamp matching previous line and previous line has empty romaji
         if let Some(prev) = lines.last_mut()
-            && prev.time == time && prev.romaji.is_empty() && !text.is_empty()
+            && time != "00:00.00" && prev.time == time && prev.romaji.is_empty() && !text.is_empty()
         {
             prev.romaji = text;
             continue;
