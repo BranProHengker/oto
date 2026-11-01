@@ -16,7 +16,9 @@
 
 > [!NOTE]
 > **Oto** is an independent fork of [Sonora](https://github.com/sonorahq/sonora). It retains full compatibility with Sonora's native playback engine while adding tailored improvements:
+> - **Automix Crossfade**: Smart transition blending with dynamic DJ bass dip (high-pass filter sweep) and leading silence trimming.
 > - **Dual-Line Synced Lyrics**: Smart detection and merging of twin-timestamp `.lrc` files (Japanese Kanji/Kana as primary line + Romaji furigana sublane).
+> - **Built-in LRC Studio**: Integrated synced lyrics editor with auto-import from active playback, real-time timestamp tagging, and direct local saving.
 > - **Clean UI & Settings**: Streamlined interface without upstream updater clutter or redundant links.
 > - **Linux Tray & Desktop Integration**: Native StatusNotifierItem (SNI) tray support optimized for Hyprland, Caelestia shell, and Waybar.
 > - **Custom Discord Rich Presence**: Real-time status reporting with direct asset fallbacks for local and streaming playback.
@@ -27,8 +29,8 @@
 
 - **Streaming & Local**: Apple Music, Spotify, YouTube Music, Deezer, Tidal, Subsonic/Navidrome, and offline local files.
 - **Pure Native UI**: Rendered with GPUI (Zed's GPU-accelerated UI framework) — zero Electron, zero WebKit, ultra-low memory usage (~170 MB RSS).
-- **Karaoke & Synced Lyrics**: Time-synced scrolling lyrics, background vocals, furigana/romaji support, and multi-provider lyrics fallback.
-- **Audio Engine**: Gapless playback, audio loudness normalization, parametric equalizer, and sleep timer.
+- **Karaoke & Synced Lyrics**: Built-in LRC Studio editor, time-synced scrolling lyrics, background vocals, furigana/romaji support, and multi-provider lyrics fallback.
+- **Audio Engine**: Automix crossfade with DJ bass dip, gapless playback, audio loudness normalization, parametric equalizer, and sleep timer.
 - **Audio Scrobbler**: Built-in support for LastFM, ListenBrainz, LibreFM, and Maloja.
 - **Extensive Theming**: Dynamic adaptive palettes, blur/vibrancy, font adjustments, and interchangeable icon packs.
 

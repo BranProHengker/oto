@@ -7,6 +7,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.1.8] - 2026-11-01
+
+### Added
+
+- Crossfade playback in Settings → Playback blends smoothly between tracks with an adjustable duration from 1 to 12 seconds using an equal-power mixing curve, smart silence trimming, and a DJ bass dip.
+
 ## [0.44.2] - 2026-10-25
 
 ### Fixed

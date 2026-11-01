@@ -507,6 +507,7 @@ pub struct Playback {
     level: f32,
     normalisation: bool,
     gapless: bool,
+    crossfade: Duration,
     transcode: Transcode,
     quality: Quality,
     /// Whether tracks that played are cached in `vault`, so playing one again downloads nothing.
@@ -667,6 +668,7 @@ impl Playback {
         let level = settings.read(cx).volume();
         let normalisation = settings.read(cx).normalisation();
         let gapless = settings.read(cx).gapless();
+        let crossfade = Duration::from_secs(u64::from(settings.read(cx).crossfade()));
         let transcode = settings.read(cx).transcode();
         let quality = settings.read(cx).quality();
         let keep_tracks = settings.read(cx).keep_tracks();
@@ -691,6 +693,7 @@ impl Playback {
             level,
             normalisation,
             gapless,
+            crossfade,
             transcode,
             quality,
             keep_tracks,
@@ -1726,9 +1729,10 @@ impl Playback {
         let Some(duration) = self.track.as_ref().map(|track| track.duration) else {
             return;
         };
+        let threshold = PRELOAD_BEFORE_END.max(self.crossfade + Duration::from_secs(3));
         if duration.is_zero()
             || self.state != PlaybackState::Playing
-            || duration.saturating_sub(position) > PRELOAD_BEFORE_END
+            || duration.saturating_sub(position) > threshold
         {
             return;
         }
@@ -2439,6 +2443,7 @@ impl Playback {
             }
             (false, _) => self.send_seek(position),
         }
+        self.preload_next(position, cx);
         cx.notify();
     }
 
@@ -2558,6 +2563,27 @@ impl Playback {
 
     pub fn gapless(&self) -> bool {
         self.gapless
+    }
+
+    pub fn crossfade(&self) -> u32 {
+        self.crossfade.as_secs() as u32
+    }
+
+    pub fn set_crossfade(&mut self, seconds: u32, cx: &mut Context<Self>) {
+        let duration = Duration::from_secs(u64::from(seconds.min(12)));
+        if self.crossfade == duration {
+            return;
+        }
+        self.crossfade = duration;
+        self.settings
+            .update(cx, |settings, cx| settings.set_crossfade(seconds, cx));
+        if let Some(engine) = &self.engine {
+            engine.set_crossfade(duration);
+        }
+        if let Some(engine) = &self.local_engine {
+            engine.set_crossfade(duration);
+        }
+        cx.notify();
     }
 
     pub fn transcode(&self) -> Transcode {
@@ -2869,6 +2895,7 @@ impl Playback {
         let config = PlaybackConfig {
             normalisation: self.normalisation,
             gapless: self.gapless,
+            crossfade: self.crossfade,
             position_interval: POSITION_INTERVAL,
             gain: gain(self.level),
             transcode: self.transcode,
@@ -2896,6 +2923,7 @@ impl Playback {
         let config = PlaybackConfig {
             normalisation: self.normalisation,
             gapless: self.gapless,
+            crossfade: self.crossfade,
             position_interval: POSITION_INTERVAL,
             gain: gain(self.level),
             transcode: self.transcode,

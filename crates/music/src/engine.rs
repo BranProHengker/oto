@@ -207,6 +207,7 @@ enum Command {
     Pause,
     Seek(Duration),
     Gain(f32),
+    Crossfade(Duration),
     /// Fetch a whole track into the downloads without playing it, and say how that went.
     Download {
         id: String,
@@ -238,6 +239,7 @@ enum Job<F: Fetch> {
     /// Move within the track being decoded. The bytes are already arriving, so this is local.
     Seek(Duration),
     Gain(f32),
+    Crossfade(Duration),
 }
 
 struct Handle {
@@ -296,6 +298,10 @@ impl Player for Handle {
 
     fn set_gain(&self, gain: f32) {
         self.commands.send(Command::Gain(gain)).ok();
+    }
+
+    fn set_crossfade(&self, crossfade: Duration) {
+        self.commands.send(Command::Crossfade(crossfade)).ok();
     }
 
     fn spectrum(&self) -> Option<Spectrum> {
@@ -421,6 +427,7 @@ async fn engine_loop<F: Fetch>(
     let audio_fetch = fetch.clone();
     let interval = config.position_interval;
     let normalisation = config.normalisation;
+    let crossfade = config.crossfade;
     let spawned = std::thread::Builder::new()
         .name(format!("{}-audio", fetch.name()))
         .spawn(move || {
@@ -434,6 +441,7 @@ async fn engine_loop<F: Fetch>(
                 audio_events,
                 interval,
                 normalisation,
+                crossfade,
             )
         });
     if let Err(error) = spawned {
@@ -595,6 +603,9 @@ async fn engine_loop<F: Fetch>(
                     }
                     Command::Gain(level) => {
                         jobs.send(Job::Gain(level)).ok();
+                    }
+                    Command::Crossfade(crossfade) => {
+                        jobs.send(Job::Crossfade(crossfade)).ok();
                     }
                     Command::Download { id, progress, done } => {
                         let fetch = fetch.clone();
@@ -838,6 +849,15 @@ struct Playing<F: Fetch> {
     /// The track's normalisation gain, applied to every sample as it is decoded. Each track
     /// carries its own, so a gapless join changes it on the first sample of the next one.
     gain: f32,
+
+    /// How many frames have been decoded from this track.
+    decoded_frames: u64,
+
+    /// Total frames estimated from the track duration, if known.
+    total_frames: Option<u64>,
+
+    /// Buffered audio samples after trimming silence.
+    preloaded_samples: Vec<f32>,
 }
 
 impl<F: Fetch> Playing<F> {
@@ -870,6 +890,11 @@ impl<F: Fetch> Playing<F> {
                 track,
             })
             .ok();
+        let total_frames = fetch
+            .length(&loaded)
+            .filter(|d| !d.is_zero())
+            .map(|d| (d.as_secs_f64() * f64::from(rate)).round() as u64);
+        let decoded_frames = (base.as_secs_f64() * f64::from(rate)).round() as u64;
         Some(Self {
             id: id.to_owned(),
             channels,
@@ -879,7 +904,40 @@ impl<F: Fetch> Playing<F> {
             base,
             offset,
             gain,
+            decoded_frames,
+            total_frames,
+            preloaded_samples: Vec::new(),
         })
+    }
+
+    /// Skips leading silent frames (up to `max_frames`) so the track's sound begins immediately.
+    fn trim_leading_silence(&mut self, max_frames: usize) {
+        let channels = usize::from(self.channels).max(1);
+        let max_samples = max_frames * channels;
+        let mut skipped_samples = 0;
+        let mut buffered = Vec::new();
+
+        while skipped_samples < max_samples {
+            let Some(sample) = self.source.by_ref().next() else {
+                break;
+            };
+            skipped_samples += 1;
+            if sample.abs() > 0.003 {
+                buffered.push(sample * self.gain);
+                for _ in 1..channels {
+                    if let Some(ch_sample) = self.source.by_ref().next() {
+                        buffered.push(ch_sample * self.gain);
+                        skipped_samples += 1;
+                    }
+                }
+                break;
+            }
+        }
+
+        if skipped_samples > 0 {
+            self.decoded_frames += (skipped_samples / channels) as u64;
+        }
+        self.preloaded_samples = buffered;
     }
 
     /// Where this track's sound is read from, given `rate`, the device's, which is what the queue
@@ -903,10 +961,36 @@ impl<F: Fetch> Playing<F> {
     /// `None` means the track ended.
     fn take(&mut self, frames: usize, mut samples: Vec<f32>) -> Option<Vec<f32>> {
         let wanted = self.samples(frames);
-        for sample in self.source.by_ref().take(wanted) {
-            samples.push(sample * self.gain);
+        let start = samples.len();
+        if !self.preloaded_samples.is_empty() {
+            let take_len = self.preloaded_samples.len().min(wanted);
+            samples.extend(self.preloaded_samples.drain(..take_len));
         }
-        (!samples.is_empty()).then_some(samples)
+        let remaining = wanted.saturating_sub(samples.len() - start);
+        if remaining > 0 {
+            for sample in self.source.by_ref().take(remaining) {
+                samples.push(sample * self.gain);
+            }
+        }
+        let added = samples.len() - start;
+        if added > 0 {
+            self.decoded_frames += (added / usize::from(self.channels).max(1)) as u64;
+            Some(samples)
+        } else {
+            None
+        }
+    }
+
+    /// Whether this track is within `crossfade` duration of its expected end.
+    fn near_end(&self, crossfade: Duration) -> bool {
+        if crossfade.is_zero() {
+            return false;
+        }
+        let Some(total) = self.total_frames else {
+            return false;
+        };
+        let fade_frames = (crossfade.as_secs_f64() * f64::from(self.rate)).round() as u64;
+        total > fade_frames && total.saturating_sub(self.decoded_frames) <= fade_frames
     }
 }
 
@@ -939,6 +1023,15 @@ struct Join<F: Fetch> {
     at: u64,
 }
 
+/// A track that is fading out while the next track fades in.
+struct Fading<F: Fetch> {
+    outgoing: Playing<F>,
+    step: u64,
+    total: u64,
+    prev_in: [f32; 2],
+    prev_out: [f32; 2],
+}
+
 /// Decodes and writes until told otherwise. Every wait here is on the queue draining or on a
 /// command, never on the network: the bytes are already arriving in the background.
 #[allow(clippy::too_many_arguments)]
@@ -952,6 +1045,7 @@ fn audio_loop<F: Fetch>(
     events: UnboundedSender<PlaybackEvent>,
     interval: Duration,
     normalise: bool,
+    mut crossfade: Duration,
 ) {
     let mut paced = match Paced::open(cue.clone(), chain, changed.clone()) {
         Ok(paced) => paced,
@@ -968,6 +1062,7 @@ fn audio_loop<F: Fetch>(
     };
 
     let mut current: Option<Playing<F>> = None;
+    let mut fading: Option<Fading<F>> = None;
     let mut written = 0u64;
     let mut joining: Option<Join<F>> = None;
     let mut heard: Option<Mark> = None;
@@ -1044,6 +1139,7 @@ fn audio_loop<F: Fetch>(
                 } => {
                     queued = None;
                     joining = None;
+                    fading = None;
                     written = 0;
                     current = Playing::open(fetch.as_ref(), &id, loaded, at, 0, normalise, &events);
                     heard = current.as_ref().map(|held| held.mark(paced.rate()));
@@ -1068,6 +1164,7 @@ fn audio_loop<F: Fetch>(
                     current = None;
                     queued = None;
                     joining = None;
+                    fading = None;
                     heard = None;
                     written = 0;
                     playing = false;
@@ -1103,6 +1200,7 @@ fn audio_loop<F: Fetch>(
                     // The decoder has run past the end of the track still being heard, onto the
                     // one queued behind it or onto nothing. The seek is in the heard track, so
                     // that track reopens and the next one goes back in the queue.
+                    fading = None;
                     let Some(join) = joining.take() else { continue };
                     if let Some(next) = current.take() {
                         queued = Some((next.id, next.loaded));
@@ -1164,14 +1262,17 @@ fn audio_loop<F: Fetch>(
                             }
                             held.base = position;
                             held.offset = 0;
+                            held.decoded_frames = (position.as_secs_f64() * f64::from(held.rate)).round() as u64;
                         }
                     }
+                    fading = None;
                     joining = None;
                     written = 0;
                     heard = current.as_ref().map(|held| held.mark(paced.rate()));
                     cue.arm();
                 }
                 Job::Gain(level) => paced.set_volume(level),
+                Job::Crossfade(fade) => crossfade = fade,
             }
             continue;
         }
@@ -1181,8 +1282,67 @@ fn audio_loop<F: Fetch>(
             continue;
         }
 
+        if fading.is_none() && !crossfade.is_zero() && held.near_end(crossfade) && queued.is_some() {
+            let (next_id, next_loaded) = queued.take().unwrap();
+            let next_duration = fetch.length(&next_loaded);
+            if let Some(mut next_playing) = Playing::open(
+                fetch.as_ref(),
+                &next_id,
+                next_loaded,
+                Duration::ZERO,
+                written + paced.held_back() as u64,
+                normalise,
+                &events,
+            ) {
+                if next_playing.channels == held.channels && next_playing.rate == held.rate {
+                    next_playing.trim_leading_silence(next_playing.rate as usize * 2);
+                    let outgoing = current.take().unwrap();
+                    let ended_id = outgoing.id.clone();
+                    let remaining = outgoing
+                        .total_frames
+                        .and_then(|t| t.checked_sub(outgoing.decoded_frames))
+                        .unwrap_or_else(|| {
+                            (crossfade.as_secs_f64() * f64::from(outgoing.rate)).round() as u64
+                        });
+                    let target_fade =
+                        (crossfade.as_secs_f64() * f64::from(outgoing.rate)).round() as u64;
+                    let fade_frames = remaining.min(target_fade).max(1);
+                    fading = Some(Fading {
+                        outgoing,
+                        step: 0,
+                        total: fade_frames,
+                        prev_in: [0.0; 2],
+                        prev_out: [0.0; 2],
+                    });
+                    joins
+                        .send(Joined {
+                            ended: ended_id.clone(),
+                            next: Some(next_id.clone()),
+                        })
+                        .ok();
+                    events
+                        .send(PlaybackEvent::Ended {
+                            id: Some(ended_id),
+                        })
+                        .ok();
+                    heard = Some(next_playing.mark(paced.rate()));
+                    announce_length(&events, &next_id, next_duration);
+                    events
+                        .send(PlaybackEvent::Playing {
+                            id: Some(next_id),
+                            at: Duration::ZERO,
+                        })
+                        .ok();
+                    current = Some(next_playing);
+                } else {
+                    queued = Some((next_id, next_playing.loaded));
+                }
+            }
+        }
+
+        let Some(held) = &mut current else { continue };
         let buffer = paced.buffer(held.samples(CHUNK));
-        let Some(samples) = held.take(CHUNK, buffer) else {
+        let Some(mut samples) = held.take(CHUNK, buffer) else {
             // the decoder is done, but its last samples are still queued
             let Some(Playing {
                 id: ended, loaded, ..
@@ -1226,6 +1386,56 @@ fn audio_loop<F: Fetch>(
             });
             continue;
         };
+
+        if let Some(fade) = &mut fading {
+            let channels = usize::from(held.channels).max(1);
+            let frames_wanted = samples.len() / channels;
+            let old_samples = fade
+                .outgoing
+                .take(frames_wanted, Vec::with_capacity(samples.len()))
+                .unwrap_or_default();
+            let old_frames = old_samples.len() / channels;
+            let sample_rate = held.rate as f32;
+
+            for f in 0..frames_wanted {
+                if fade.step < fade.total {
+                    let frac = (fade.step as f32 / fade.total as f32).clamp(0.0, 1.0);
+                    let angle = frac * std::f32::consts::FRAC_PI_2;
+                    let gain_in = angle.sin();
+                    let gain_out = angle.cos();
+                    fade.step += 1;
+
+                    // DJ Bass Dip: cutoff frequency ramps from 20 Hz to 400 Hz over the first 40% of the fade
+                    let dip_progress = (frac / 0.4).min(1.0);
+                    let cutoff = 20.0 + dip_progress * 380.0;
+                    let rc = 1.0 / (2.0 * std::f32::consts::PI * cutoff);
+                    let dt = 1.0 / sample_rate;
+                    let alpha = rc / (rc + dt);
+
+                    for c in 0..channels {
+                        let idx = f * channels + c;
+                        let raw_old = if f < old_frames {
+                            old_samples[idx]
+                        } else {
+                            0.0
+                        };
+
+                        let ch_idx = c.min(1);
+                        let hp_old = alpha * (fade.prev_out[ch_idx] + raw_old - fade.prev_in[ch_idx]);
+                        fade.prev_in[ch_idx] = raw_old;
+                        fade.prev_out[ch_idx] = hp_old;
+
+                        samples[idx] = samples[idx] * gain_in + hp_old * gain_out;
+                    }
+                } else {
+                    break;
+                }
+            }
+
+            if fade.step >= fade.total || old_frames == 0 {
+                fading = None;
+            }
+        }
 
         let Some(chunk) = packet(samples, held.channels, held.rate) else {
             continue;

@@ -32,7 +32,7 @@ const SLEEP_LAST: usize = (SLEEP_MAX_MINUTES - SLEEP_MIN_MINUTES + 1) as usize
 impl SettingsView {
     pub(super) fn playback_groups(&self, cx: &App) -> Vec<Group> {
         let capabilities = self.session.read(cx).capabilities();
-        let mut playing = vec![Slot::Normalisation, Slot::Gapless];
+        let mut playing = vec![Slot::Normalisation, Slot::Gapless, Slot::Crossfade];
         playing.extend([Slot::Sleep, Slot::StayAwake]);
         let mut groups = vec![Group::new("settings-group-playing", "icons/play.svg").rows(playing)];
         // one level is nothing to choose between, so it is stated in a row rather than offered
@@ -94,6 +94,71 @@ impl SettingsView {
                 }))
                 .into_any_element(),
         )
+    }
+
+    pub(super) fn crossfade_row(&self, cx: &mut Context<Self>) -> AnyElement {
+        let theme = *cx.theme();
+        let current = self
+            .pending_crossfade
+            .unwrap_or_else(|| self.playback.read(cx).crossfade());
+        let on = current > 0;
+        let low = 1u32;
+        let high = 12u32;
+        let fraction = if on {
+            (current.clamp(low, high) - low) as f32 / (high - low) as f32
+        } else {
+            0.0
+        };
+
+        let action = div()
+            .flex()
+            .items_center()
+            .gap_3()
+            .when(on, |this| {
+                this.child(
+                    div()
+                        .flex_none()
+                        .w(theme.metrics.cover * SLEEP_LABEL)
+                        .whitespace_nowrap()
+                        .text_right()
+                        .text_color(theme.foreground)
+                        .child(t!("settings-crossfade-value", count = current)),
+                )
+                .child(
+                    div().w(theme.metrics.cover * SLEEP_WIDTH).child(
+                        Scrubber::new(&self.crossfade, fraction)
+                            .colors(
+                                theme.progress_bar,
+                                theme.muted_foreground.opacity(0.3),
+                                theme.foreground,
+                            )
+                            .on_move(cx.listener(move |this, fraction: &f32, _, cx| {
+                                let span = (high - low) as f32;
+                                let seconds = low + (fraction.clamp(0., 1.) * span).round() as u32;
+                                this.pending_crossfade = Some(seconds);
+                                cx.notify();
+                            }))
+                            .on_release(cx.listener(|this, _: &MouseUpEvent, _, cx| {
+                                let Some(seconds) = this.pending_crossfade.take() else {
+                                    return;
+                                };
+                                this.playback
+                                    .update(cx, |playback, cx| playback.set_crossfade(seconds, cx));
+                            })),
+                    ),
+                )
+            })
+            .child(
+                Switch::new("crossfade-toggle", on)
+                    .on_click(cx.listener(move |this, _, _, cx| {
+                        let next = if on { 0 } else { 5 };
+                        this.pending_crossfade = None;
+                        this.playback
+                            .update(cx, |playback, cx| playback.set_crossfade(next, cx));
+                    })),
+            );
+
+        self.row(t!("settings-crossfade"), action.into_any_element())
     }
 
     pub(super) fn keep_tracks_row(&self, cx: &mut Context<Self>) -> AnyElement {
