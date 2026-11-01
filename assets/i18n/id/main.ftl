@@ -439,6 +439,9 @@ home-collection-albums = Album dari koleksi Anda
 # search page
 search-placeholder = Apa yang ingin Anda dengarkan?
 search-browse = Jelajahi semua
+search-submit = Cari
+search-recent = Pencarian terkini
+search-forget = Hapus dari riwayat
 genre-empty = Belum ada yang bisa ditampilkan di sini
 search-best-match = Hasil teratas
 search-no-matches = Tidak ada hasil yang cocok
@@ -567,7 +570,7 @@ settings-page-scrobbling = Scrobbling
 settings-page-general = Umum
 settings-page-about = Tentang
 settings-tab-integrations = Integrasi
-settings-about-name = Sonora
+settings-about-name = Oto
 settings-page-lyrics-sources = Sumber lirik
 settings-page-music-folders = Folder musik
 settings-group-services = Layanan streaming
@@ -1047,7 +1050,7 @@ settings-scan-walking = Memindai…
 settings-scan-progress = { $percent }%
 settings-scan-done = Selesai dalam { $seconds } detik
 settings-version = Versi
-settings-version-detail = Versi build Sonora yang sedang Anda jalankan
+settings-version-detail = Versi build Oto yang sedang Anda jalankan
 settings-license = Lisensi
 settings-license-detail = GNU General Public License versi 3 atau yang lebih baru
 settings-source = Kode sumber
@@ -1056,7 +1059,7 @@ settings-team = Tim
 settings-role-lead-maintainer = Pemelihara Utama
 settings-role-maintainer = Pemelihara
 settings-role-contributor = Kontributor
-settings-notice = Hak cipta © 2026 Sonora Contributors. Sonora hadir tanpa jaminan apa pun. Ini adalah perangkat lunak bebas, dan Anda dipersilakan untuk mendistribusikannya kembali sesuai dengan ketentuan GNU General Public License versi 3 atau yang lebih baru. Sonora bersifat tidak resmi dan tidak berafiliasi dengan Spotify AB.
+settings-notice = Hak cipta © 2026 Oto Contributors. Oto hadir tanpa jaminan apa pun. Ini adalah perangkat lunak bebas, dan Anda dipersilakan untuk mendistribusikannya kembali sesuai dengan ketentuan GNU General Public License versi 3 atau yang lebih baru. Oto bersifat tidak resmi dan tidak berafiliasi dengan Spotify AB.
 
 # themes
 theme-system = System

@@ -837,13 +837,11 @@ pub fn stamp_of(stamp: &str) -> Option<Duration> {
             } else {
                 let minutes: u64 = first.parse().ok()?;
                 let seconds: u64 = second.parse().ok()?;
-                let fraction: u64 = third.parse().ok()?;
-                let seconds = seconds as f64
-                    + if fraction >= 100 {
-                        fraction as f64 / 1_000.
-                    } else {
-                        fraction as f64 / 100.
-                    };
+                if third.is_empty() || !third.bytes().all(|digit| digit.is_ascii_digit()) {
+                    return None;
+                }
+                let fraction: f64 = format!("0.{third}").parse().ok()?;
+                let seconds = seconds as f64 + fraction;
                 return Duration::try_from_secs_f64(minutes as f64 * 60. + seconds).ok();
             }
         }

@@ -618,7 +618,7 @@ impl Queue {
             track: hydrate(stub),
         };
         self.past = resume.past.into_iter().map(&entry).collect();
-        self.current = resume.current.map(&entry);
+        self.current = resume.current.map(entry);
         self.upcoming = resume.upcoming.into_iter().map(&entry).collect();
         self.manual = resume.manual.min(self.upcoming.len());
         self.similar = 0;

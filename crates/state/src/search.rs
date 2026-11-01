@@ -60,9 +60,10 @@ pub struct PlaylistHit {
     pub cover: Option<String>,
 }
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Clone)]
 pub enum Hit {
-    Song(Box<Track>),
+    Song(Track),
     Artist(ArtistHit),
     Album(AlbumHit),
     Playlist(PlaylistHit),
@@ -401,7 +402,7 @@ fn songs(library: &[Track], catalog: &[Track], query: &Query) -> Vec<Scored> {
         scored.push(Scored {
             score,
             popularity: track.popularity,
-            hit: Hit::Song(Box::new(track.clone())),
+            hit: Hit::Song(track.clone()),
         });
     }
 

@@ -3,10 +3,10 @@ resolver = "3"
 members = ["crates/*"]
 
 [workspace.package]
-version = "0.44.2"
+version = "1.1.7"
 edition = "2024"
 license = "GPL-3.0-or-later"
-repository = "https://github.com/sonorahq/sonora"
+repository = "https://github.com/BranProHengker/oto"
 
 [workspace.dependencies]
 embed = { path = "crates/embed" }

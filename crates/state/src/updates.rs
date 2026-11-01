@@ -8,25 +8,25 @@ use sha2::{Digest as _, Sha256};
 
 use crate::{AppSettings, Io, join};
 
-const LATEST: &str = "https://api.github.com/repos/sonorahq/sonora/releases/latest";
+const LATEST: &str = "https://api.github.com/repos/BranProHengker/oto/releases/latest";
 const INSTALLER: &str = match cfg!(target_arch = "aarch64") {
-    true => "Sonora-Setup-arm64.exe",
-    false => "Sonora-Setup.exe",
+    true => "Oto-Setup-arm64.exe",
+    false => "Oto-Setup.exe",
 };
 const SUMS: &str = "SHA256SUMS";
 const UNINSTALLER: &str = "unins000.exe";
-/// The version this build shows and reports. The nightly workflow sets `SONORA_VERSION` at
+/// The version this build shows and reports. The nightly workflow sets `OTO_VERSION` at
 /// compile time; every other build reads the manifest.
-pub const VERSION: &str = match option_env!("SONORA_VERSION") {
+pub const VERSION: &str = match option_env!("OTO_VERSION") {
     Some(version) => version,
     None => env!("CARGO_PKG_VERSION"),
 };
 const RUNNING: &str = VERSION;
 const INSTALLABLE: bool = cfg!(target_os = "windows");
 const AGENT: &str = concat!(
-    "sonora/",
+    "oto/",
     env!("CARGO_PKG_VERSION"),
-    " (https://github.com/sonorahq/sonora)"
+    " (https://github.com/BranProHengker/oto)"
 );
 
 #[derive(Clone, Debug, PartialEq, Eq)]

@@ -16,7 +16,7 @@ const MARK_TILE: f32 = 0.5;
 /// The app icon as this platform shows it, registered by the binary's asset source.
 const APP_ICON: &str = "brand/sonora.svg";
 const LICENSE_URL: &str = "https://www.gnu.org/licenses/gpl-3.0.html";
-const SOURCE_URL: &str = "https://github.com/sonorahq/sonora";
+const SOURCE_URL: &str = "https://github.com/BranProHengker/oto";
 
 impl SettingsView {
     pub(super) fn about_groups(&self) -> Vec<Group> {

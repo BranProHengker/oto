@@ -12,7 +12,7 @@ const APP_ICON_SVG: &[u8] = include_bytes!("../../../assets/macos/sonora.svg");
 #[cfg(target_os = "windows")]
 const APP_ICON_SVG: &[u8] = include_bytes!("../../../assets/windows/sonora.svg");
 #[cfg(not(any(target_os = "macos", target_os = "windows")))]
-const APP_ICON_SVG: &[u8] = include_bytes!("../../../assets/linux/sonora.svg");
+const APP_ICON_SVG: &[u8] = include_bytes!("../../../assets/linux/oto.svg");
 
 pub struct Assets;
 
