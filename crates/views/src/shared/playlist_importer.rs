@@ -8,7 +8,7 @@ use gpui::{
 use i18n::t;
 use music::import::{ExternalPlaylist, ExternalTrack};
 use music::{MusicApi, Track};
-use state::{Shelf, Sonora};
+use state::{Io, Shelf, Sonora};
 use ui::{ActiveTheme as _, Button, Modal};
 use ui::{Dismiss, FORM_CONTEXT, Input, Submit};
 
@@ -99,27 +99,37 @@ impl PlaylistImporter {
         let session = Sonora::global(cx).session.clone();
         let local_client = session.read(cx).client_of(Shelf::Local);
         let streaming_client = session.read(cx).client_of(Shelf::Streaming);
+        let io = Io::global(cx);
 
         self.task = Some(cx.spawn(async move |this, cx| {
-            let result = cx.background_executor().spawn(async move {
-                music::import::fetch_playlist(&url).await
-            }).await;
+            let result = io
+                .spawn(async move { music::import::fetch_playlist(&url).await })
+                .await;
 
             match result {
-                Ok(playlist) => {
+                Ok(Ok(playlist)) => {
                     this.update(cx, |this, cx| {
                         this.step = Step::Loading(SharedString::from(format!(
                             "Matching {} tracks...",
                             playlist.tracks.len()
                         )));
                         this.match_tracks(playlist, local_client, streaming_client, cx);
-                    }).ok();
+                    })
+                    .ok();
                 }
-                Err(err) => {
+                Ok(Err(err)) => {
                     this.update(cx, |this, cx| {
                         this.step = Step::Error(SharedString::from(format!("{err:#}")));
                         cx.notify();
-                    }).ok();
+                    })
+                    .ok();
+                }
+                Err(join_err) => {
+                    this.update(cx, |this, cx| {
+                        this.step = Step::Error(SharedString::from(format!("Task error: {join_err}")));
+                        cx.notify();
+                    })
+                    .ok();
                 }
             }
         }));
@@ -133,21 +143,20 @@ impl PlaylistImporter {
         cx: &mut Context<Self>,
     ) {
         let tracks = playlist.tracks.clone();
+        let io = Io::global(cx);
         self.task = Some(cx.spawn(async move |this, cx| {
-            let mut matched_items = Vec::new();
-
-            for item in tracks {
-                let match_result = cx.background_executor().spawn({
-                    let local = local.clone();
-                    let streaming = streaming.clone();
-                    let item = item.clone();
-                    async move {
-                        resolve_match(item, local, streaming).await
+            let matched_items = io
+                .spawn(async move {
+                    let mut matched = Vec::with_capacity(tracks.len());
+                    for item in tracks {
+                        let match_result =
+                            resolve_match(item, local.clone(), streaming.clone()).await;
+                        matched.push(match_result);
                     }
-                }).await;
-
-                matched_items.push(match_result);
-            }
+                    matched
+                })
+                .await
+                .unwrap_or_default();
 
             this.update(cx, |this, cx| {
                 let initial_name = playlist.title.clone();
@@ -158,7 +167,8 @@ impl PlaylistImporter {
                     items: matched_items,
                 };
                 cx.notify();
-            }).ok();
+            })
+            .ok();
         }));
     }
 
@@ -405,7 +415,7 @@ impl Render for PlaylistImporter {
                         match &self.step {
                             Step::Input => Button::new("fetch-import")
                                 .primary()
-                                .label("Fetch & Match")
+                                .label(t!("common-confirm"))
                                 .on_click(cx.listener(|this, _, window, cx| this.start_fetch(window, cx))),
                             Step::Review { .. } => Button::new("save-import")
                                 .primary()

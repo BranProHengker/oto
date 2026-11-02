@@ -8,6 +8,7 @@ common-unknown = Unknown
 common-not-provided = Not provided
 common-not-available = Not available
 common-cancel = Cancel
+common-confirm = Confirm
 common-save = Save
 common-delete = Delete
 common-play = Play
