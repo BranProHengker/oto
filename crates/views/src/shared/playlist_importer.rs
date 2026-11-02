@@ -3,12 +3,13 @@ use std::time::Duration;
 
 use gpui::prelude::*;
 use gpui::{
-    App, Context, Entity, FocusHandle, Global, FontWeight, Render, SharedString, Task, Window, div, px,
+    App, Context, Entity, FocusHandle, FontWeight, Global, Render, SharedString, Task, Window,
+    div, px,
 };
 use i18n::t;
 use music::import::{ExternalPlaylist, ExternalTrack};
 use music::{MusicApi, Track};
-use state::{Io, Shelf, Sonora};
+use state::{Io, Outcome, Shelf, Sonora, Toast, Toasts};
 use ui::{ActiveTheme as _, Button, Modal};
 use ui::{Dismiss, FORM_CONTEXT, Input, Submit};
 
@@ -22,7 +23,10 @@ pub struct MatchedItem {
 
 enum Step {
     Input,
-    Loading(SharedString),
+    Loading {
+        status: SharedString,
+        progress: Option<f32>,
+    },
     Review {
         items: Vec<MatchedItem>,
     },
@@ -35,6 +39,7 @@ pub(crate) struct PlaylistImporter {
     url_input: Entity<Input>,
     name_input: Entity<Input>,
     task: Option<Task<()>>,
+    background_toast: Option<usize>,
     focus: FocusHandle,
     restore: Option<FocusHandle>,
 }
@@ -52,6 +57,7 @@ impl PlaylistImporter {
                 url_input: cx.new(|cx| Input::new("playlist-url-placeholder", cx)),
                 name_input: cx.new(|cx| Input::new("playlist-name-placeholder", cx)),
                 task: None,
+                background_toast: None,
                 focus: cx.focus_handle(),
                 restore: None,
             });
@@ -67,23 +73,82 @@ impl PlaylistImporter {
 
     fn show(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.open = true;
-        self.step = Step::Input;
-        self.task = None;
         self.restore = window.focused(cx);
-        self.url_input.update(cx, |input, cx| {
-            input.set_text(String::new(), cx);
-            input.focus(window, cx);
-        });
+        match &self.step {
+            Step::Input => {
+                self.url_input.update(cx, |input, cx| {
+                    input.set_text(String::new(), cx);
+                    input.focus(window, cx);
+                });
+            }
+            Step::Loading { .. } | Step::Review { .. } | Step::Error(_) => {}
+        }
+        window.focus(&self.focus, cx);
         cx.notify();
     }
 
     fn close(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.open = false;
-        self.step = Step::Input;
-        self.task = None;
+        if matches!(self.step, Step::Input | Step::Error(_)) {
+            self.step = Step::Input;
+            self.task = None;
+        }
         if let Some(focus) = self.restore.take() {
             window.focus(&focus, cx);
         }
+        cx.notify();
+    }
+
+    fn cancel_import(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.abort(cx);
+        self.open = false;
+        if let Some(focus) = self.restore.take() {
+            window.focus(&focus, cx);
+        }
+        cx.notify();
+    }
+
+    fn abort(&mut self, cx: &mut Context<Self>) {
+        self.task = None;
+        if let Some(toast_id) = self.background_toast.take() {
+            Toasts::close(toast_id, cx);
+        }
+        self.step = Step::Input;
+        cx.notify();
+    }
+
+    fn minimize(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.open = false;
+        if let Some(focus) = self.restore.take() {
+            window.focus(&focus, cx);
+        }
+        if self.background_toast.is_none() {
+            let importer = cx.entity().clone();
+            let progress = match &self.step {
+                Step::Loading { progress, .. } => *progress,
+                _ => None,
+            };
+            let mut toast = Toast::new(Outcome::Loading, "toast-playlist-importing")
+                .lasting()
+                .cancel("common-cancel", move |cx| {
+                    importer.update(cx, |this, cx| this.abort(cx));
+                });
+            if let Some(p) = progress {
+                toast = toast.progress(p);
+            }
+            let toast_id = Toasts::post(toast, cx);
+            self.background_toast = Some(toast_id);
+        }
+        cx.notify();
+    }
+
+    fn reset(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.step = Step::Input;
+        self.task = None;
+        self.url_input.update(cx, |input, cx| {
+            input.set_text(String::new(), cx);
+            input.focus(window, cx);
+        });
         cx.notify();
     }
 
@@ -93,7 +158,10 @@ impl PlaylistImporter {
             return;
         }
 
-        self.step = Step::Loading(SharedString::from("Fetching playlist metadata..."));
+        self.step = Step::Loading {
+            status: SharedString::from("Fetching playlist metadata..."),
+            progress: None,
+        };
         cx.notify();
 
         let session = Sonora::global(cx).session.clone();
@@ -109,24 +177,40 @@ impl PlaylistImporter {
             match result {
                 Ok(Ok(playlist)) => {
                     this.update(cx, |this, cx| {
-                        this.step = Step::Loading(SharedString::from(format!(
-                            "Matching {} tracks...",
-                            playlist.tracks.len()
-                        )));
                         this.match_tracks(playlist, local_client, streaming_client, cx);
                     })
                     .ok();
                 }
                 Ok(Err(err)) => {
                     this.update(cx, |this, cx| {
-                        this.step = Step::Error(SharedString::from(format!("{err:#}")));
+                        let err_str = format!("{err:#}");
+                        if let Some(toast_id) = this.background_toast.take() {
+                            Toasts::settle(
+                                toast_id,
+                                Toast::new(Outcome::Failed, "toast-playlist-import-failed")
+                                    .detail(err_str.clone()),
+                                cx,
+                            );
+                        }
+                        this.step = Step::Error(SharedString::from(err_str));
+                        this.task = None;
                         cx.notify();
                     })
                     .ok();
                 }
                 Err(join_err) => {
                     this.update(cx, |this, cx| {
-                        this.step = Step::Error(SharedString::from(format!("Task error: {join_err}")));
+                        let err_str = format!("{join_err:#}");
+                        if let Some(toast_id) = this.background_toast.take() {
+                            Toasts::settle(
+                                toast_id,
+                                Toast::new(Outcome::Failed, "toast-playlist-import-failed")
+                                    .detail(err_str.clone()),
+                                cx,
+                            );
+                        }
+                        this.step = Step::Error(SharedString::from(err_str));
+                        this.task = None;
                         cx.notify();
                     })
                     .ok();
@@ -142,34 +226,133 @@ impl PlaylistImporter {
         streaming: Option<Arc<dyn MusicApi>>,
         cx: &mut Context<Self>,
     ) {
-        let tracks = playlist.tracks.clone();
+        let tracks = playlist.tracks;
+        let total = tracks.len();
+        let initial_name = playlist.title;
         let io = Io::global(cx);
+
+        self.step = Step::Loading {
+            status: SharedString::from(format!("Matching tracks (0/{total})...")),
+            progress: Some(0.0),
+        };
+
+        if let Some(toast_id) = self.background_toast {
+            let importer = cx.entity().clone();
+            let toast = Toast::new(Outcome::Loading, "toast-playlist-importing")
+                .name(initial_name.clone())
+                .progress(0.0)
+                .lasting()
+                .cancel("common-cancel", move |cx| {
+                    importer.update(cx, |this, cx| this.abort(cx));
+                });
+            Toasts::settle(toast_id, toast, cx);
+        }
+        cx.notify();
+
         self.task = Some(cx.spawn(async move |this, cx| {
-            let matched_items = io
-                .spawn(async move {
-                    let mut matched = Vec::with_capacity(tracks.len());
-                    for item in tracks {
-                        let match_result =
-                            resolve_match(item, local.clone(), streaming.clone()).await;
-                        matched.push(match_result);
+            let (tx, mut rx) = tokio::sync::mpsc::channel(32);
+            let semaphore = Arc::new(tokio::sync::Semaphore::new(6));
+
+            let _dispatcher = io.spawn({
+                let tracks = tracks.clone();
+                let local = local.clone();
+                let streaming = streaming.clone();
+                async move {
+                    for (index, item) in tracks.into_iter().enumerate() {
+                        let sem = semaphore.clone();
+                        let tx = tx.clone();
+                        let local = local.clone();
+                        let streaming = streaming.clone();
+                        tokio::spawn(async move {
+                            let _permit = sem.acquire().await;
+                            let match_result = resolve_match(item, local, streaming).await;
+                            let _ = tx.send((index, match_result)).await;
+                        });
                     }
-                    matched
+                }
+            });
+
+            let mut matched_items: Vec<Option<MatchedItem>> = (0..total).map(|_| None).collect();
+            let mut completed = 0;
+
+            while let Some((index, item)) = rx.recv().await {
+                if index < matched_items.len() {
+                    matched_items[index] = Some(item);
+                }
+                completed += 1;
+                let progress_ratio = if total > 0 {
+                    completed as f32 / total as f32
+                } else {
+                    1.0
+                };
+
+                this.update(cx, |this, cx| {
+                    this.step = Step::Loading {
+                        status: SharedString::from(format!("Matching tracks ({completed}/{total})...")),
+                        progress: Some(progress_ratio),
+                    };
+                    if let Some(toast_id) = this.background_toast {
+                        Toasts::progress(toast_id, progress_ratio, cx);
+                    }
+                    cx.notify();
                 })
-                .await
-                .unwrap_or_default();
+                .ok();
+            }
+
+            let final_items: Vec<MatchedItem> = matched_items.into_iter().flatten().collect();
 
             this.update(cx, |this, cx| {
-                let initial_name = playlist.title.clone();
-                this.name_input.update(cx, |input, cx| {
-                    input.set_text(initial_name, cx);
-                });
-                this.step = Step::Review {
-                    items: matched_items,
-                };
-                cx.notify();
+                if this.open {
+                    this.name_input.update(cx, |input, cx| {
+                        input.set_text(initial_name.clone(), cx);
+                    });
+                    this.step = Step::Review {
+                        items: final_items,
+                    };
+                    cx.notify();
+                } else {
+                    this.auto_save_background(initial_name, final_items, cx);
+                }
             })
             .ok();
         }));
+    }
+
+    fn auto_save_background(
+        &mut self,
+        name: String,
+        items: Vec<MatchedItem>,
+        cx: &mut Context<Self>,
+    ) {
+        if let Some(toast_id) = self.background_toast.take() {
+            Toasts::close(toast_id, cx);
+        }
+
+        let tracks_to_save: Vec<Track> = items
+            .iter()
+            .filter_map(|item| item.matched_track.clone())
+            .collect();
+
+        if tracks_to_save.is_empty() {
+            Toasts::with_detail(
+                Outcome::Failed,
+                "toast-playlist-import-failed",
+                Some(SharedString::from(name)),
+                "No tracks could be matched",
+                cx,
+            );
+            self.step = Step::Input;
+            self.task = None;
+            return;
+        }
+
+        let library = Sonora::global(cx).library.clone();
+        library.update(cx, |lib, cx| {
+            lib.create_hybrid_playlist(name, tracks_to_save, cx);
+        });
+
+        self.step = Step::Input;
+        self.task = None;
     }
 
     fn apply_import(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -294,7 +477,10 @@ impl Render for PlaylistImporter {
             .track_focus(&self.focus)
             .on_action(cx.listener(|this, _: &Dismiss, window, cx| {
                 cx.stop_propagation();
-                this.close(window, cx);
+                match &this.step {
+                    Step::Loading { .. } => this.minimize(window, cx),
+                    _ => this.close(window, cx),
+                }
             }))
             .on_action(cx.listener(|this, _: &Submit, window, cx| {
                 cx.stop_propagation();
@@ -317,16 +503,52 @@ impl Render for PlaylistImporter {
                                     .gap_2()
                                     .child(self.url_input.clone())
                             ),
-                        Step::Loading(msg) => modal
-                            .detail(msg.clone())
+                        Step::Loading { status, progress } => modal
+                            .detail(status.clone())
                             .child(
                                 div()
                                     .flex()
-                                    .items_center()
-                                    .justify_center()
-                                    .py_6()
-                                    .text_color(theme.muted_foreground)
-                                    .child("Scanning local library & streaming service..."),
+                                    .flex_col()
+                                    .gap_3()
+                                    .py_4()
+                                    .child(
+                                        div()
+                                            .text_xs()
+                                            .text_color(theme.muted_foreground)
+                                            .child("Matching tracks from your local library and streaming accounts concurrently..."),
+                                    )
+                                    .when_some(*progress, |parent, p| {
+                                        let percent = (p * 100.0) as u32;
+                                        parent.child(
+                                            div()
+                                                .flex()
+                                                .flex_col()
+                                                .gap_1()
+                                                .child(
+                                                    div()
+                                                        .w_full()
+                                                        .h(px(6.))
+                                                        .rounded_full()
+                                                        .bg(theme.border)
+                                                        .child(
+                                                            div()
+                                                                .h_full()
+                                                                .w(gpui::DefiniteLength::Fraction(p))
+                                                                .rounded_full()
+                                                                .bg(theme.primary),
+                                                        )
+                                                )
+                                                .child(
+                                                    div()
+                                                        .flex()
+                                                        .justify_between()
+                                                        .text_xs()
+                                                        .text_color(theme.muted_foreground)
+                                                        .child(format!("{percent}%"))
+                                                        .child("Click “Run in background” to minimize"),
+                                                )
+                                        )
+                                    })
                             ),
                         Step::Review { items, .. } => {
                             let matched_count = items.iter().filter(|i| i.matched_track.is_some()).count();
@@ -409,7 +631,7 @@ impl Render for PlaylistImporter {
                         Button::new("cancel-import")
                             .ghost()
                             .label(t!("common-cancel"))
-                            .on_click(cx.listener(|this, _, window, cx| this.close(window, cx))),
+                            .on_click(cx.listener(|this, _, window, cx| this.cancel_import(window, cx))),
                     )
                     .action(
                         match &self.step {
@@ -417,6 +639,10 @@ impl Render for PlaylistImporter {
                                 .primary()
                                 .label(t!("common-confirm"))
                                 .on_click(cx.listener(|this, _, window, cx| this.start_fetch(window, cx))),
+                            Step::Loading { .. } => Button::new("minimize-import")
+                                .primary()
+                                .label(t!("common-background"))
+                                .on_click(cx.listener(|this, _, window, cx| this.minimize(window, cx))),
                             Step::Review { .. } => Button::new("save-import")
                                 .primary()
                                 .label("Save Playlist")
@@ -424,13 +650,15 @@ impl Render for PlaylistImporter {
                             Step::Error(_) => Button::new("retry-import")
                                 .primary()
                                 .label("Try Again")
-                                .on_click(cx.listener(|this, _, window, cx| this.show(window, cx))),
-                            Step::Loading(_) => Button::new("loading-import")
-                                .ghost()
-                                .label("Working..."),
+                                .on_click(cx.listener(|this, _, window, cx| this.reset(window, cx))),
                         }
                     )
-                    .on_dismiss(cx.listener(|this, _, window, cx| this.close(window, cx))),
+                    .on_dismiss(cx.listener(|this, _, window, cx| {
+                        match &this.step {
+                            Step::Loading { .. } => this.minimize(window, cx),
+                            _ => this.close(window, cx),
+                        }
+                    })),
             )
             .into_any_element()
     }

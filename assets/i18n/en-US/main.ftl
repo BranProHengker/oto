@@ -10,6 +10,7 @@ common-not-available = Not available
 common-cancel = Cancel
 common-confirm = Confirm
 common-save = Save
+common-background = Run in background
 common-delete = Delete
 common-play = Play
 common-more = More
@@ -1111,6 +1112,8 @@ toast-playlist-failed = That change could not be saved
 toast-playlist-busy = Another change is still running
 toast-playlist-signed-out = Sign in to change playlists
 toast-playlist-imported = Imported { $name }
+toast-playlist-importing = Importing playlist…
+toast-playlist-import-failed = Could not import playlist
 toast-playlist-imported-partly = Imported { $name }, leaving out { $count ->
         [one] one song
        *[other] { $count } songs
