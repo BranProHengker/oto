@@ -12,6 +12,8 @@ impl SettingsView {
                 Slot::ShortcutPlayback,
                 Slot::ShortcutNext,
                 Slot::ShortcutPrevious,
+                Slot::ShortcutSeekForward,
+                Slot::ShortcutSeekBackward,
                 Slot::ShortcutShuffle,
                 Slot::ShortcutRepeat,
                 Slot::ShortcutVolumeUp,

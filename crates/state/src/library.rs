@@ -1934,6 +1934,42 @@ impl Library {
         );
     }
 
+    /// Creates a hybrid playlist holding both local and streaming tracks.
+    pub fn create_hybrid_playlist(
+        &mut self,
+        name: String,
+        tracks: Vec<music::Track>,
+        cx: &mut Context<Self>,
+    ) {
+        let title = name.clone();
+        self.mutate_playlist(
+            PlaylistMutation {
+                action: "create hybrid playlist",
+                done: None,
+                name: Some(name),
+                target: None,
+                invalidated: Vec::new(),
+                shelf: Shelf::Local,
+            },
+            move |client| async move {
+                let id = client.create_hybrid_playlist(&title, &tracks).await?;
+                client.playlist(&id).await
+            },
+            |this, detail, cx| {
+                let playlist = detail.playlist;
+                let target = Some(Target::Playlist(SharedString::from(playlist.id.clone())));
+                this.insert_playlist(playlist.clone(), cx);
+                Toasts::post(
+                    Toast::new(Outcome::Done, "toast-playlist-created")
+                        .name(playlist.name)
+                        .target(target),
+                    cx,
+                );
+            },
+            cx,
+        );
+    }
+
     /// Writes a local playlist to `path` as M3U8.
     pub fn export_playlist(&mut self, id: String, path: PathBuf, cx: &mut Context<Self>) {
         self.mutate_playlist(

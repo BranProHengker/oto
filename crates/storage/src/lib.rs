@@ -53,6 +53,10 @@ const SCHEMA: &str = "
         playlist_id TEXT PRIMARY KEY,
         path TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS playlist_track_details (
+        track_id TEXT PRIMARY KEY,
+        data TEXT NOT NULL
+    );
     CREATE TABLE IF NOT EXISTS favorites (
         track_id TEXT PRIMARY KEY,
         added_at INTEGER NOT NULL

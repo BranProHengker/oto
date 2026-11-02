@@ -12,6 +12,7 @@ pub mod drm;
 pub mod engine;
 pub mod equalizer;
 pub mod escape;
+pub mod import;
 pub mod kugou;
 pub mod link;
 #[cfg(test)]
@@ -233,6 +234,9 @@ pub trait MusicApi: Send + Sync {
         None
     }
     async fn create_playlist(&self, name: &str) -> Result<String>;
+    async fn create_hybrid_playlist(&self, _name: &str, _tracks: &[Track]) -> Result<String> {
+        anyhow::bail!("this provider cannot create hybrid playlists")
+    }
     async fn rename_playlist(&self, playlist_id: &str, name: &str) -> Result<()>;
     async fn delete_playlist(&self, playlist_id: &str) -> Result<()>;
     async fn remove_playlist_from_library(&self, playlist_id: &str) -> Result<()>;

@@ -1313,6 +1313,13 @@ pub(crate) fn new_playlist_menu(
                 .icon("icons/plus.svg")
                 .on_click(on_create),
         )
+        .item(
+            MenuItem::new("import-playlist-link", t!("menu-import-playlist-link"))
+                .icon("icons/link.svg")
+                .on_click(|_, window, cx| {
+                    crate::shared::playlist_importer::PlaylistImporter::open(window, cx);
+                }),
+        )
         .items(shelf.local().then(|| {
             MenuItem::new("import-playlist", t!("menu-import-playlist"))
                 .icon("icons/file-music.svg")

@@ -7,6 +7,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.1.9] - 2026-11-02
+
+### Added
+
+- Public playlist importer in Library → Playlists imports links from Spotify, YouTube Music, Apple Music, and Deezer into hybrid playlists, automatically resolving and prioritizing local lossless audio files before streaming.
+- Seek forward and backward shortcuts (`Shift + Right` and `Shift + Left`) skip 5 seconds in either direction.
+
+### Fixed
+
+- Quitting on Linux now strictly honors `Super + Q` (or `Win + Q`) as shown in Shortcuts settings, removing accidental termination on `Ctrl + Q`.
+
 ## [1.1.8] - 2026-11-01
 
 ### Added

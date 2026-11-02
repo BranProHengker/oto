@@ -1286,9 +1286,22 @@ impl Tooled for LibraryView {
                 .into_any_element()
         });
 
+        let import_link = (self.section == Section::Playlists).then(|| {
+            Button::new("import-playlist-link")
+                .icon("icons/link.svg")
+                .tooltip("menu-import-playlist-link")
+                .small()
+                .ghost()
+                .on_click(|_, window, cx| {
+                    crate::shared::playlist_importer::PlaylistImporter::open(window, cx);
+                })
+                .into_any_element()
+        });
+
         let mut tools = Vec::new();
         tools.extend(create);
         tools.extend(import);
+        tools.extend(import_link);
         let switchable = !self.section.listing();
         tools.extend(switchable.then(|| {
             tools::views(&self.popovers, self.mode(), move |mode, cx| {

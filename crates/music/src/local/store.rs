@@ -1,10 +1,11 @@
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context as _, Result};
 use rusqlite::{Connection, OptionalExtension as _, params};
 use storage::Database;
 
-use crate::LOCAL_PLAYLIST_PREFIX;
+use crate::{LOCAL_PLAYLIST_PREFIX, Track};
 
 pub struct Stored {
     pub id: String,
@@ -287,6 +288,46 @@ impl Store {
 
         rows.collect::<rusqlite::Result<Vec<_>>>()
             .context("cannot read a local playlist")
+    }
+
+    /// Stores the metadata for tracks (e.g. streaming tracks in a hybrid playlist).
+    pub fn cache_track_details(&self, tracks: &[Track]) -> Result<()> {
+        let mut connection = self.open()?;
+        let transaction = connection
+            .transaction()
+            .context("cannot save track details")?;
+        for track in tracks {
+            if let Some(id) = &track.id
+                && let Ok(data) = serde_json::to_string(track)
+            {
+                transaction
+                    .execute(
+                        "INSERT OR REPLACE INTO playlist_track_details (track_id, data) VALUES (?, ?)",
+                        params![id, data],
+                    )
+                    .context("cannot save track detail")?;
+            }
+        }
+        transaction.commit().context("cannot save track details")
+    }
+
+    /// Reads cached track metadata by ID for tracks not present in the local file scanner.
+    pub fn cached_tracks(&self, ids: &[String]) -> Result<HashMap<String, Track>> {
+        let connection = self.open()?;
+        let mut map = HashMap::new();
+        for id in ids {
+            let row: rusqlite::Result<String> = connection.query_row(
+                "SELECT data FROM playlist_track_details WHERE track_id = ?",
+                params![id],
+                |row| row.get(0),
+            );
+            if let Ok(data) = row
+                && let Ok(track) = serde_json::from_str::<Track>(&data)
+            {
+                map.insert(id.clone(), track);
+            }
+        }
+        Ok(map)
     }
 }
 

@@ -157,6 +157,8 @@ enum Slot {
     ShortcutPlayback,
     ShortcutNext,
     ShortcutPrevious,
+    ShortcutSeekForward,
+    ShortcutSeekBackward,
     ShortcutShuffle,
     ShortcutRepeat,
     ShortcutVolumeUp,
@@ -943,6 +945,14 @@ impl SettingsView {
             Slot::ShortcutPlayback => (t!("shortcut-playback"), t!("shortcut-playback-detail")),
             Slot::ShortcutNext => (t!("shortcut-next"), t!("shortcut-next-detail")),
             Slot::ShortcutPrevious => (t!("shortcut-previous"), t!("shortcut-previous-detail")),
+            Slot::ShortcutSeekForward => (
+                t!("shortcut-seek-forward"),
+                t!("shortcut-seek-forward-detail"),
+            ),
+            Slot::ShortcutSeekBackward => (
+                t!("shortcut-seek-backward"),
+                t!("shortcut-seek-backward-detail"),
+            ),
             Slot::ShortcutShuffle => (t!("shortcut-shuffle"), t!("shortcut-shuffle-detail")),
             Slot::ShortcutRepeat => (t!("shortcut-repeat"), t!("shortcut-repeat-detail")),
             Slot::ShortcutVolumeUp => (t!("shortcut-volume-up"), t!("shortcut-volume-up-detail")),
@@ -1097,6 +1107,12 @@ impl SettingsView {
             Slot::ShortcutPlayback => self.shortcut_row(t!("shortcut-playback"), "space"),
             Slot::ShortcutNext => self.shortcut_row(t!("shortcut-next"), "secondary-right"),
             Slot::ShortcutPrevious => self.shortcut_row(t!("shortcut-previous"), "secondary-left"),
+            Slot::ShortcutSeekForward => {
+                self.shortcut_row(t!("shortcut-seek-forward"), "shift-right")
+            }
+            Slot::ShortcutSeekBackward => {
+                self.shortcut_row(t!("shortcut-seek-backward"), "shift-left")
+            }
             Slot::ShortcutShuffle => self.shortcut_row(t!("shortcut-shuffle"), "r"),
             Slot::ShortcutRepeat => self.shortcut_row(t!("shortcut-repeat"), "l"),
             Slot::ShortcutVolumeUp => self.shortcut_row(t!("shortcut-volume-up"), "secondary-up"),

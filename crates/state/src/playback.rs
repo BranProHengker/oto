@@ -2489,6 +2489,18 @@ impl Playback {
         self.seek(position, cx);
     }
 
+    /// Jumps forward or backward by `offset_secs` relative to the current live position.
+    pub fn seek_by(&mut self, offset_secs: i64, cx: &mut Context<Self>) {
+        let current = self.live_position().as_secs_f64();
+        let total = self
+            .track
+            .as_ref()
+            .map(|track| track.duration.as_secs_f64())
+            .unwrap_or(f64::MAX);
+        let target = (current + offset_secs as f64).clamp(0.0, total);
+        self.seek(Duration::from_secs_f64(target), cx);
+    }
+
     pub fn state(&self) -> &PlaybackState {
         &self.state
     }

@@ -104,6 +104,8 @@ menu-add-tracks-to-playlist = { $count ->
 }
 menu-new-playlist = Playlist baru
 menu-import-playlist = Impor playlist…
+menu-import-playlist-link = Impor dari tautan…
+playlist-url-placeholder = Tempel tautan playlist (Spotify, YouTube, Apple, Deezer)...
 menu-edit-tags = Edit tag
 menu-no-playlists = Tidak ada playlist
 menu-search-playlists = Cari playlist
@@ -1358,3 +1360,7 @@ response-graph-readout = { $frequency } · { $direction ->
         [down] -{ $gain }
        *[flat] { $gain }
     } dB
+shortcut-seek-forward = Maju 5 detik
+shortcut-seek-forward-detail = Lompat maju 5 detik
+shortcut-seek-backward = Mundur 5 detik
+shortcut-seek-backward-detail = Lompat mundur 5 detik

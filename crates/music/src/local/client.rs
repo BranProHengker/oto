@@ -74,6 +74,7 @@ impl LocalClient {
 
     fn listed(&self, ids: &[String]) -> Vec<Track> {
         let scanned = self.scanned.read().unwrap();
+        let cached = self.store.cached_tracks(ids).unwrap_or_default();
         ids.iter()
             .filter_map(|id| {
                 scanned
@@ -81,8 +82,17 @@ impl LocalClient {
                     .iter()
                     .find(|track| track.id.as_deref() == Some(id.as_str()))
                     .cloned()
+                    .or_else(|| cached.get(id).cloned())
             })
             .collect()
+    }
+
+    pub fn create_hybrid_playlist(&self, name: &str, tracks: &[Track]) -> Result<String> {
+        let id = self.store.create(name)?;
+        self.store.cache_track_details(tracks)?;
+        let track_ids: Vec<String> = tracks.iter().filter_map(|t| t.id.clone()).collect();
+        self.store.extend(&id, &track_ids)?;
+        Ok(id)
     }
 
     fn assemble(&self, id: &str) -> Result<PlaylistDetail> {
@@ -373,6 +383,10 @@ impl MusicApi for LocalClient {
 
     async fn create_playlist(&self, name: &str) -> Result<String> {
         self.store.create(name)
+    }
+
+    async fn create_hybrid_playlist(&self, name: &str, tracks: &[Track]) -> Result<String> {
+        self.create_hybrid_playlist(name, tracks)
     }
 
     async fn rename_playlist(&self, playlist_id: &str, name: &str) -> Result<()> {
