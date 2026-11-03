@@ -14,6 +14,24 @@
 
 </div>
 
+<div align="center">
+  <table>
+    <tr>
+      <td colspan="2">
+        <img alt="Oto Fullscreen View" src="./.github/screenshots/fullscreen.jpg" />
+      </td>
+    </tr>
+    <tr>
+      <td width="50%">
+        <img alt="Oto Playlist View" src="./.github/screenshots/playlist.jpg" />
+      </td>
+      <td width="50%">
+        <img alt="Oto Local Songs & Synced Lyrics" src="./.github/screenshots/lyrics.jpg" />
+      </td>
+    </tr>
+  </table>
+</div>
+
 > [!NOTE]
 > **Oto** is an independent fork of [Sonora](https://github.com/sonorahq/sonora). It retains full compatibility with Sonora's native playback engine while adding tailored improvements:
 > - **Universal Playlist Importer**: Import public playlist links (Spotify, YouTube Music, Apple Music, Deezer) into native hybrid playlists, prioritizing local lossless audio files over streaming.
@@ -34,6 +52,60 @@
 - **Audio Engine**: Automix crossfade with DJ bass dip, 5-second relative seek shortcuts (`Shift + Arrows`), gapless playback, audio loudness normalization, parametric equalizer, and sleep timer.
 - **Audio Scrobbler**: Built-in support for LastFM, ListenBrainz, LibreFM, and Maloja.
 - **Extensive Theming**: Dynamic adaptive palettes, blur/vibrancy, font adjustments, and interchangeable icon packs.
+
+---
+
+## Installation
+
+Prebuilt binaries and packages are available on the [Releases](https://github.com/BranProHengker/oto/releases/latest) page.
+
+### Linux
+
+#### AppImage
+
+Download the `.AppImage` from [Releases](https://github.com/BranProHengker/oto/releases/latest), make it executable, and run it:
+
+```sh
+chmod +x oto-*.AppImage
+./oto-*.AppImage
+```
+
+#### Debian / Ubuntu (.deb)
+
+Download the `.deb` package from [Releases](https://github.com/BranProHengker/oto/releases/latest) and install it:
+
+```sh
+sudo dpkg -i oto_*_amd64.deb
+```
+
+#### Standalone Binary
+
+Download the prebuilt executable (`oto-*-unknown-linux-gnu`) from [Releases](https://github.com/BranProHengker/oto/releases/latest) and place it into your path:
+
+```sh
+chmod +x oto-*-unknown-linux-gnu
+mv oto-*-unknown-linux-gnu ~/.local/bin/oto
+```
+
+### Windows
+
+#### Installer
+
+Download and run [Oto-Setup.exe](https://github.com/BranProHengker/oto/releases/latest/download/Oto-Setup.exe) (x64) or [Oto-Setup-arm64.exe](https://github.com/BranProHengker/oto/releases/latest/download/Oto-Setup-arm64.exe) (ARM64) from the [latest release](https://github.com/BranProHengker/oto/releases/latest).
+
+#### Portable
+
+Download the `windows-msvc.exe` binary for your architecture from [Releases](https://github.com/BranProHengker/oto/releases/latest) and run it directly without installing.
+
+### macOS
+
+Download the disk image (`.dmg`) from [Releases](https://github.com/BranProHengker/oto/releases/latest), open it, and drag **Oto** to your **Applications** folder.
+
+If macOS blocks the app on first launch:
+
+```sh
+xattr -dr com.apple.quarantine /Applications/Oto.app
+```
 
 ---
 
