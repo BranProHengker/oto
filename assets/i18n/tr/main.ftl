@@ -131,8 +131,11 @@ menu-play-last = En son çal
 menu-play-tracks-last = { $count ->
    *[other] { $count } parçayı en son çal
 }
-menu-song-radio = Şarkı radyosuna git
-menu-go-to-album = Albüme git
+menu-go-to = Git
+menu-artist = Sanatçı
+menu-album = Albüm
+menu-radio = Radyo
+menu-details = Ayrıntılar
 menu-go-to-artist = Sanatçıya git
 menu-view-details = Ayrıntıları gör
 menu-copy-link = Bağlantıyı kopyala
@@ -239,10 +242,7 @@ player-previous = Önceki parça
 player-next = Sonraki parça
 player-fullscreen = Tam ekran
 player-fullscreen-leave = Tam ekrandan çık
-player-devices = Cihazlar
 devices-this-computer = Bu bilgisayar
-devices-pause = Duraklat
-devices-resume = Sürdür
 devices-jam-join = Jam'e katıl…
 devices-jam-join-title = Jam'e katıl
 devices-jam-join-detail = Bir arkadaşının paylaştığı bağlantıyı yapıştır
@@ -250,15 +250,12 @@ devices-jam-paste = Yapıştır
 devices-jam-link-hint = Jam bağlantısı
 devices-jam-start = Jam başlat
 devices-jam-copy = Jam bağlantısını kopyala
-devices-jam-code = QR kodu
 devices-jam-code-menu = QR kodunu göster
 devices-jam-code-title = { $host } ile Jam'e katılmak için tara
 devices-jam-code-title-anonymous = Jam'e katılmak için tara
 devices-jam-code-close = Kapat
 devices-jam-leave = Jam'den ayrıl
 devices-jam-end = Jam'i bitir
-devices-jam-banner = { $host } ile Jam'de
-devices-jam-banner-anonymous = Jam'de
 devices-jam-more = +{ $count }
 devices-jam-host = Ev sahibi
 devices-jam-you = Sen
@@ -269,8 +266,6 @@ devices-jam-invite-detail = { $count ->
    *[other] Bu Jam'de zaten { $count } kişi var.
 }
 devices-jam-invite-join = Katıl
-devices-elsewhere-banner = { $device } üzerinde çalıyor
-devices-elsewhere-here = Burada çal
 fullscreen-artwork = Kapak
 
 # filters
@@ -1245,17 +1240,6 @@ toast-offline-mode = Çevrimdışısın. Bu şarkıyı internetten çalmak için
 offline-title = Çevrimdışısın.
 offline-go-online = Çevrimiçi ol
 toast-download-failed = İndirilecek parçalar listelenemedi.
-toast-downloading = { $name } indiriliyor
-toast-downloading-songs = { $count ->
-   *[other] { $count } parça indiriliyor
-}
-toast-downloaded = { $name } indirildi
-toast-downloaded-songs = { $count ->
-   *[other] { $count } parça indirildi
-}
-toast-download-set-failed = { $name } içindeki bazı parçalar indirilemedi
-toast-download-song-failed = { $name } indirilemedi
-toast-download-songs-failed = Parçaların bazıları indirilemedi
 toast-percent = { $percent }%
 toast-download-cancelled = { $name } indirmesi iptal edildi
 toast-downloads-cancelled = { $count ->

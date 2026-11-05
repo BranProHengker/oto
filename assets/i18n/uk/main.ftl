@@ -165,8 +165,11 @@ menu-play-tracks-last = { $count ->
     [few] Відтворити { $count } треки наприкінці
    *[other] Відтворити { $count } треків наприкінці
 }
-menu-song-radio = Радіо за треком
-menu-go-to-album = Перейти до альбому
+menu-go-to = Перейти
+menu-artist = Виконавець
+menu-album = Альбом
+menu-radio = Радіо
+menu-details = Докладніше
 menu-go-to-artist = Перейти до виконавця
 menu-view-details = Докладніше
 menu-copy-link = Копіювати посилання
@@ -277,10 +280,7 @@ player-previous = Попередній трек
 player-next = Наступний трек
 player-fullscreen = Повноекранний режим
 player-fullscreen-leave = Вийти з повноекранного режиму
-player-devices = Пристрої
 devices-this-computer = Цей комп'ютер
-devices-pause = Пауза
-devices-resume = Продовжити
 devices-jam-join = Приєднатися до Jam…
 devices-jam-join-title = Приєднатися до Jam
 devices-jam-join-detail = Вставте посилання, яким поділився друг
@@ -288,15 +288,12 @@ devices-jam-paste = Вставити
 devices-jam-link-hint = Посилання на Jam
 devices-jam-start = Почати Jam
 devices-jam-copy = Копіювати посилання на Jam
-devices-jam-code = QR-код
 devices-jam-code-menu = Показати QR-код
 devices-jam-code-title = Скануйте, щоб приєднатися до Jam користувача { $host }
 devices-jam-code-title-anonymous = Скануйте, щоб приєднатися до Jam
 devices-jam-code-close = Закрити
 devices-jam-leave = Вийти з Jam
 devices-jam-end = Завершити Jam
-devices-jam-banner = У Jam користувача { $host }
-devices-jam-banner-anonymous = У Jam
 devices-jam-more = +{ $count }
 devices-jam-host = Організатор
 devices-jam-you = Ви
@@ -309,8 +306,6 @@ devices-jam-invite-detail = { $count ->
    *[other] У цьому Jam уже { $count } учасників.
 }
 devices-jam-invite-join = Приєднатися
-devices-elsewhere-banner = Грає на { $device }
-devices-elsewhere-here = Слухати тут
 fullscreen-artwork = Обкладинка
 
 # filters
@@ -742,6 +737,7 @@ settings-discord-hide-on-connect-detail = Залишає статус самом
 settings-discord-buttons = Кнопки
 settings-discord-buttons-detail = Посилання під статусом, які можуть відкрити друзі: на трек у його сервісі й на Sonora
 settings-discord-buttons-pick = Обрати кнопки
+settings-discord-preview = Попередній перегляд статусу Discord
 settings-discord-preview-listening = Слухає { $name }
 settings-discord-preview-music = Музика
 settings-discord-preview-elapsed = Минуло { $time }
@@ -1313,21 +1309,6 @@ toast-offline-mode = Ви офлайн. Перейдіть в онлайн, що
 offline-title = Ви офлайн.
 offline-go-online = Перейти в онлайн
 toast-download-failed = Не вдалося отримати список треків для завантаження.
-toast-downloading = Завантажуємо { $name }
-toast-downloading-songs = { $count ->
-    [one] Завантажуємо { $count } трек
-    [few] Завантажуємо { $count } треки
-   *[other] Завантажуємо { $count } треків
-}
-toast-downloaded = { $name } завантажено
-toast-downloaded-songs = { $count ->
-    [one] Завантажено { $count } трек
-    [few] Завантажено { $count } треки
-   *[other] Завантажено { $count } треків
-}
-toast-download-set-failed = Не вдалося завантажити деякі треки з { $name }
-toast-download-song-failed = Не вдалося завантажити { $name }
-toast-download-songs-failed = Не вдалося завантажити деякі треки
 toast-percent = { $percent }%
 toast-download-cancelled = Завантаження { $name } скасовано
 toast-downloads-cancelled = { $count ->

@@ -699,6 +699,31 @@ impl Queue {
             .map(|entry| &entry.track)
     }
 
+    /// The upcoming tracks the listener or a collection put there, without the suggestions.
+    pub(crate) fn chosen_upcoming(&self) -> impl Iterator<Item = &Track> {
+        self.upcoming()
+    }
+
+    /// Makes `tracks` what plays after the current track, as a Sonora Session shares it. Local
+    /// files and suggestions are never shared, so the ones here stay after them.
+    pub(crate) fn share_upcoming(&mut self, tracks: Vec<Track>, cx: &mut Context<Self>) {
+        let origin = self.origin().cloned();
+        let queued = self.queued();
+        let suggestions: Vec<_> = self.upcoming.drain(queued..).collect();
+        let local_tracks: Vec<_> = self
+            .upcoming
+            .drain(..)
+            .filter(|entry| entry.track.id.as_deref().is_some_and(music::is_local_id))
+            .collect();
+        self.manual = 0;
+        self.upcoming = tagged(tracks, origin)
+            .chain(local_tracks)
+            .chain(suggestions)
+            .collect();
+        self.suggested += 1;
+        self.changed(cx);
+    }
+
     /// The tracks the user queued by hand. They open `upcoming`.
     pub fn manual(&self) -> impl ExactSizeIterator<Item = &Track> {
         self.upcoming.range(..self.manual).map(|entry| &entry.track)

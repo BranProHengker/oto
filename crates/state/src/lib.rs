@@ -13,6 +13,7 @@ mod history;
 mod home;
 mod library;
 mod links;
+mod listening;
 mod logging;
 mod lyrics;
 mod mosaic;
@@ -48,7 +49,9 @@ pub use control::Control;
 pub use cover::Cover;
 pub use detail::{Collection, Detail, Header};
 pub use devices::{Devices, Steered, Upcoming};
-pub use downloads::{Downloads, DownloadsChanged, Progress, downloaded};
+pub use downloads::{
+    Active, Downloads, DownloadsChanged, Pending, Progress, Remaining, Subject, downloaded,
+};
 pub use drm::{CdmState, Drm};
 pub use equalizer::{DeviceRule, Equalizer, RuleDevice, Sound};
 pub use genre::{GenreDetails, Genres};
@@ -59,6 +62,7 @@ pub use library::{
     Shelf, cover_problem,
 };
 pub use links::{Links, Opened};
+pub use listening::{CODE_LENGTH as SESSION_CODE_LENGTH, Listening, Member as RoomMember, Room};
 pub use logging::log_file;
 pub use lyrics::{Lyrics, LyricsState};
 pub use network::{Network, Reconnected};
@@ -196,6 +200,7 @@ pub struct Sonora {
     pub equalizer: Entity<Equalizer>,
     pub library: Entity<Library>,
     pub links: Entity<Links>,
+    pub listening: Entity<Listening>,
     pub history: Entity<History>,
     pub lyrics: Entity<Lyrics>,
     pub network: Entity<Network>,
@@ -351,7 +356,17 @@ pub fn init(
             cx,
         )
     });
-    let links = cx.new(|cx| Links::new(session.clone(), devices.clone(), cx));
+    let listening = cx.new(|cx| {
+        Listening::new(
+            playback.clone(),
+            queue.clone(),
+            session.clone(),
+            settings.clone(),
+            io.clone(),
+            cx,
+        )
+    });
+    let links = cx.new(|cx| Links::new(session.clone(), devices.clone(), settings.clone(), cx));
     let control = cx.new(|cx| Control::new(session.clone(), playback.clone(), library.clone(), cx));
     discord::attach(
         playback.clone(),
@@ -373,6 +388,7 @@ pub fn init(
         equalizer,
         library,
         links,
+        listening,
         history,
         lyrics,
         network,

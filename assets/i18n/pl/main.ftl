@@ -165,8 +165,11 @@ menu-play-tracks-last = { $count ->
     [few] Odtwórz { $count } utwory na końcu
    *[other] Odtwórz { $count } utworów na końcu
 }
-menu-song-radio = Radio utworu
-menu-go-to-album = Przejdź do albumu
+menu-go-to = Przejdź do
+menu-artist = Wykonawca
+menu-album = Album
+menu-radio = Radio
+menu-details = Szczegóły
 menu-go-to-artist = Przejdź do wykonawcy
 menu-view-details = Szczegóły
 menu-copy-link = Kopiuj link
@@ -277,10 +280,7 @@ player-previous = Poprzedni utwór
 player-next = Następny utwór
 player-fullscreen = Pełny ekran
 player-fullscreen-leave = Wyjdź z trybu pełnoekranowego
-player-devices = Urządzenia
 devices-this-computer = Ten komputer
-devices-pause = Wstrzymaj
-devices-resume = Wznów
 devices-jam-join = Dołącz do Jamu…
 devices-jam-join-title = Dołącz do Jamu
 devices-jam-join-detail = Wklej link udostępniony przez znajomego
@@ -288,15 +288,12 @@ devices-jam-paste = Wklej
 devices-jam-link-hint = Link do Jamu
 devices-jam-start = Rozpocznij Jam
 devices-jam-copy = Kopiuj link do Jamu
-devices-jam-code = Kod QR
 devices-jam-code-menu = Pokaż kod QR
 devices-jam-code-title = Zeskanuj, aby dołączyć do Jamu użytkownika { $host }
 devices-jam-code-title-anonymous = Zeskanuj, aby dołączyć do Jamu
 devices-jam-code-close = Zamknij
 devices-jam-leave = Opuść Jam
 devices-jam-end = Zakończ Jam
-devices-jam-banner = W Jamie użytkownika { $host }
-devices-jam-banner-anonymous = W Jamie
 devices-jam-more = +{ $count }
 devices-jam-host = Gospodarz
 devices-jam-you = Ty
@@ -309,8 +306,6 @@ devices-jam-invite-detail = { $count ->
    *[other] { $count } osób jest już w tym Jamie.
 }
 devices-jam-invite-join = Dołącz
-devices-elsewhere-banner = Odtwarzanie na: { $device }
-devices-elsewhere-here = Odtwarzaj tutaj
 fullscreen-artwork = Okładka
 
 # filters
@@ -742,6 +737,7 @@ settings-discord-hide-on-connect-detail = Zostaw status samemu Spotify, gdy Sono
 settings-discord-buttons = Przyciski
 settings-discord-buttons-detail = Odnośniki pod statusem, które znajomi mogą otworzyć: do utworu w jego serwisie i do Sonory
 settings-discord-buttons-pick = Wybierz przyciski
+settings-discord-preview = Podgląd statusu Discord
 settings-discord-preview-listening = Słucha { $name }
 settings-discord-preview-music = Muzyka
 settings-discord-preview-elapsed = upłynęło { $time }
@@ -1314,21 +1310,6 @@ toast-offline-mode = Jesteś offline. Przejdź do trybu online, aby streamować 
 offline-title = Jesteś offline.
 offline-go-online = Przejdź do trybu online
 toast-download-failed = Nie udało się ustalić listy utworów do pobrania.
-toast-downloading = Pobieranie { $name }
-toast-downloading-songs = { $count ->
-    [one] Pobieranie { $count } utworu
-    [few] Pobieranie { $count } utworów
-   *[other] Pobieranie { $count } utworów
-}
-toast-downloaded = Pobrano { $name }
-toast-downloaded-songs = { $count ->
-    [one] Pobrano { $count } utwór
-    [few] Pobrano { $count } utwory
-   *[other] Pobrano { $count } utworów
-}
-toast-download-set-failed = Nie udało się pobrać części utworów z { $name }
-toast-download-song-failed = Nie udało się pobrać { $name }
-toast-download-songs-failed = Nie udało się pobrać części utworów
 toast-percent = { $percent }%
 toast-download-cancelled = Anulowano pobieranie { $name }
 toast-downloads-cancelled = { $count ->

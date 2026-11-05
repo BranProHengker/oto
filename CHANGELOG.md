@@ -7,6 +7,27 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-11-05
+
+### Added
+
+- KuGou and NetEase lyrics providers are now enabled by default in Settings → Lyrics.
+- Dual-line Japanese and translated lyrics support for KuGou with romanized/kana fallbacks.
+- Sonora Sessions: listen together in sync across any streaming service by sharing a six-digit code.
+- Members panel in the right sidebar for Sonora Sessions and Spotify Jams.
+- Artist page banner headers with smooth backdrop blur transitions.
+- Download progress and cancellation manager in the window title bar.
+- Visualizer style selection reflected in Appearance settings preview.
+
+### Fixed
+
+- KuGou lyrics fetching resolved connection timeouts and search case sensitivity, now properly finding songs with translated or Japanese titles (e.g. Tayori - Aureate / オリイト).
+- KuGou karaoke lyric timing offsets and candidate adjustments are compensated to eliminate lyric delay.
+- NetEase lyrics search and download bypass anti-bot / WAF challenge (-462).
+- Volume slider dragging is completely smooth without stutter or audio glitching.
+- Media controls properly report track durations for all streaming providers.
+- Spotify Jam queue and member leave/end actions work reliably.
+
 ## [1.1.9] - 2026-11-02
 
 ### Added

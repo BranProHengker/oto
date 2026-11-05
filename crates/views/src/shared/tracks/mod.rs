@@ -800,13 +800,26 @@ fn download_mark(cell: &Cell<TrackField>, track: &Track, cx: &App) -> Option<Any
             .arrow(theme.muted_foreground)
             .backdrop(theme.muted)
     };
-    let ring = match downloads.track(id)? {
-        Progress::Done => ring(Some(1.)),
-        Progress::Running => ring(downloads.fraction(id)),
+    let (ring, landed) = match downloads.track(id)? {
+        Progress::Done => (ring(Some(1.)), true),
+        Progress::Running => (ring(downloads.fraction(id)), false),
         Progress::Waiting => return None,
-        Progress::Failed => ring(Some(0.)).arrow(theme.danger),
+        Progress::Failed => (ring(Some(0.)).arrow(theme.danger), false),
     };
-    Some(div().flex_none().child(ring).into_any_element())
+    // The id stays the same in every state, since the ring keeps its animation under it and a
+    // new id on landing would skip the fade. Only a landed download keeps a name, since no
+    // catalogued string says what a running or failed one is doing here.
+    let ring = div()
+        .id(("downloaded-mark", cell.row))
+        .flex_none()
+        .child(ring);
+    Some(match landed {
+        true => ring
+            .role(Role::Image)
+            .aria_label(t!("filter-downloaded"))
+            .into_any_element(),
+        false => ring.into_any_element(),
+    })
 }
 
 /// Redraws a track table whenever downloads move, so the marks on its rows keep up.
