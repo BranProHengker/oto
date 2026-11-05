@@ -174,12 +174,16 @@ impl Remote {
     }
 
     fn publish(&mut self, cx: &mut Context<Self>) {
-        let playback = self.playback.read(cx);
-        let state = playback.state().clone();
-        let at = playback.position();
-        let track = playback.track();
-        let volume = playback.volume();
-        let repeat = playback.repeat();
+        let (state, at, track, volume, repeat) = {
+            let playback = self.playback.read(cx);
+            (
+                playback.state().clone(),
+                playback.position(),
+                playback.track().cloned(),
+                playback.volume(),
+                playback.repeat(),
+            )
+        };
         let shuffle = self.queue.read(cx).shuffle() != Shuffle::Off;
 
         if self.volume != Some(volume) {
@@ -195,29 +199,31 @@ impl Remote {
             self.controls.set_repeat(repeat);
         }
 
-        let id = track.and_then(|track| track.id.as_deref());
-        let cover = track.and_then(|track| self.artwork_url(track, cx));
+        let id = track.as_ref().and_then(|track| track.id.as_deref());
+        let cover: Option<String> = track
+            .as_ref()
+            .and_then(|track| self.artwork_url(track, cx))
+            .map(str::to_owned);
         let moved = id != self.shown.as_deref();
-        if moved || cover != self.source.as_deref() {
+        if moved || cover.as_deref() != self.source.as_deref() {
             self.shown = id.map(str::to_owned);
-            self.source = cover.map(str::to_owned);
+            self.source = cover.clone();
             self.artwork = None;
-            let remote = cover.is_some_and(is_remote);
+            let remote = cover.as_deref().is_some_and(is_remote);
             match (moved, remote) {
                 // a remote cover follows once it sits in the cache, and a sharper one for the
                 // track already on show leaves the published thumbnail up until the file lands
                 (false, true) => {}
                 // anything else is a file already
-                _ => self.describe(track, cover.filter(|_| !remote), cx),
+                _ => self.describe(track.as_ref(), cover.as_deref().filter(|_| !remote), cx),
             }
-            if let (Some(track), Some(url), true) = (track, cover, remote) {
-                let (track, url) = (track.clone(), url.to_owned());
+            if let (Some(track), Some(url), true) = (track.clone(), cover, remote) {
                 self.artwork = Some(self.fetch_artwork(track, url, cx));
             }
         }
-        if track.map(|track| track.duration) != self.length {
+        if track.as_ref().map(|track| track.duration) != self.length {
             let art = self.art.take();
-            self.describe(track, art.as_deref(), cx);
+            self.describe(track.as_ref(), art.as_deref(), cx);
         }
 
         if self.reported.as_ref() == Some(&state) && self.at.as_secs() == at.as_secs() {

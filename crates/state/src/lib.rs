@@ -366,7 +366,7 @@ pub fn init(
             cx,
         )
     });
-    let links = cx.new(|cx| Links::new(session.clone(), devices.clone(), settings.clone(), cx));
+    let links = cx.new(|cx| Links::new(session.clone(), devices.clone(), cx));
     let control = cx.new(|cx| Control::new(session.clone(), playback.clone(), library.clone(), cx));
     discord::attach(
         playback.clone(),

@@ -561,7 +561,9 @@ impl Queue {
         let mut manual: VecDeque<Entry> = self.upcoming.drain(..self.manual).collect();
         match shuffle {
             Shuffle::On => scramble(&mut self.upcoming, &self.source, self.current.as_ref()),
-            Shuffle::Smart => smart_scramble(&mut self.upcoming, &self.source, self.current.as_ref()),
+            Shuffle::Smart => {
+                smart_scramble(&mut self.upcoming, &self.source, self.current.as_ref())
+            }
             Shuffle::Off => restore(&mut self.upcoming, &self.source, self.current.as_ref()),
         }
         manual.append(&mut self.upcoming);

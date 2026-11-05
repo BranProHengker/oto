@@ -2015,7 +2015,8 @@ impl Playback {
         if self.steer(|_| Command::Shuffle(shuffle != Shuffle::Off), cx) {
             return;
         }
-        self.queue.update(cx, |queue, cx| queue.set_shuffle(shuffle, cx));
+        self.queue
+            .update(cx, |queue, cx| queue.set_shuffle(shuffle, cx));
     }
 
     /// Cycles shuffle between Off -> On -> Smart -> Off.
@@ -2031,11 +2032,13 @@ impl Playback {
     /// Whether the device that has playback shuffles, which is this app's queue unless another
     /// device is being steered.
     pub fn shown_shuffle(&self, cx: &App) -> Shuffle {
-        self.steered(cx)
-            .map_or_else(|| self.queue.read(cx).shuffle(), |steered| match steered.shuffle {
+        self.steered(cx).map_or_else(
+            || self.queue.read(cx).shuffle(),
+            |steered| match steered.shuffle {
                 true => Shuffle::On,
                 false => Shuffle::Off,
-            })
+            },
+        )
     }
 
     /// Decides what follows a track that ended: the same one on repeat-one, the queue's start

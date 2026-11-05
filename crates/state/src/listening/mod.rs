@@ -637,8 +637,8 @@ impl Listening {
             playback.locally(cx, |playback, cx| {
                 if current.as_deref() != Some(id.as_str()) {
                     log::info!("listening: playing {id} from {at:?} for the session");
-                    if queue.read(cx).shuffle() {
-                        queue.update(cx, |queue, cx| queue.set_shuffle(false, cx));
+                    if queue.read(cx).shuffle() != crate::Shuffle::Off {
+                        queue.update(cx, |queue, cx| queue.set_shuffle(crate::Shuffle::Off, cx));
                     }
                     let tracks: Vec<Track> = std::iter::once(track).chain(next).collect();
                     playback.start_at(tracks, 0, None, at, cx);

@@ -613,10 +613,7 @@ impl Default for Values {
             local_lyrics_offered: false,
             subsonic_lyrics_offered: false,
             lyrics_provider_priority: lyrics_priority(&[]),
-            lyrics_providers: LYRICS_SOURCES
-                .iter()
-                .map(|name| name.to_string())
-                .collect(),
+            lyrics_providers: LYRICS_SOURCES.iter().map(|name| name.to_string()).collect(),
             karaoke_lyrics: true,
             blur_lyrics: true,
             romanized_lyrics: true,
