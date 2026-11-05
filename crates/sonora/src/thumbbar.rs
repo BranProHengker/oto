@@ -549,7 +549,7 @@ fn icon(rgba: &[u8], size: u32) -> Option<HICON> {
 fn shown(cx: &App) -> Shown {
     let playback = Sonora::global(cx).playback.read(cx);
     let playing = match playback.steered(cx) {
-        Some(remote) => remote.state.playing,
+        Some(remote) => remote.playing,
         None => matches!(
             playback.state(),
             PlaybackState::Playing | PlaybackState::Loading

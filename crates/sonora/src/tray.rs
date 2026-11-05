@@ -317,7 +317,7 @@ async fn fetch(http: &Arc<dyn HttpClient>, url: &str) -> Result<Vec<u8>> {
 fn shown(artwork: Option<Arc<Art>>, cx: &App) -> Shown {
     let playback = Sonora::global(cx).playback.read(cx);
     let playing = match playback.steered(cx) {
-        Some(remote) => remote.state.playing,
+        Some(remote) => remote.playing,
         None => matches!(
             playback.state(),
             PlaybackState::Playing | PlaybackState::Loading

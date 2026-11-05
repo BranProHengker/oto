@@ -141,7 +141,6 @@ pub(in crate::screens::settings) fn preview(
     window: &mut Window,
     cx: &mut Context<SettingsView>,
 ) -> Option<AnyElement> {
-    let theme = *cx.theme();
     let width = Layout::of(window, cx).width;
     let height = (width * ASPECT).round();
     let sample = view.previews.playing_or_picked(cx);
