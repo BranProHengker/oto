@@ -14,7 +14,8 @@ use crate::shared::menus::{ItemMenu, TrackColumns};
 use gpui::prelude::FluentBuilder as _;
 use gpui::{
     AnyElement, App, Context, Entity, Hsla, InteractiveElement as _, IntoElement as _,
-    ParentElement as _, SharedString, Styled as _, WeakEntity, div,
+    ParentElement as _, SharedString, StatefulInteractiveElement as _, Styled as _, WeakEntity,
+    div,
 };
 use music::Track;
 use router::Destination;

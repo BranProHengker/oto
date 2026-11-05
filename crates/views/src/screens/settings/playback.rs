@@ -149,15 +149,14 @@ impl SettingsView {
                     ),
                 )
             })
-            .child(
-                Switch::new("crossfade-toggle", on)
-                    .on_click(cx.listener(move |this, _, _, cx| {
-                        let next = if on { 0 } else { 5 };
-                        this.pending_crossfade = None;
-                        this.playback
-                            .update(cx, |playback, cx| playback.set_crossfade(next, cx));
-                    })),
-            );
+            .child(Switch::new("crossfade-toggle", on).on_click(cx.listener(
+                move |this, _, _, cx| {
+                    let next = if on { 0 } else { 5 };
+                    this.pending_crossfade = None;
+                    this.playback
+                        .update(cx, |playback, cx| playback.set_crossfade(next, cx));
+                },
+            )));
 
         self.row(t!("settings-crossfade"), action.into_any_element())
     }

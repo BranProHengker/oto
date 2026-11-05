@@ -31,6 +31,7 @@ const CLOCK_LONG: f32 = 5.4;
 
 pub(crate) struct PlayerBar {
     playback: Entity<Playback>,
+    queue: Entity<Queue>,
     settings: Entity<AppSettings>,
     track_menu: ItemMenu,
     sessions: Entity<SessionsButton>,
@@ -61,6 +62,7 @@ impl PlayerBar {
 
         Self {
             playback,
+            queue,
             settings,
             track_menu: ItemMenu::new(playlist_scrollbar, cx),
             sessions,
@@ -607,7 +609,7 @@ impl Render for PlayerBar {
                         .gap_2()
                         .w_full()
                         .child(self.now_playing(show_track, window, cx))
-                        .child(transport(&self.playback, false, cx)),
+                        .child(transport(&self.playback, &self.queue, false, cx)),
                 )
                 .child(
                     div()
@@ -633,7 +635,7 @@ impl Render for PlayerBar {
                         .items_center()
                         .gap_3()
                         .child(self.artwork(window, cx))
-                        .child(transport(&self.playback, false, cx)),
+                        .child(transport(&self.playback, &self.queue, false, cx)),
                 )
                 .child(
                     div()
@@ -667,7 +669,7 @@ impl Render for PlayerBar {
                     self.now_playing(show_track, window, cx)
                         .max_w(theme.metrics.cover * 1.6),
                 )
-                .child(transport(&self.playback, false, cx))
+                .child(transport(&self.playback, &self.queue, false, cx))
                 .child(div().flex_1().min_w_0().child(seek))
                 .child(buttons)
                 .child(self.sound(px(VOLUME_WIDTH), cx))
@@ -685,7 +687,7 @@ impl Render for PlayerBar {
                         .flex_1()
                         .min_w_0()
                         .max_w(px(SEEK_MAX))
-                        .child(transport(&self.playback, false, cx))
+                        .child(transport(&self.playback, &self.queue, false, cx))
                         .child(seek),
                 )
                 .child(

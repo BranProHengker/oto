@@ -1000,7 +1000,9 @@ fn detect_format(
         }
     }
 
-    if let Some(fb) = fallback && let Some(ref codec) = fb.codec {
+    if let Some(fb) = fallback
+        && let Some(ref codec) = fb.codec
+    {
         let rate_str = fb.sample_rate.map(|r| {
             if r.is_multiple_of(1000) {
                 format!("{} kHz", r / 1000)

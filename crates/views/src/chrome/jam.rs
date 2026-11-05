@@ -530,5 +530,4 @@ pub(crate) fn badge(
         .bg(theme.muted)
         .text_size(theme.text(Text::Tiny))
         .text_color(theme.muted_foreground)
-        .child(label)
 }

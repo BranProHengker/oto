@@ -376,7 +376,10 @@ impl SongView {
                             false => t!("song-clean"),
                         },
                     ))
-                    .child(Fact::new(t!("song-audio-format"), self.audio_format(track, cx)).striped(true)),
+                    .child(
+                        Fact::new(t!("song-audio-format"), self.audio_format(track, cx))
+                            .striped(true),
+                    ),
             )
             .into_any_element()
     }

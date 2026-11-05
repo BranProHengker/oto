@@ -29,6 +29,8 @@ use gpui::{
 use state::Sonora;
 use ui::{ActiveTheme as _, CoverPalette, Theme};
 
+use crate::shared::adaptive;
+
 /// How many blobs make up the field.
 pub(crate) const BLOBS: usize = 5;
 /// The widest blur, in device pixels, the renderer still runs at full resolution. It picks
@@ -108,6 +110,13 @@ struct Sampled {
 }
 
 impl Ambient {
+    pub(crate) fn theme(&self, cx: &App) -> Theme {
+        match &self.framed {
+            None => *cx.theme(),
+            Some(sampled) => adaptive::stage(sampled.palette, cx),
+        }
+    }
+
     pub(crate) fn new(cx: &mut Context<Self>) -> Self {
         let settings = Sonora::global(cx).settings.clone();
         // Turning the drift back on has no frame of its own to land in: with

@@ -2,9 +2,9 @@ use gpui::{App, Context, Menu, MenuItem, OsAction};
 use i18n::t;
 use input::{
     CloseWindow, DecreaseFontSize, DecreaseVolume, Hide, HideOthers, IncreaseFontSize,
-    IncreaseVolume, MinimizeWindow, OpenSettings, Quit, Redo, Refresh, ResetFontSize,
-    SeekBackward, SeekForward, ShowAll, SignOut, SongNext, SongPrevious, TogglePlayback,
-    ToggleRepeat, ToggleShuffle, Undo, ZoomWindow,
+    IncreaseVolume, MinimizeWindow, OpenSettings, Quit, Redo, Refresh, ResetFontSize, SeekBackward,
+    SeekForward, ShowAll, SignOut, SongNext, SongPrevious, TogglePlayback, ToggleRepeat,
+    ToggleShuffle, Undo, ZoomWindow,
 };
 use router::Destination;
 use state::{AppSettings, Equalizer, Shelf, Sonora};

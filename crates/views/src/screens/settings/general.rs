@@ -23,9 +23,7 @@ impl SettingsView {
             Group::new("settings-group-window", "icons/panel-left-open.svg")
                 .rows([Slot::Tray, Slot::TrayIcon])
                 .rows(self.decoration_slots(cx)),
-            Group::new("settings-group-shortcuts", "icons/keyboard.svg").rows([
-                Slot::Shortcuts,
-            ]),
+            Group::new("settings-group-shortcuts", "icons/keyboard.svg").rows([Slot::Shortcuts]),
             Group::new("settings-group-motion", "icons/loader-circle.svg").rows([
                 Slot::Motion,
                 Slot::Pace,

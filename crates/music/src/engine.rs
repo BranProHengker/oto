@@ -1262,7 +1262,8 @@ fn audio_loop<F: Fetch>(
                             }
                             held.base = position;
                             held.offset = 0;
-                            held.decoded_frames = (position.as_secs_f64() * f64::from(held.rate)).round() as u64;
+                            held.decoded_frames =
+                                (position.as_secs_f64() * f64::from(held.rate)).round() as u64;
                         }
                     }
                     fading = None;
@@ -1282,7 +1283,8 @@ fn audio_loop<F: Fetch>(
             continue;
         }
 
-        if fading.is_none() && !crossfade.is_zero() && held.near_end(crossfade) && queued.is_some() {
+        if fading.is_none() && !crossfade.is_zero() && held.near_end(crossfade) && queued.is_some()
+        {
             let (next_id, next_loaded) = queued.take().unwrap();
             let next_duration = fetch.length(&next_loaded);
             if let Some(mut next_playing) = Playing::open(
@@ -1321,9 +1323,7 @@ fn audio_loop<F: Fetch>(
                         })
                         .ok();
                     events
-                        .send(PlaybackEvent::Ended {
-                            id: Some(ended_id),
-                        })
+                        .send(PlaybackEvent::Ended { id: Some(ended_id) })
                         .ok();
                     heard = Some(next_playing.mark(paced.rate()));
                     announce_length(&events, &next_id, next_duration);
@@ -1421,7 +1421,8 @@ fn audio_loop<F: Fetch>(
                         };
 
                         let ch_idx = c.min(1);
-                        let hp_old = alpha * (fade.prev_out[ch_idx] + raw_old - fade.prev_in[ch_idx]);
+                        let hp_old =
+                            alpha * (fade.prev_out[ch_idx] + raw_old - fade.prev_in[ch_idx]);
                         fade.prev_in[ch_idx] = raw_old;
                         fade.prev_out[ch_idx] = hp_old;
 

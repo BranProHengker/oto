@@ -3,8 +3,8 @@ use std::time::Duration;
 
 use gpui::prelude::*;
 use gpui::{
-    App, Context, Entity, FocusHandle, FontWeight, Global, Render, SharedString, Task, Window,
-    div, px,
+    App, Context, Entity, FocusHandle, FontWeight, Global, Render, SharedString, Task, Window, div,
+    px,
 };
 use i18n::t;
 use music::import::{ExternalPlaylist, ExternalTrack};
@@ -288,7 +288,9 @@ impl PlaylistImporter {
 
                 this.update(cx, |this, cx| {
                     this.step = Step::Loading {
-                        status: SharedString::from(format!("Matching tracks ({completed}/{total})...")),
+                        status: SharedString::from(format!(
+                            "Matching tracks ({completed}/{total})..."
+                        )),
                         progress: Some(progress_ratio),
                     };
                     if let Some(toast_id) = this.background_toast {
@@ -306,9 +308,7 @@ impl PlaylistImporter {
                     this.name_input.update(cx, |input, cx| {
                         input.set_text(initial_name.clone(), cx);
                     });
-                    this.step = Step::Review {
-                        items: final_items,
-                    };
+                    this.step = Step::Review { items: final_items };
                     cx.notify();
                 } else {
                     this.auto_save_background(initial_name, final_items, cx);
@@ -443,8 +443,10 @@ fn find_best_streaming_match(item: &ExternalTrack, candidates: Vec<Track>) -> Op
     candidates.into_iter().find(|track| {
         let candidate_title = clean_query(&track.name);
         let candidate_artist = clean_query(&track.artists);
-        let title_match = candidate_title.contains(&target_title) || target_title.contains(&candidate_title);
-        let artist_match = candidate_artist.contains(&target_artist) || target_artist.contains(&candidate_artist);
+        let title_match =
+            candidate_title.contains(&target_title) || target_title.contains(&candidate_title);
+        let artist_match =
+            candidate_artist.contains(&target_artist) || target_artist.contains(&candidate_artist);
 
         if let Some(dur) = item.duration {
             let delta = dur.abs_diff(track.duration);

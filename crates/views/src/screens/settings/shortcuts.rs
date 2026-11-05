@@ -21,7 +21,11 @@ impl SettingsView {
                 Slot::ShortcutVolumeWheel,
                 Slot::ShortcutFullscreen,
             ]),
-            Group::new("settings-shortcuts-navigation", "icons/arrow-right-left.svg").rows([
+            Group::new(
+                "settings-shortcuts-navigation",
+                "icons/arrow-right-left.svg",
+            )
+            .rows([
                 Slot::ShortcutSearch,
                 Slot::ShortcutFilter,
                 Slot::ShortcutQueue,
@@ -39,10 +43,8 @@ impl SettingsView {
                 Slot::ShortcutDismiss,
                 Slot::ShortcutQuit,
             ]),
-            Group::new("settings-shortcuts-equalizer", "icons/undo-2.svg").rows([
-                Slot::ShortcutUndo,
-                Slot::ShortcutRedo,
-            ]),
+            Group::new("settings-shortcuts-equalizer", "icons/undo-2.svg")
+                .rows([Slot::ShortcutUndo, Slot::ShortcutRedo]),
             Group::new("settings-shortcuts-table", "icons/list.svg").rows([
                 Slot::ShortcutSelectNext,
                 Slot::ShortcutSelectPrevious,

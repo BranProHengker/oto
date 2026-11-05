@@ -31,8 +31,8 @@ mod discord;
 mod general;
 mod header;
 mod layout;
-mod lyrics;
 mod lrc_studio;
+mod lyrics;
 mod now_playing;
 mod playback;
 mod player_bar;
@@ -968,10 +968,7 @@ impl SettingsView {
             Slot::Log => (t!("settings-log"), t!("settings-log-detail")),
             Slot::License => (t!("settings-license"), t!("settings-license-detail")),
             Slot::Source => (t!("settings-source"), t!("settings-source-detail")),
-            Slot::Shortcuts => (
-                t!("settings-shortcuts"),
-                t!("settings-shortcuts-detail"),
-            ),
+            Slot::Shortcuts => (t!("settings-shortcuts"), t!("settings-shortcuts-detail")),
             Slot::ShortcutPlayback => (t!("shortcut-playback"), t!("shortcut-playback-detail")),
             Slot::ShortcutNext => (t!("shortcut-next"), t!("shortcut-next-detail")),
             Slot::ShortcutPrevious => (t!("shortcut-previous"), t!("shortcut-previous-detail")),
@@ -994,10 +991,9 @@ impl SettingsView {
                 t!("shortcut-volume-wheel"),
                 t!("shortcut-volume-wheel-detail"),
             ),
-            Slot::ShortcutFullscreen => (
-                t!("shortcut-fullscreen"),
-                t!("shortcut-fullscreen-detail"),
-            ),
+            Slot::ShortcutFullscreen => {
+                (t!("shortcut-fullscreen"), t!("shortcut-fullscreen-detail"))
+            }
             Slot::ShortcutSearch => (t!("shortcut-search"), t!("shortcut-search-detail")),
             Slot::ShortcutFilter => (t!("shortcut-filter"), t!("shortcut-filter-detail")),
             Slot::ShortcutQueue => (t!("shortcut-queue"), t!("shortcut-queue-detail")),
@@ -1018,10 +1014,9 @@ impl SettingsView {
                 t!("shortcut-font-decrease"),
                 t!("shortcut-font-decrease-detail"),
             ),
-            Slot::ShortcutResetFont => (
-                t!("shortcut-font-reset"),
-                t!("shortcut-font-reset-detail"),
-            ),
+            Slot::ShortcutResetFont => {
+                (t!("shortcut-font-reset"), t!("shortcut-font-reset-detail"))
+            }
             Slot::ShortcutDismiss => (t!("shortcut-dismiss"), t!("shortcut-dismiss-detail")),
             Slot::ShortcutQuit => (t!("shortcut-quit"), t!("shortcut-quit-detail")),
             Slot::ShortcutUndo => (t!("shortcut-undo"), t!("shortcut-undo-detail")),
@@ -1187,9 +1182,7 @@ impl SettingsView {
             Slot::ShortcutDecreaseFont => {
                 self.shortcut_row(t!("shortcut-font-decrease"), "secondary--")
             }
-            Slot::ShortcutResetFont => {
-                self.shortcut_row(t!("shortcut-font-reset"), "secondary-0")
-            }
+            Slot::ShortcutResetFont => self.shortcut_row(t!("shortcut-font-reset"), "secondary-0"),
             Slot::ShortcutDismiss => self.shortcut_row(t!("shortcut-dismiss"), "escape"),
             Slot::ShortcutQuit => self.shortcut_row(t!("shortcut-quit"), "cmd-q"),
             Slot::ShortcutUndo => self.shortcut_row(t!("shortcut-undo"), "secondary-z"),

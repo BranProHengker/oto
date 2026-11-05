@@ -229,13 +229,14 @@ fn merge_dual_lines(lines: &mut Vec<LyricsLine>) {
             let close_start = next.start.abs_diff(current.start) <= Duration::from_millis(150);
             let current_non_latin = has_non_latin(&current.text);
             let next_non_latin = has_non_latin(&next.text);
-            let script_pair = (current_non_latin && !next_non_latin)
-                || (!current_non_latin && next_non_latin);
+            let script_pair =
+                (current_non_latin && !next_non_latin) || (!current_non_latin && next_non_latin);
 
             if same_start || (close_start && script_pair) {
                 let next = iter.next().unwrap();
 
-                let (primary_text, romanized_text, words) = if !current_non_latin && next_non_latin {
+                let (primary_text, romanized_text, words) = if !current_non_latin && next_non_latin
+                {
                     (next.text, current.text, next.words.or(current.words))
                 } else {
                     (current.text, next.text, current.words.or(next.words))

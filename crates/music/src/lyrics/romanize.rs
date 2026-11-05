@@ -52,7 +52,10 @@ pub fn romanize_batch(texts: &[&str]) -> Vec<Option<String>> {
     let Some(system) = system else {
         return texts.iter().map(|t| plain(t).map(|r| r.text)).collect();
     };
-    texts.iter().map(|t| convert(t, system).map(|r| r.text)).collect()
+    texts
+        .iter()
+        .map(|t| convert(t, system).map(|r| r.text))
+        .collect()
 }
 
 fn detect<'a>(texts: impl Iterator<Item = &'a str>) -> Option<WritingSystem> {

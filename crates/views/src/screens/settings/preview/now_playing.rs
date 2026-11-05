@@ -152,9 +152,9 @@ pub(in crate::screens::settings) fn preview(
 
     let field = ambient.then(|| view.previews.ambient(cover.clone(), cx));
     // over the field the miniature wears what fullscreen would, not the theme around it
-    let theme = match ambient {
-        true => theme.fullscreen(false),
-        false => theme,
+    let theme = match &field {
+        Some(field) => field.read(cx).theme(cx),
+        None => *cx.theme(),
     };
     let side = (height * COVER).round();
 

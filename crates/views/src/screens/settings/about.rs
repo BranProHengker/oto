@@ -20,11 +20,7 @@ const SOURCE_URL: &str = "https://github.com/BranProHengker/oto";
 
 impl SettingsView {
     pub(super) fn about_groups(&self) -> Vec<Group> {
-        vec![Group::untitled().rows([
-            Slot::Version,
-            Slot::Log,
-            Slot::License,
-        ])]
+        vec![Group::untitled().rows([Slot::Version, Slot::Log, Slot::License])]
     }
 
     pub(super) fn version_row(&self) -> AnyElement {

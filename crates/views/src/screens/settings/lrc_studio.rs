@@ -2,9 +2,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use gpui::prelude::*;
-use gpui::{
-    AnyElement, Context, ElementId, Entity, FontWeight, Window, div, px, rgb, svg,
-};
+use gpui::{AnyElement, Context, ElementId, Entity, FontWeight, Window, div, px, rgb, svg};
 use i18n::t;
 use serde::{Deserialize, Serialize};
 use ui::{ActiveTheme as _, Button, Input, TabBar};
@@ -108,12 +106,8 @@ impl LrcStudioState {
                 .icon("icons/search.svg")
                 .clearable()
         });
-        let line_time_input = cx.new(|cx| {
-            Input::new("lrc-studio-time-placeholder", cx).compact()
-        });
-        let line_text_input = cx.new(|cx| {
-            Input::new("lrc-studio-edit-placeholder", cx).compact()
-        });
+        let line_time_input = cx.new(|cx| Input::new("lrc-studio-time-placeholder", cx).compact());
+        let line_text_input = cx.new(|cx| Input::new("lrc-studio-edit-placeholder", cx).compact());
 
         Self {
             search_input,
@@ -135,7 +129,11 @@ impl LrcStudioState {
 }
 
 impl SettingsView {
-    pub(super) fn lrc_studio_view(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
+    pub(super) fn lrc_studio_view(
+        &mut self,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
         let theme = *cx.theme();
         self.detect_current_song(cx);
 
@@ -165,7 +163,11 @@ impl SettingsView {
             _ => "No song currently playing".to_string(),
         };
 
-        let selected_track_name = self.lrc_studio.selected_track.as_ref().and_then(|t| t.track_name.clone());
+        let selected_track_name = self
+            .lrc_studio
+            .selected_track
+            .as_ref()
+            .and_then(|t| t.track_name.clone());
 
         div()
             .flex()
@@ -831,7 +833,11 @@ impl SettingsView {
             .enumerate()
             .map(|(idx, line)| {
                 let is_selected = selected_idx == Some(idx);
-                let time = if line.time.is_empty() { "00:00.00" } else { &line.time };
+                let time = if line.time.is_empty() {
+                    "00:00.00"
+                } else {
+                    &line.time
+                };
                 let has_romaji = !line.romaji.is_empty();
 
                 div()
@@ -933,8 +939,20 @@ impl SettingsView {
             return;
         }
 
-        let new_time = self.lrc_studio.line_time_input.read(cx).text().trim().to_string();
-        let new_text = self.lrc_studio.line_text_input.read(cx).text().trim().to_string();
+        let new_time = self
+            .lrc_studio
+            .line_time_input
+            .read(cx)
+            .text()
+            .trim()
+            .to_string();
+        let new_text = self
+            .lrc_studio
+            .line_text_input
+            .read(cx)
+            .text()
+            .trim()
+            .to_string();
 
         let line = &mut self.lrc_studio.lines[idx];
         if !new_time.is_empty() {
@@ -952,7 +970,10 @@ impl SettingsView {
     }
 
     fn insert_line_after(&mut self, cx: &mut Context<Self>) {
-        let idx = self.lrc_studio.selected_line_idx.unwrap_or(self.lrc_studio.lines.len());
+        let idx = self
+            .lrc_studio
+            .selected_line_idx
+            .unwrap_or(self.lrc_studio.lines.len());
         let insert_at = (idx + 1).min(self.lrc_studio.lines.len());
 
         let prev_time = if idx < self.lrc_studio.lines.len() {
@@ -1050,14 +1071,23 @@ impl SettingsView {
                         let trimmed = content.trim();
                         if !trimmed.is_empty() {
                             self.load_raw_lrc_string(trimmed, cx);
-                            self.lrc_studio.status = Some(("Loaded existing .lrc from local music folder!".into(), false));
+                            self.lrc_studio.status = Some((
+                                "Loaded existing .lrc from local music folder!".into(),
+                                false,
+                            ));
                             loaded = true;
                         }
                     }
                 }
 
                 // 2. If no local .lrc, auto-import from player in RAM (Apple Music, Spotify, etc.)
-                if !loaded && state::Sonora::global(cx).lyrics.read(cx).current().is_some() {
+                if !loaded
+                    && state::Sonora::global(cx)
+                        .lyrics
+                        .read(cx)
+                        .current()
+                        .is_some()
+                {
                     self.import_from_player_lyrics(cx);
                 }
 
@@ -1075,7 +1105,12 @@ impl SettingsView {
             } else if self.lrc_studio.lines.is_empty() {
                 // If workspace is still empty (e.g. lyrics were fetching when view first rendered),
                 // auto-import from active player lyrics in RAM once ready
-                if state::Sonora::global(cx).lyrics.read(cx).current().is_some() {
+                if state::Sonora::global(cx)
+                    .lyrics
+                    .read(cx)
+                    .current()
+                    .is_some()
+                {
                     self.import_from_player_lyrics(cx);
                 }
             }
@@ -1106,14 +1141,21 @@ impl SettingsView {
                     let trimmed = content.trim();
                     if !trimmed.is_empty() {
                         self.load_raw_lrc_string(trimmed, cx);
-                        self.lrc_studio.status = Some(("Loaded existing .lrc from song folder!".into(), false));
+                        self.lrc_studio.status =
+                            Some(("Loaded existing .lrc from song folder!".into(), false));
                         loaded = true;
                     }
                 }
             }
 
             // 2. If no local .lrc, auto-import from active player RAM lyrics
-            if !loaded && state::Sonora::global(cx).lyrics.read(cx).current().is_some() {
+            if !loaded
+                && state::Sonora::global(cx)
+                    .lyrics
+                    .read(cx)
+                    .current()
+                    .is_some()
+            {
                 self.import_from_player_lyrics(cx);
                 loaded = true;
             }
@@ -1138,7 +1180,13 @@ impl SettingsView {
     }
 
     fn trigger_search(&mut self, cx: &mut Context<Self>) {
-        let query = self.lrc_studio.search_input.read(cx).text().trim().to_string();
+        let query = self
+            .lrc_studio
+            .search_input
+            .read(cx)
+            .text()
+            .trim()
+            .to_string();
         if query.is_empty() {
             return;
         }
@@ -1151,45 +1199,58 @@ impl SettingsView {
         let q = query.clone();
 
         cx.spawn(async move |this, cx| {
-            let result = io.spawn(async move {
-                let client = reqwest::Client::builder()
-                    .timeout(std::time::Duration::from_secs(10))
-                    .build()
-                    .ok()?;
+            let result = io
+                .spawn(async move {
+                    let client = reqwest::Client::builder()
+                        .timeout(std::time::Duration::from_secs(10))
+                        .build()
+                        .ok()?;
 
-                let url1 = format!("{API_SEARCH}?q={}", urlencoding(&q));
-                let res1 = client
-                    .get(&url1)
-                    .header(reqwest::header::USER_AGENT, "Oto/1.0 (https://github.com/BranProHengker/oto)")
-                    .send()
-                    .await
-                    .ok()?;
-
-                let parsed1 = res1.json::<LrcSearchResponse>().await.ok()?;
-                if parsed1.data.as_ref().is_some_and(|items| !items.is_empty()) {
-                    return Some(parsed1);
-                }
-
-                // If query had multiple words and returned 0 results, retry with first term (e.g. Song title only)
-                if let Some((first, _)) = q.split_once(' ') {
-                    let url2 = format!("{API_SEARCH}?q={}", urlencoding(first.trim()));
-                    let res2 = client
-                        .get(&url2)
-                        .header(reqwest::header::USER_AGENT, "Oto/1.0 (https://github.com/BranProHengker/oto)")
+                    let url1 = format!("{API_SEARCH}?q={}", urlencoding(&q));
+                    let res1 = client
+                        .get(&url1)
+                        .header(
+                            reqwest::header::USER_AGENT,
+                            "Oto/1.0 (https://github.com/BranProHengker/oto)",
+                        )
                         .send()
-                        .await;
+                        .await
+                        .ok()?;
 
-                    if let Ok(resp) = res2 {
-                        let parsed2 = resp.json::<LrcSearchResponse>().await.ok();
-                        let has_items = parsed2.as_ref().and_then(|p| p.data.as_ref()).is_some_and(|items| !items.is_empty());
-                        if has_items {
-                            return parsed2;
+                    let parsed1 = res1.json::<LrcSearchResponse>().await.ok()?;
+                    if parsed1.data.as_ref().is_some_and(|items| !items.is_empty()) {
+                        return Some(parsed1);
+                    }
+
+                    // If query had multiple words and returned 0 results, retry with first term (e.g. Song title only)
+                    if let Some((first, _)) = q.split_once(' ') {
+                        let url2 = format!("{API_SEARCH}?q={}", urlencoding(first.trim()));
+                        let res2 = client
+                            .get(&url2)
+                            .header(
+                                reqwest::header::USER_AGENT,
+                                "Oto/1.0 (https://github.com/BranProHengker/oto)",
+                            )
+                            .send()
+                            .await;
+
+                        if let Ok(resp) = res2 {
+                            let parsed2 = resp.json::<LrcSearchResponse>().await.ok();
+                            let has_items = parsed2
+                                .as_ref()
+                                .and_then(|p| p.data.as_ref())
+                                .is_some_and(|items| !items.is_empty());
+                            if has_items {
+                                return parsed2;
+                            }
                         }
                     }
-                }
 
-                Some(parsed1)
-            }).await.ok().flatten();
+                    Some(parsed1)
+                })
+                .await
+                .ok()
+                .flatten();
 
             this.update(cx, |this, cx| {
                 this.lrc_studio.is_searching = false;
@@ -1198,20 +1259,25 @@ impl SettingsView {
                         let count = items.len();
                         this.lrc_studio.results = items;
                         if count > 0 {
-                            this.lrc_studio.status = Some((format!("Found {count} track(s) from LRCLIB"), false));
+                            this.lrc_studio.status =
+                                Some((format!("Found {count} track(s) from LRCLIB"), false));
                         } else {
-                            this.lrc_studio.status = Some(("No matching lyrics found on LRCLIB".into(), true));
+                            this.lrc_studio.status =
+                                Some(("No matching lyrics found on LRCLIB".into(), true));
                         }
                     } else {
                         this.lrc_studio.results.clear();
                         this.lrc_studio.status = Some(("No matching lyrics found".into(), true));
                     }
                 } else {
-                    this.lrc_studio.status = Some(("Failed to connect to lyrics server".into(), true));
+                    this.lrc_studio.status =
+                        Some(("Failed to connect to lyrics server".into(), true));
                 }
                 cx.notify();
-            }).ok();
-        }).detach();
+            })
+            .ok();
+        })
+        .detach();
     }
 
     fn select_track(&mut self, item: LrcTrackItem, cx: &mut Context<Self>) {
@@ -1220,19 +1286,33 @@ impl SettingsView {
 
         self.load_raw_lrc_string(&lyrics, cx);
 
-        let has_synced = self.lrc_studio.selected_track.as_ref().and_then(|t| t.synced_lyrics.as_ref()).is_some();
+        let has_synced = self
+            .lrc_studio
+            .selected_track
+            .as_ref()
+            .and_then(|t| t.synced_lyrics.as_ref())
+            .is_some();
         let track_name = item.track_name.as_deref().unwrap_or("track");
         if !has_synced {
-            self.lrc_studio.status = Some((format!("Loaded plain lyrics for '{track_name}'"), false));
+            self.lrc_studio.status =
+                Some((format!("Loaded plain lyrics for '{track_name}'"), false));
         } else {
-            self.lrc_studio.status = Some((format!("Loaded synchronized lyrics for '{track_name}'! Click 'Generate Dual Romaji' to convert."), false));
+            self.lrc_studio.status = Some((
+                format!(
+                    "Loaded synchronized lyrics for '{track_name}'! Click 'Generate Dual Romaji' to convert."
+                ),
+                false,
+            ));
         }
         cx.notify();
     }
 
     fn set_lrc_mode(&mut self, mode: LrcMode, cx: &mut Context<Self>) {
         self.lrc_studio.mode = mode;
-        if mode == LrcMode::Edit && self.lrc_studio.selected_line_idx.is_none() && !self.lrc_studio.lines.is_empty() {
+        if mode == LrcMode::Edit
+            && self.lrc_studio.selected_line_idx.is_none()
+            && !self.lrc_studio.lines.is_empty()
+        {
             self.select_line_for_edit(0, cx);
         }
         cx.notify();
@@ -1252,7 +1332,8 @@ impl SettingsView {
         let lyrics = lyrics_entity.read(cx);
         let Some(hit) = lyrics.current() else {
             self.lrc_studio.status = Some((
-                "No lyrics currently active in player. Play a song or wait for lyrics to load.".into(),
+                "No lyrics currently active in player. Play a song or wait for lyrics to load."
+                    .into(),
                 true,
             ));
             cx.notify();
@@ -1334,7 +1415,12 @@ impl SettingsView {
         if !self.lrc_studio.lines.is_empty() {
             return true;
         }
-        if state::Sonora::global(cx).lyrics.read(cx).current().is_some() {
+        if state::Sonora::global(cx)
+            .lyrics
+            .read(cx)
+            .current()
+            .is_some()
+        {
             self.import_from_player_lyrics(cx);
             return !self.lrc_studio.lines.is_empty();
         }
@@ -1360,12 +1446,7 @@ impl SettingsView {
         let romanized_results = music::lyrics::romanize::romanize_batch(&texts);
 
         let mut converted_count = 0;
-        for (line, maybe_romaji) in self
-            .lrc_studio
-            .lines
-            .iter_mut()
-            .zip(romanized_results)
-        {
+        for (line, maybe_romaji) in self.lrc_studio.lines.iter_mut().zip(romanized_results) {
             if let Some(romaji) = maybe_romaji
                 && !romaji.is_empty()
             {
@@ -1381,7 +1462,9 @@ impl SettingsView {
 
         if converted_count > 0 {
             self.lrc_studio.status = Some((
-                format!("Generated offline Romaji for {converted_count} lines (Free, 0 API tokens)!"),
+                format!(
+                    "Generated offline Romaji for {converted_count} lines (Free, 0 API tokens)!"
+                ),
                 false,
             ));
         } else {
@@ -1395,7 +1478,10 @@ impl SettingsView {
 
     fn trigger_convert_romaji(&mut self, cx: &mut Context<Self>) {
         if !self.ensure_lyrics_loaded(cx) {
-            self.lrc_studio.status = Some(("No lyrics to convert. Please search or paste lyrics first.".into(), true));
+            self.lrc_studio.status = Some((
+                "No lyrics to convert. Please search or paste lyrics first.".into(),
+                true,
+            ));
             cx.notify();
             return;
         }
@@ -1410,21 +1496,28 @@ impl SettingsView {
         let payload = RomajiRequest { lyrics };
 
         cx.spawn(async move |this, cx| {
-            let result = io.spawn(async move {
-                let client = reqwest::Client::builder()
-                    .timeout(std::time::Duration::from_secs(30))
-                    .build()
-                    .ok()?;
-                let res = client
-                    .post(API_ROMAJI)
-                    .header(reqwest::header::USER_AGENT, "Oto/1.0 (https://github.com/BranProHengker/oto)")
-                    .header(reqwest::header::CONTENT_TYPE, "application/json")
-                    .json(&payload)
-                    .send()
-                    .await
-                    .ok()?;
-                res.json::<LrcRomajiResponse>().await.ok()
-            }).await.ok().flatten();
+            let result = io
+                .spawn(async move {
+                    let client = reqwest::Client::builder()
+                        .timeout(std::time::Duration::from_secs(30))
+                        .build()
+                        .ok()?;
+                    let res = client
+                        .post(API_ROMAJI)
+                        .header(
+                            reqwest::header::USER_AGENT,
+                            "Oto/1.0 (https://github.com/BranProHengker/oto)",
+                        )
+                        .header(reqwest::header::CONTENT_TYPE, "application/json")
+                        .json(&payload)
+                        .send()
+                        .await
+                        .ok()?;
+                    res.json::<LrcRomajiResponse>().await.ok()
+                })
+                .await
+                .ok()
+                .flatten();
 
             this.update(cx, |this, cx| {
                 this.lrc_studio.is_converting = false;
@@ -1446,20 +1539,27 @@ impl SettingsView {
                         }
 
                         if resp.is_japanese == Some(false) {
-                            this.lrc_studio.status = Some(("Lyrics processed (no Japanese characters detected)".into(), false));
+                            this.lrc_studio.status = Some((
+                                "Lyrics processed (no Japanese characters detected)".into(),
+                                false,
+                            ));
                         } else {
-                            this.lrc_studio.status = Some(("Successfully generated Dual-Line Romaji!".into(), false));
+                            this.lrc_studio.status =
+                                Some(("Successfully generated Dual-Line Romaji!".into(), false));
                         }
                     } else {
                         let err_msg = resp.message.unwrap_or_else(|| "Conversion failed".into());
                         this.lrc_studio.status = Some((format!("Error: {err_msg}"), true));
                     }
                 } else {
-                    this.lrc_studio.status = Some(("Failed to contact Romaji server or timeout".into(), true));
+                    this.lrc_studio.status =
+                        Some(("Failed to contact Romaji server or timeout".into(), true));
                 }
                 cx.notify();
-            }).ok();
-        }).detach();
+            })
+            .ok();
+        })
+        .detach();
     }
 
     fn generate_lrc_content(&self, mode: LrcMode) -> String {
@@ -1492,7 +1592,10 @@ impl SettingsView {
 
     fn save_beside_song(&mut self, cx: &mut Context<Self>) {
         if !self.ensure_lyrics_loaded(cx) {
-            self.lrc_studio.status = Some(("No lyrics to save. Please import, search, or paste lyrics first.".into(), true));
+            self.lrc_studio.status = Some((
+                "No lyrics to save. Please import, search, or paste lyrics first.".into(),
+                true,
+            ));
             cx.notify();
             return;
         }
@@ -1511,8 +1614,11 @@ impl SettingsView {
                 (Some(title), None) => format!("{title}.lrc"),
                 _ => "lyrics.lrc".to_string(),
             };
-            let safe_filename = filename.replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], "_");
-            let dest_dir = dirs::audio_dir().or_else(dirs::download_dir).unwrap_or_else(|| PathBuf::from("."));
+            let safe_filename =
+                filename.replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], "_");
+            let dest_dir = dirs::audio_dir()
+                .or_else(dirs::download_dir)
+                .unwrap_or_else(|| PathBuf::from("."));
             dest_dir.join(&safe_filename)
         };
 
@@ -1520,9 +1626,13 @@ impl SettingsView {
             Ok(_) => {
                 let file_name = target.file_name().unwrap_or_default().to_string_lossy();
                 if self.lrc_studio.detected_local_path.is_some() {
-                    self.lrc_studio.status = Some((format!("Saved {file_name} successfully beside song!"), false));
+                    self.lrc_studio.status = Some((
+                        format!("Saved {file_name} successfully beside song!"),
+                        false,
+                    ));
                 } else {
-                    self.lrc_studio.status = Some((format!("Saved to {}", target.display()), false));
+                    self.lrc_studio.status =
+                        Some((format!("Saved to {}", target.display()), false));
                 }
             }
             Err(e) => {
@@ -1534,7 +1644,10 @@ impl SettingsView {
 
     fn copy_lyrics_to_clipboard(&mut self, cx: &mut Context<Self>) {
         if !self.ensure_lyrics_loaded(cx) {
-            self.lrc_studio.status = Some(("No lyrics to copy. Please import, search, or paste lyrics first.".into(), true));
+            self.lrc_studio.status = Some((
+                "No lyrics to copy. Please import, search, or paste lyrics first.".into(),
+                true,
+            ));
             cx.notify();
             return;
         }
@@ -1560,7 +1673,12 @@ impl SettingsView {
 
         self.load_raw_lrc_string(&text, cx);
         let count = self.lrc_studio.lines.len();
-        self.lrc_studio.status = Some((format!("Loaded {count} lines from clipboard! Click 'Generate Dual Romaji' to convert."), false));
+        self.lrc_studio.status = Some((
+            format!(
+                "Loaded {count} lines from clipboard! Click 'Generate Dual Romaji' to convert."
+            ),
+            false,
+        ));
         cx.notify();
     }
 }
@@ -1605,7 +1723,10 @@ fn parse_lrc_lines(content: &str) -> Vec<StudioLine> {
 
         // If duplicate timestamp matching previous line and previous line has empty romaji
         if let Some(prev) = lines.last_mut()
-            && time != "00:00.00" && prev.time == time && prev.romaji.is_empty() && !text.is_empty()
+            && time != "00:00.00"
+            && prev.time == time
+            && prev.romaji.is_empty()
+            && !text.is_empty()
         {
             prev.romaji = text;
             continue;

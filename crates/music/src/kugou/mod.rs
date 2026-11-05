@@ -291,7 +291,9 @@ fn hit(song: &Song, sheet_text: &str, adjust_ms: i64, title: &str) -> Option<Lyr
         .filter(|artist| !artist.is_empty())
         .map(str::to_owned)
         .collect();
-    if !sheet::headed(&mut lines, title, &artists) && !sheet::headed(&mut lines, &song.name, &artists) {
+    if !sheet::headed(&mut lines, title, &artists)
+        && !sheet::headed(&mut lines, &song.name, &artists)
+    {
         return None;
     }
     let quiet = sheet::instrumental(&lines);
@@ -330,13 +332,19 @@ fn parse(sheet: &str, adjust_ms: i64) -> Vec<LyricsLine> {
     let mut offset_ms: i64 = adjust_ms;
     for line in sheet.lines() {
         if let Some(rest) = line.strip_prefix("[offset:") {
-            if let Some(val) = rest.strip_suffix(']').and_then(|s| s.trim().parse::<i64>().ok()) {
+            if let Some(val) = rest
+                .strip_suffix(']')
+                .and_then(|s| s.trim().parse::<i64>().ok())
+            {
                 offset_ms += val;
             }
         }
     }
 
-    let krc_lines: Vec<LyricsLine> = sheet.lines().filter_map(|l| read_krc(l, offset_ms)).collect();
+    let krc_lines: Vec<LyricsLine> = sheet
+        .lines()
+        .filter_map(|l| read_krc(l, offset_ms))
+        .collect();
     if !krc_lines.is_empty() {
         return krc_lines;
     }

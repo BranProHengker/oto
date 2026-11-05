@@ -1,6 +1,6 @@
 use gpui::{App, Context, Entity, Task};
 use state::{AppSettings, Playback, Queue, Reloaded, Sonora};
-use ui::{ActiveTheme as _, CoverPalette, Look, Theme, ThemeKind};
+use ui::{ActiveTheme as _, CoverPalette, Look, Theme, ThemeKind, ThemeOverrides};
 
 /// Drives the theme's tint from the playing track's cover, and keeps the next
 /// track's cover sampled ahead of time so a track change recolours on the frame
@@ -230,5 +230,27 @@ impl Adaptive {
             palette: None,
             _task: task,
         });
+    }
+}
+
+/// The theme fullscreen wears over the ambient background for a cover's `palette`, for a preview
+/// that has to look like fullscreen while the app wears the chosen theme.
+pub(crate) fn stage(palette: CoverPalette, cx: &App) -> Theme {
+    let settings = Sonora::global(cx).settings.read(cx);
+    let look = Look {
+        kind: ThemeKind::Dark,
+        tint: palette.primary,
+        tint_secondary: palette.secondary,
+        ..settings.look()
+    };
+    Theme::for_look(look, &stripped(settings.theme_overrides()))
+}
+
+/// The overrides with every colour taken out, leaving the radius and font size.
+fn stripped(overrides: ThemeOverrides) -> ThemeOverrides {
+    ThemeOverrides {
+        radius: overrides.radius,
+        font_size: overrides.font_size,
+        ..ThemeOverrides::default()
     }
 }
