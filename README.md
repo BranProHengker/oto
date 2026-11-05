@@ -36,7 +36,8 @@
 > **Oto** is an independent fork of [Sonora](https://github.com/sonorahq/sonora). It retains full compatibility with Sonora's native playback engine while adding tailored improvements:
 > - **Universal Playlist Importer**: Import public playlist links (Spotify, YouTube Music, Apple Music, Deezer) into native hybrid playlists, prioritizing local lossless audio files over streaming.
 > - **Automix Crossfade**: Smart transition blending with dynamic DJ bass dip (high-pass filter sweep) and leading silence trimming.
-> - **Dual-Line Synced Lyrics**: Smart detection and merging of twin-timestamp `.lrc` files (Japanese Kanji/Kana as primary line + Romaji furigana sublane).
+> - **KuGou, NetEase & Dual-Line Synced Lyrics**: Native out-of-the-box support for KuGou & NetEase karaoke lyrics, smart twin-timestamp `.lrc` pairing (Japanese Kanji/Kana + Romaji furigana sublane), and zero-delay local LRC synchronization.
+> - **Sonora Sessions & Social Listening**: Listen together in sync across any streaming service using lightweight 6-digit room codes and member queue control.
 > - **Built-in LRC Studio**: Integrated synced lyrics editor with auto-import from active playback, real-time timestamp tagging, and direct local saving.
 > - **Clean UI & Settings**: Streamlined interface without upstream updater clutter or redundant links.
 > - **Linux Tray & Desktop Integration**: Native StatusNotifierItem (SNI) tray support optimized for Hyprland, Caelestia shell, and Waybar.
@@ -48,7 +49,8 @@
 
 - **Streaming & Local**: Apple Music, Spotify, YouTube Music, Deezer, Tidal, Subsonic/Navidrome, and offline local files.
 - **Pure Native UI**: Rendered with GPUI (Zed's GPU-accelerated UI framework) — zero Electron, zero WebKit, ultra-low memory usage (~170 MB RSS).
-- **Karaoke & Synced Lyrics**: Built-in LRC Studio editor, time-synced scrolling lyrics, background vocals, furigana/romaji support, and multi-provider lyrics fallback.
+- **Karaoke & Synced Lyrics**: KuGou and NetEase enabled by default, millisecond-accurate local `.lrc` synchronization, built-in LRC Studio editor, time-synced scrolling lyrics, background vocals, and furigana/romaji support.
+- **Social Listening**: Real-time synchronized playback via Sonora Sessions (cross-service 6-digit room codes) and Spotify Jams with members sidebar.
 - **Audio Engine**: Automix crossfade with DJ bass dip, 5-second relative seek shortcuts (`Shift + Arrows`), gapless playback, audio loudness normalization, parametric equalizer, and sleep timer.
 - **Audio Scrobbler**: Built-in support for LastFM, ListenBrainz, LibreFM, and Maloja.
 - **Extensive Theming**: Dynamic adaptive palettes, blur/vibrancy, font adjustments, and interchangeable icon packs.
