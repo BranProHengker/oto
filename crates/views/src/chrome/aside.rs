@@ -667,6 +667,31 @@ impl Aside {
         }));
     }
 
+    fn sweep_verse_step(
+        &mut self,
+        wait: std::time::Duration,
+        window: &Window,
+        cx: &mut Context<Self>,
+    ) {
+        if self.sweeping.is_some() {
+            return;
+        }
+        let saved = match window.is_window_active() {
+            true => None,
+            false => self.settings.read(cx).saver().interval(),
+        };
+        let wait = wait.max(saved.unwrap_or_default());
+        self.sweeping = Some(cx.spawn(async move |this, cx| {
+            cx.background_executor().timer(wait).await;
+            this.update(cx, |this, cx| {
+                this.swept_frame = std::time::Instant::now();
+                this.sweeping = None;
+                cx.notify();
+            })
+            .ok();
+        }));
+    }
+
     fn sharpen_progress(&self, window: &mut Window) -> f32 {
         let span = Motion::Quick.span().as_secs_f32().max(f32::EPSILON);
         let progress = (self.since.elapsed().as_secs_f32() / span).clamp(0., 1.);
@@ -681,6 +706,7 @@ impl Aside {
         self.pinning = None;
         self.previous_active_line = None;
         self.departing_line = None;
+        self.sweeping = None;
         self.placing = true;
         self.forget_measurements();
     }
@@ -1295,14 +1321,26 @@ impl Aside {
         let mut body: Vec<gpui::AnyElement> = match (&lines, &state) {
             (Some(lines), _) => {
                 let active_line = sung_line(lines, position);
-                if singing
-                    && karaoke_effects
-                    && lines.iter().enumerate().any(|(index, line)| {
-                        line.worded()
-                            && primary_karaoke_visible(line, Some(index) == active_line, position)
-                    })
-                {
-                    self.sweep_karaoke(window, cx);
+                if singing {
+                    if karaoke_effects
+                        && lines.iter().enumerate().any(|(index, line)| {
+                            line.worded()
+                                && primary_karaoke_visible(
+                                    line,
+                                    Some(index) == active_line,
+                                    position,
+                                )
+                        })
+                    {
+                        self.sweep_karaoke(window, cx);
+                    } else if let Some(target) = next_milestone(lines, position) {
+                        let wait = target.saturating_sub(position);
+                        let wait = wait.clamp(
+                            std::time::Duration::from_millis(15),
+                            std::time::Duration::from_millis(250),
+                        );
+                        self.sweep_verse_step(wait, window, cx);
+                    }
                 }
                 if self.previous_active_line != active_line {
                     if self.previous_active_line.is_some() {
@@ -1670,7 +1708,10 @@ impl Aside {
                                             div()
                                                 .flex()
                                                 .flex_col()
-                                                .child(div().child(SharedString::from(line.to_owned())))
+                                                .child(
+                                                    div()
+                                                        .child(SharedString::from(line.to_owned())),
+                                                )
                                                 .when_some(
                                                     romanized_lines
                                                         .get(index)
@@ -3028,14 +3069,40 @@ fn progress_between(
     ((position - start).as_secs_f32() / span).clamp(0., 1.)
 }
 
+fn next_milestone(
+    lines: &[music::LyricsLine],
+    position: std::time::Duration,
+) -> Option<std::time::Duration> {
+    let mut nearest: Option<std::time::Duration> = None;
+    for (index, line) in lines.iter().enumerate() {
+        if line.start > position {
+            let gap = instrumental_gap_before(lines, index);
+            if gap >= INSTRUMENTAL_BREAK {
+                let break_start = line.start.saturating_sub(gap);
+                if break_start > position {
+                    nearest = Some(nearest.map_or(break_start, |n| n.min(break_start)));
+                }
+            }
+            nearest = Some(nearest.map_or(line.start, |n| n.min(line.start)));
+            break;
+        }
+        if let Some(end) = line.sung_end()
+            && end > position
+        {
+            nearest = Some(nearest.map_or(end, |n| n.min(end)));
+        }
+    }
+    nearest
+}
+
 fn instrumental_gap_before(lines: &[music::LyricsLine], index: usize) -> std::time::Duration {
     let start = lines[index].start;
     match index {
         0 => start,
-        _ => {
-            let previous = &lines[index - 1];
-            start.saturating_sub(previous.sung_end().unwrap_or(previous.start))
-        }
+        _ => match lines[index - 1].sung_end() {
+            Some(end) => start.saturating_sub(end),
+            None => std::time::Duration::ZERO,
+        },
     }
 }
 

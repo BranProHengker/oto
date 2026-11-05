@@ -21,6 +21,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Local and standard line-by-line LRC lyrics transition delay is eliminated by scheduling millisecond-accurate milestone timer sweeps and preventing phantom instrumental breaks.
 - KuGou lyrics fetching resolved connection timeouts and search case sensitivity, now properly finding songs with translated or Japanese titles (e.g. Tayori - Aureate / オリイト).
 - KuGou karaoke lyric timing offsets and candidate adjustments are compensated to eliminate lyric delay.
 - NetEase lyrics search and download bypass anti-bot / WAF challenge (-462).
