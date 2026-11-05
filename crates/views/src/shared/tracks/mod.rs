@@ -8,6 +8,8 @@ use std::cmp::Ordering;
 use std::rc::Rc;
 use ui::{ActiveTheme as _, Filter, FilterChange, FlagAxis, RangeAxis, Unit};
 
+use gpui::accesskit::Role;
+
 use crate::shared::menus::{ItemMenu, TrackColumns};
 use gpui::prelude::FluentBuilder as _;
 use gpui::{

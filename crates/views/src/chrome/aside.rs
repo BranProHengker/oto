@@ -3,6 +3,7 @@ use std::hash::{DefaultHasher, Hash as _, Hasher as _};
 use std::rc::Rc;
 use std::{collections::HashMap, ops::Range};
 
+use gpui::accesskit::Role;
 use gpui::prelude::*;
 
 use gpui::{
