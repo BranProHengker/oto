@@ -14,9 +14,9 @@ use crate::{
 };
 
 const SOURCE: &str = "Kugou";
-const SEARCH: &str = "https://mobiles.kugou.com/api/v3/search/song";
-const CANDIDATES: &str = "https://lyrics.kugou.com/search";
-const DOWNLOAD: &str = "https://lyrics.kugou.com/download";
+const SEARCH: &str = "https://mobileservice.kugou.com/api/v3/search/song";
+const CANDIDATES: &str = "http://krcs.kugou.com/search";
+const DOWNLOAD: &str = "http://krcs.kugou.com/download";
 const SONGS: usize = 4;
 const PAGE: usize = 20;
 const SHEETS: usize = 2;
@@ -45,7 +45,7 @@ impl Kugou {
         let response = self
             .http
             .get(format!(
-                "{SEARCH}?format=json&keyword={keyword}&page=1&pagesize={PAGE}&showtype=1"
+                "{SEARCH}?format=json&version=9108&plat=0&pagesize={PAGE}&showtype=0&keyword={keyword}"
             ))
             .header("User-Agent", AGENT)
             .send()
@@ -88,7 +88,24 @@ impl Kugou {
         Ok(answer.candidates)
     }
 
-    async fn krc(&self, candidate: &Candidate) -> Result<String> {
+    async fn sheet(&self, candidate: &Candidate) -> Result<String> {
+        // Try KRC first (word-by-word)
+        if let Ok(content) = self.download(candidate, "krc").await {
+            if let Ok(krc) = decode(&content) {
+                if !krc.trim().is_empty() {
+                    return Ok(krc);
+                }
+            }
+        }
+        // Fallback to LRC (standard text format with [kana:] tags)
+        let content = self.download(candidate, "lrc").await?;
+        let bytes = STANDARD
+            .decode(&content)
+            .context("cannot decode kugou lrc sheet")?;
+        Ok(String::from_utf8_lossy(&bytes).into_owned())
+    }
+
+    async fn download(&self, candidate: &Candidate, fmt: &str) -> Result<String> {
         let response = self
             .http
             .get(DOWNLOAD)
@@ -97,7 +114,7 @@ impl Kugou {
                 ("client", "pc"),
                 ("id", candidate.id.to_string().as_str()),
                 ("accesskey", candidate.accesskey.as_str()),
-                ("fmt", "krc"),
+                ("fmt", fmt),
                 ("charset", "utf8"),
             ])
             .header("User-Agent", AGENT)
@@ -116,7 +133,7 @@ impl Kugou {
             .content
             .filter(|content| !content.is_empty())
             .context("kugou handed over an empty sheet")?;
-        decode(&content)
+        Ok(content)
     }
 }
 
@@ -162,6 +179,8 @@ struct Candidate {
     accesskey: String,
     #[serde(default)]
     krctype: u8,
+    #[serde(default)]
+    adjust: i64,
 }
 
 #[derive(Deserialize)]
@@ -176,8 +195,16 @@ impl LyricsProvider for Kugou {
     }
 
     async fn search(&self, query: &LyricsQuery) -> Result<Vec<LyricsHit>> {
-        let wanted = format!("{} {}", query.artist, query.title);
-        let songs = shortlist(self.songs(&wanted).await?, query.duration);
+        let wanted = format!("{} - {}", query.title, query.artist);
+        let mut songs = self.songs(&wanted).await.unwrap_or_default();
+        if songs.is_empty() {
+            let fallback = format!("{} {}", query.artist, query.title);
+            songs = self.songs(&fallback).await.unwrap_or_default();
+        }
+        if songs.is_empty() && !query.title.is_empty() {
+            songs = self.songs(&query.title).await.unwrap_or_default();
+        }
+        let songs = shortlist(songs, query.duration);
 
         let mut tasks = JoinSet::new();
         for song in songs {
@@ -195,7 +222,8 @@ impl LyricsProvider for Kugou {
                     .ok()?;
                 let mut hits = Vec::new();
                 for candidate in worded_first(candidates) {
-                    let Ok(krc) = kugou.krc(&candidate).await.inspect_err(|error| {
+                    let adjust = candidate.adjust;
+                    let Ok(sheet) = kugou.sheet(&candidate).await.inspect_err(|error| {
                         log::warn!(
                             "lyrics: kugou did not hand over {}: {error:#}",
                             candidate.id
@@ -203,7 +231,7 @@ impl LyricsProvider for Kugou {
                     }) else {
                         continue;
                     };
-                    hits.extend(hit(&song, &krc, &title));
+                    hits.extend(hit(&song, &sheet, adjust, &title));
                 }
                 Some(hits)
             });
@@ -254,16 +282,16 @@ fn decode(content: &str) -> Result<String> {
     Ok(text)
 }
 
-fn hit(song: &Song, krc: &str, title: &str) -> Option<LyricsHit> {
-    let mut lines = parse(krc);
+fn hit(song: &Song, sheet_text: &str, adjust_ms: i64, title: &str) -> Option<LyricsHit> {
+    let mut lines = parse(sheet_text, adjust_ms);
     let artists: Vec<String> = song
         .singer
-        .split(['、', ',', '&'])
+        .split(['、', ',', '&', '/'])
         .map(str::trim)
         .filter(|artist| !artist.is_empty())
         .map(str::to_owned)
         .collect();
-    if !sheet::headed(&mut lines, title, &artists) {
+    if !sheet::headed(&mut lines, title, &artists) && !sheet::headed(&mut lines, &song.name, &artists) {
         return None;
     }
     let quiet = sheet::instrumental(&lines);
@@ -290,13 +318,45 @@ fn hit(song: &Song, krc: &str, title: &str) -> Option<LyricsHit> {
     })
 }
 
-fn parse(krc: &str) -> Vec<LyricsLine> {
-    krc.lines().filter_map(read).collect()
+fn shift(dur: Duration, offset_ms: i64) -> Duration {
+    if offset_ms >= 0 {
+        dur.saturating_add(Duration::from_millis(offset_ms as u64))
+    } else {
+        dur.saturating_sub(Duration::from_millis((-offset_ms) as u64))
+    }
 }
 
-fn read(line: &str) -> Option<LyricsLine> {
+fn parse(sheet: &str, adjust_ms: i64) -> Vec<LyricsLine> {
+    let mut offset_ms: i64 = adjust_ms;
+    for line in sheet.lines() {
+        if let Some(rest) = line.strip_prefix("[offset:") {
+            if let Some(val) = rest.strip_suffix(']').and_then(|s| s.trim().parse::<i64>().ok()) {
+                offset_ms += val;
+            }
+        }
+    }
+
+    let krc_lines: Vec<LyricsLine> = sheet.lines().filter_map(|l| read_krc(l, offset_ms)).collect();
+    if !krc_lines.is_empty() {
+        return krc_lines;
+    }
+
+    let mut lines = crate::lyrics::lrc::parse(sheet);
+    if offset_ms != 0 {
+        for line in &mut lines {
+            line.start = shift(line.start, offset_ms);
+            if let Some(end) = line.end {
+                line.end = Some(shift(end, offset_ms));
+            }
+        }
+    }
+    lines
+}
+
+fn read_krc(line: &str, offset_ms: i64) -> Option<LyricsLine> {
     let (header, rest) = line.strip_prefix('[')?.split_once(']')?;
     let (start, span) = pair_of(header)?;
+    let start = shift(start, offset_ms);
 
     let mut words = Vec::new();
     let mut text = String::new();

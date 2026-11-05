@@ -12,11 +12,8 @@ const SOURCE: &str = "NetEase";
 const SEARCH: &str = "https://music.163.com/api/search/get";
 const LYRIC: &str = "https://music.163.com/api/song/lyric/v1";
 const CANDIDATES: usize = 3;
-const AGENT: &str = concat!(
-    "sonora/",
-    env!("CARGO_PKG_VERSION"),
-    " (https://github.com/sonorahq/sonora)"
-);
+const AGENT: &str = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
+const COOKIE: &str = "os=pc; appver=2.9.7";
 
 pub struct NetEase {
     http: reqwest::Client,
@@ -45,6 +42,7 @@ impl NetEase {
             ])
             .header("User-Agent", AGENT)
             .header("Referer", "https://music.163.com")
+            .header("Cookie", COOKIE)
             .send()
             .await
             .context("cannot reach netease")?;
@@ -119,6 +117,7 @@ impl LyricsProvider for NetEase {
             .query(&[("s", wanted.as_str()), ("type", "1"), ("limit", "5")])
             .header("User-Agent", AGENT)
             .header("Referer", "https://music.163.com")
+            .header("Cookie", COOKIE)
             .send()
             .await
             .context("cannot reach netease")?;

@@ -602,8 +602,7 @@ impl Default for Values {
             local_lyrics_offered: false,
             subsonic_lyrics_offered: false,
             lyrics_provider_priority: lyrics_priority(&[]),
-            // Kugou and NetEase, the last two, start switched off.
-            lyrics_providers: LYRICS_SOURCES[..7]
+            lyrics_providers: LYRICS_SOURCES
                 .iter()
                 .map(|name| name.to_string())
                 .collect(),
