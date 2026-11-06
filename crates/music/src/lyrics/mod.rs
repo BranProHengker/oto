@@ -459,9 +459,9 @@ impl LyricsSaveFormat {
 pub fn to_standard_lrc(lyrics: &Lyrics) -> String {
     let mut out = String::new();
     match lyrics {
-        Lyrics::Plain { text } => out.push_str(text),
+        Lyrics::Plain { text, .. } => out.push_str(text),
         Lyrics::Synced { lines } => {
-            for line in lines {
+            for line in lines.iter() {
                 let minutes = line.start.as_secs() / 60;
                 let seconds = line.start.as_secs() % 60;
                 let centis = line.start.subsec_millis() / 10;
@@ -486,9 +486,9 @@ pub fn to_standard_lrc(lyrics: &Lyrics) -> String {
 pub fn to_enhanced_lrc(lyrics: &Lyrics) -> String {
     let mut out = String::new();
     match lyrics {
-        Lyrics::Plain { text } => out.push_str(text),
+        Lyrics::Plain { text, .. } => out.push_str(text),
         Lyrics::Synced { lines } => {
-            for line in lines {
+            for line in lines.iter() {
                 let line_min = line.start.as_secs() / 60;
                 let line_sec = line.start.as_secs() % 60;
                 let line_cs = line.start.subsec_millis() / 10;
@@ -532,9 +532,9 @@ pub fn to_enhanced_lrc(lyrics: &Lyrics) -> String {
 pub fn to_krc(lyrics: &Lyrics) -> String {
     let mut out = String::new();
     match lyrics {
-        Lyrics::Plain { text } => out.push_str(text),
+        Lyrics::Plain { text, .. } => out.push_str(text),
         Lyrics::Synced { lines } => {
-            for line in lines {
+            for line in lines.iter() {
                 let start_ms = line.start.as_millis();
                 let duration_ms = line
                     .end
