@@ -1705,9 +1705,12 @@ impl Aside {
                     let wrapped = self.lyrics_wraps.get(&index);
                     let line_has_ended = active_line.is_some_and(|active| index < active)
                         || line_has_passed(line, position);
+                    let is_ruby = romanization_style == RomanizationStyle::Ruby
+                        && selected_romanization_tokens(&line.romanized, romanization_scripts)
+                            .is_some();
                     let worded = karaoke_effects && line.worded() && line.words.is_some();
                     let shade = |singing: bool| match (singing, line_has_ended) {
-                        (true, _) if worded => theme.muted_foreground,
+                        (true, _) if worded && !is_ruby => theme.muted_foreground,
                         (true, _) => theme.foreground,
                         (false, true) => theme.muted_foreground.opacity(PAST),
                         (false, false) => theme.muted_foreground.opacity(AHEAD),
@@ -1746,7 +1749,7 @@ impl Aside {
                         ..sung
                     };
 
-                    let ruby_tokens = (sung.style == RomanizationStyle::Ruby && !primary_karaoke)
+                    let ruby_tokens = (sung.style == RomanizationStyle::Ruby)
                         .then(|| {
                             selected_romanization_tokens(&line.romanized, romanization_scripts)
                         })
@@ -2519,8 +2522,10 @@ pub(crate) fn verse(
     let karaoke = look.karaoke && effects();
     let ended = line_has_passed(line, position);
     let worded = karaoke && line.worded() && line.words.is_some();
+    let is_ruby = look.style == RomanizationStyle::Ruby
+        && selected_romanization_tokens(&line.romanized, look.scripts).is_some();
     let tint = match (look.active, ended) {
-        (true, _) if worded => theme.muted_foreground,
+        (true, _) if worded && !is_ruby => theme.muted_foreground,
         (true, _) => theme.foreground,
         (false, true) => theme.muted_foreground.opacity(PAST),
         (false, false) => theme.muted_foreground.opacity(AHEAD),
@@ -2542,7 +2547,7 @@ pub(crate) fn verse(
             false => gpui::point(1., 0.5),
         },
     };
-    let ruby_tokens = (sung.style == RomanizationStyle::Ruby && !worded)
+    let ruby_tokens = (sung.style == RomanizationStyle::Ruby)
         .then(|| selected_romanization_tokens(&line.romanized, look.scripts))
         .flatten();
 
@@ -2912,7 +2917,7 @@ fn ruby_lyrics_lane(
                 .iter()
                 .filter(|(text, _)| !text.is_empty())
                 .map(|(text, ruby)| {
-                    if text == " " {
+                    if text.chars().all(char::is_whitespace) {
                         return div().w(px(6.)).into_any_element();
                     }
                     div()
