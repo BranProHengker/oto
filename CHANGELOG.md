@@ -7,14 +7,20 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.2.3] - 2026-11-06
+
 ### Added
 
+- Word-by-word Furigana karaoke sweep: Morpheme tokens are synchronized to word-level timestamps with progressive karaoke highlight wipes on Kanji and vocal glow on Romaji.
+- Fullscreen lyrics performance optimization: Non-adjacent blurred lines are rendered as single lines, cutting DOM tree size and GPU blur shader workload by >85% for silky smooth 60+ FPS playback.
+- Renamed Romanization ruby setting to "Per kata (Furigana)" / "Word by word (Furigana)" in Settings → Lyrics for clearer terminology.
 - Lyrics save format option in Settings → Lyrics supports exporting to Standard LRC, Enhanced Karaoke LRC with word timings, or Provider Native (e.g. Decoded KRC for KuGou).
 - Quick save lyrics button in the lyrics panel and switcher menu allows saving current lyrics directly beside the audio file.
 - Lyrics provider switcher menu in the lyrics footer allows switching between available lyric sources on the fly with live sync and karaoke indicators.
 
 ### Fixed
 
+- Fixed missing karaoke sweep animations when viewing Japanese romanization in Furigana mode.
 - Local synced lyrics strictly take precedence over online scrapers, and configured provider priority is fully respected between synced lyric sources.
 - KuGou lyrics hit matching accepts query titles to prevent dropping hits when tracks have alternate Japanese or Romanized titles.
 

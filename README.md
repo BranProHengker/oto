@@ -36,7 +36,7 @@
 > **Oto** is an independent fork of [Sonora](https://github.com/sonorahq/sonora). It retains full compatibility with Sonora's native playback engine while adding tailored improvements:
 > - **Universal Playlist Importer**: Import public playlist links (Spotify, YouTube Music, Apple Music, Deezer) into native hybrid playlists, prioritizing local lossless audio files over streaming.
 > - **Automix Crossfade**: Smart transition blending with dynamic DJ bass dip (high-pass filter sweep) and leading silence trimming.
-> - **KuGou, NetEase & Dual-Line Synced Lyrics**: Native out-of-the-box support for KuGou & NetEase karaoke lyrics, smart twin-timestamp `.lrc` pairing (Japanese Kanji/Kana + Romaji furigana sublane), and zero-delay local LRC synchronization.
+> - **KuGou, NetEase & Word-by-Word Furigana Karaoke**: Native out-of-the-box support for KuGou & NetEase karaoke lyrics, word-by-word karaoke sweep sync on furigana (Japanese Kanji + Romaji sublane), smart twin-timestamp `.lrc` pairing, and GPU-optimized silky 60+ FPS fullscreen lyrics.
 > - **Lyrics Provider Switcher & Local Precedence**: Live lyrics source switcher (`[ ⇅ Switch ]`) with hit indicators (Karaoke, Line synced, In use) and strict local synced lyrics precedence over scrapers.
 > - **Flexible Lyrics Save & Export**: One-click lyrics download directly beside local audio files, with configurable export formats in Settings (Standard `.lrc`, Enhanced Karaoke `.lrc` with word timestamps, or Provider Native decoded `.krc`).
 > - **Sonora Sessions & Social Listening**: Listen together in sync across any streaming service using lightweight 6-digit room codes and member queue control.
