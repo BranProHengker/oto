@@ -312,7 +312,10 @@ fn hit(song: &Song, sheet_text: &str, adjust_ms: i64, title: &str) -> Option<Lyr
             },
         },
         instrumental: quiet,
-        title: song.name.clone(),
+        title: match title.is_empty() {
+            true => song.name.clone(),
+            false => title.to_owned(),
+        },
         artist: song.singer.clone(),
         album: (!song.album.is_empty()).then(|| song.album.clone()),
         duration: (song.duration > 0).then(|| Duration::from_secs(song.duration)),

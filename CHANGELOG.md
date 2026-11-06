@@ -7,6 +7,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Lyrics provider switcher menu in the lyrics footer allows switching between available lyric sources on the fly with live sync and karaoke indicators.
+
+### Fixed
+
+- Local synced lyrics strictly take precedence over online scrapers, and configured provider priority is fully respected between synced lyric sources.
+- KuGou lyrics hit matching accepts query titles to prevent dropping hits when tracks have alternate Japanese or Romanized titles.
+
 ## [1.2.0] - 2026-11-05
 
 ### Added

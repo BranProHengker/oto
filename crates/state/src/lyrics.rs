@@ -136,6 +136,18 @@ impl Lyrics {
         self.hits.get(self.chosen)
     }
 
+    pub fn chosen(&self) -> usize {
+        self.chosen
+    }
+
+    pub fn enabled_providers(&self) -> &[String] {
+        &self.enabled_providers
+    }
+
+    pub fn priority(&self) -> &[String] {
+        &self.priority
+    }
+
     pub fn revision(&self) -> u64 {
         self.revision
     }

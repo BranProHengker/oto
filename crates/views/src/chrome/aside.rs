@@ -20,10 +20,10 @@ use state::{
     Shelf, SideTab, Sonora, Steered, Whence,
 };
 use ui::{
-    ActiveTheme as _, Avatar, Button, Card, DraggedPin, Edge, Initials, Motion, Motioned as _,
-    PREFETCH_REACH, Pin, Pinnable as _, Popup, Scrollbar, Scroller, Spot, Springs, Text, Vacancy,
-    drop_gap, drop_marker, ease_out_cubic, ease_out_expo, eyebrow, faint, mix, prefetch, snapped,
-    vacant,
+    ActiveTheme as _, Avatar, Button, Card, DraggedPin, Edge, Initials, Menu, MenuItem, Motion,
+    Motioned as _, PREFETCH_REACH, Pin, Pinnable as _, Popup, Scrollbar, Scroller, Spot, Springs,
+    Text, Vacancy, drop_gap, drop_marker, ease_out_cubic, ease_out_expo, eyebrow, faint, mix,
+    prefetch, snapped, vacant,
 };
 
 use crate::chrome::{Chrome, section_label};
@@ -385,6 +385,7 @@ pub(crate) struct Aside {
     verse_take: u64,
     placing: bool,
     context_menu: Option<ContextMenuState>,
+    lyrics_menu: Option<Point<Pixels>>,
     track_menu: ItemMenu,
     drop_gap: Option<usize>,
     scroll: UniformListScrollHandle,
@@ -491,6 +492,7 @@ impl Aside {
             verse_take: 0,
             placing: false,
             context_menu: None,
+            lyrics_menu: None,
             track_menu: ItemMenu::new(playlist_scrollbar, cx),
             drop_gap: None,
             scroll,
@@ -848,6 +850,18 @@ impl Aside {
     fn dismiss_menu(&mut self, cx: &mut Context<Self>) {
         self.track_menu.reset(cx);
         self.context_menu = None;
+        self.lyrics_menu = None;
+        cx.notify();
+    }
+
+    fn open_lyrics_menu(&mut self, position: Point<Pixels>, cx: &mut Context<Self>) {
+        self.context_menu = None;
+        self.lyrics_menu = Some(position);
+        cx.notify();
+    }
+
+    fn dismiss_lyrics_menu(&mut self, cx: &mut Context<Self>) {
+        self.lyrics_menu = None;
         cx.notify();
     }
 
@@ -1028,6 +1042,78 @@ impl Aside {
             Popup::new(position, self.track_menu.for_track(&track, cx))
                 .on_close(cx.listener(|this, _, _, cx| this.dismiss_menu(cx))),
         )
+    }
+
+    fn lyrics_popup(&self, window: &Window, cx: &mut Context<Self>) -> Option<impl IntoElement> {
+        let position = self.lyrics_menu?;
+        let lyrics = self.lyrics.read(cx);
+        let hits = lyrics.hits();
+        let chosen = lyrics.chosen();
+
+        let theme = *cx.theme();
+        let mut menu = Menu::new("lyrics-provider-picker");
+        let header = eyebrow(t!("lyrics-providers-header"), cx).px_3().py_1();
+        menu = menu.header(header);
+
+        let lyrics_entity = self.lyrics.clone();
+        let mut seen_providers = std::collections::HashSet::new();
+
+        for (index, hit) in hits.iter().enumerate() {
+            seen_providers.insert(hit.source.to_string());
+            let is_current = index == chosen;
+            let status = match (hit.lyrics.worded(), hit.lyrics.synced(), is_current) {
+                (true, _, true) => t!("lyrics-provider-karaoke-in-use"),
+                (true, _, false) => t!("lyrics-provider-karaoke"),
+                (_, true, true) => t!("lyrics-provider-line-synced-in-use"),
+                (_, true, false) => t!("lyrics-provider-line-synced"),
+                (_, false, true) => t!("lyrics-provider-plain-text-in-use"),
+                (_, false, false) => t!("lyrics-provider-plain-text"),
+            };
+
+            let dot = div().size(px(6.)).rounded_full().bg(theme.primary);
+
+            let trailing = div()
+                .text_size(theme.text(Text::Small))
+                .text_color(theme.muted_foreground)
+                .child(status);
+
+            let lyrics_entity = lyrics_entity.clone();
+            let item = MenuItem::new(format!("lyrics-provider-{index}"), hit.source)
+                .leading(dot)
+                .trailing(trailing)
+                .checked(is_current)
+                .on_click(move |_, _, cx| {
+                    lyrics_entity.update(cx, |lyrics, cx| {
+                        lyrics.choose(index, cx);
+                    });
+                });
+            menu = menu.item(item);
+        }
+
+        let mut listed = seen_providers;
+        for provider in lyrics.priority().iter().chain(lyrics.enabled_providers()) {
+            if listed.insert(provider.clone()) {
+                let dot = div().size(px(6.)).rounded_full().bg(theme.danger);
+
+                let trailing = div()
+                    .text_size(theme.text(Text::Small))
+                    .text_color(theme.muted_foreground)
+                    .child(t!("lyrics-provider-not-found"));
+
+                let item = MenuItem::new(format!("lyrics-miss-{provider}"), provider.clone())
+                    .leading(dot)
+                    .trailing(trailing)
+                    .disabled();
+                menu = menu.item(item);
+            }
+        }
+
+        let mut popup = Popup::new(position, menu);
+        if position.y > window.viewport_size().height / 2. {
+            popup = popup.above();
+        }
+
+        Some(popup.on_close(cx.listener(|this, _, _, cx| this.dismiss_lyrics_menu(cx))))
     }
 
     /// The panel's title and, over this app's own queue, the controls that change it. They go
@@ -1765,6 +1851,23 @@ impl Aside {
                 true => presentation + drift.unwrap_or_default(),
                 false => px(0.),
             };
+            let switch_btn = Button::new("lyrics-switch-provider")
+                .secondary()
+                .small()
+                .icon("icons/arrow-up-down.svg")
+                .label(t!("lyrics-switch"))
+                .on_click(cx.listener(|this, _, window, cx| {
+                    let position = window.mouse_position();
+                    this.open_lyrics_menu(position, cx);
+                }));
+
+            let source_row = div()
+                .flex()
+                .items_center()
+                .gap_2()
+                .child(from)
+                .child(switch_btn);
+
             let note = div()
                 .w_full()
                 .max_w(reach)
@@ -1774,7 +1877,7 @@ impl Aside {
                 .flex_col()
                 .text_size(theme.text(Text::Small))
                 .text_color(theme.muted_foreground)
-                .child(from)
+                .child(source_row)
                 .children(by);
             body.push(adrift(note, translation, false, window));
         }
@@ -2229,6 +2332,7 @@ impl Render for Aside {
                     .children(self.recall(sections, window, cx)),
             )
             .children(self.menu(cx))
+            .children(self.lyrics_popup(window, cx))
     }
 }
 

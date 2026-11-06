@@ -1245,6 +1245,16 @@ lyrics-follow = Follow the song again
 lyrics-source = Lyrics from { $source }
 lyrics-source-local = Lyrics from the local file
 lyrics-writers = Written by { $writers }
+lyrics-switch = Switch
+lyrics-providers-header = Lyrics provider
+lyrics-provider-in-use = In use
+lyrics-provider-karaoke = Karaoke
+lyrics-provider-karaoke-in-use = Karaoke (in use)
+lyrics-provider-line-synced = Line synced
+lyrics-provider-line-synced-in-use = Line synced (in use)
+lyrics-provider-plain-text = Plain text
+lyrics-provider-plain-text-in-use = Plain text (in use)
+lyrics-provider-not-found = Not found
 
 update-available = Sonora { $version } is out
 update-detail = You are on { $running }. Read what changed, or update now.
