@@ -10,3 +10,4 @@ __pycache__/
 /flatpak/*.flatpak
 /flatpak/flatpak
 /.flatpak-builder
+/*.py

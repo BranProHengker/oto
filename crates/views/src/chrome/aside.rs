@@ -1705,12 +1705,14 @@ impl Aside {
                     let wrapped = self.lyrics_wraps.get(&index);
                     let line_has_ended = active_line.is_some_and(|active| index < active)
                         || line_has_passed(line, position);
+                    let distance = active_line.map_or(0, |a| index.abs_diff(a));
                     let is_ruby = romanization_style == RomanizationStyle::Ruby
+                        && distance <= 2
                         && selected_romanization_tokens(&line.romanized, romanization_scripts)
                             .is_some();
                     let worded = karaoke_effects && line.worded() && line.words.is_some();
                     let shade = |singing: bool| match (singing, line_has_ended) {
-                        (true, _) if worded && !is_ruby => theme.muted_foreground,
+                        (true, _) if worded => theme.muted_foreground,
                         (true, _) => theme.foreground,
                         (false, true) => theme.muted_foreground.opacity(PAST),
                         (false, false) => theme.muted_foreground.opacity(AHEAD),
@@ -1749,7 +1751,7 @@ impl Aside {
                         ..sung
                     };
 
-                    let ruby_tokens = (sung.style == RomanizationStyle::Ruby)
+                    let ruby_tokens = is_ruby
                         .then(|| {
                             selected_romanization_tokens(&line.romanized, romanization_scripts)
                         })
@@ -1757,10 +1759,19 @@ impl Aside {
 
                     let primary = match (ruby_tokens, primary_karaoke, line.words.as_ref(), wrapped)
                     {
-                        (Some(tokens), _, _, _) => {
-                            ruby_lyrics_lane(tokens, line.voice, sung, lane_size, active)
-                                .into_any_element()
-                        }
+                        (Some(tokens), karaoke, _, _) => ruby_lyrics_lane(
+                            tokens,
+                            &line.text,
+                            line.start,
+                            line.words.as_deref(),
+                            position,
+                            karaoke,
+                            line.voice,
+                            sung,
+                            lane_size,
+                            active,
+                        )
+                        .into_any_element(),
                         (_, true, Some(words), Some(plan)) => {
                             karaoke_lane(plan, line.start, words, position, verse, line.voice, sung)
                                 .into_any_element()
@@ -1837,14 +1848,17 @@ impl Aside {
                         .gap_1()
                         .when(!line.voice.lead(), |this| this.items_end().text_right())
                         .child(primary)
-                        .when(ruby_tokens.is_none(), |this| {
-                            this.when_some(
-                                selected_romanization(&line.romanized, romanization_scripts),
-                                |this, text| {
-                                    this.child(romanized_lyrics_lane(text, lane_size, &theme))
-                                },
-                            )
-                        })
+                        .when(
+                            ruby_tokens.is_none() && romanization_style != RomanizationStyle::Ruby,
+                            |this| {
+                                this.when_some(
+                                    selected_romanization(&line.romanized, romanization_scripts),
+                                    |this, text| {
+                                        this.child(romanized_lyrics_lane(text, lane_size, &theme))
+                                    },
+                                )
+                            },
+                        )
                         .children(lanes)
                         .when(depth > 0., |this| {
                             this.layer_scale(1. - (1. - PRESSED) * depth)
@@ -2556,7 +2570,18 @@ pub(crate) fn verse(
         worded && primary_karaoke_visible(line, look.active, position),
         line.words.as_deref(),
     ) {
-        (Some(tokens), _, _) => ruby_lyrics_lane(tokens, line.voice, sung, look.lane, look.active),
+        (Some(tokens), karaoke, words) => ruby_lyrics_lane(
+            tokens,
+            &line.text,
+            line.start,
+            words,
+            position,
+            karaoke,
+            line.voice,
+            sung,
+            look.lane,
+            look.active,
+        ),
         (_, true, Some(words)) => karaoke_lane(
             &loose_plan(&line.text, words),
             line.start,
@@ -2592,12 +2617,15 @@ pub(crate) fn verse(
                 .gap_1()
                 .when(!line.voice.lead(), |this| this.items_end().text_right())
                 .child(primary)
-                .when(ruby_tokens.is_none(), |this| {
-                    this.when_some(
-                        selected_romanization(&line.romanized, look.scripts),
-                        |this, text| this.child(romanized_lyrics_lane(text, look.lane, &theme)),
-                    )
-                }),
+                .when(
+                    ruby_tokens.is_none() && look.style != RomanizationStyle::Ruby,
+                    |this| {
+                        this.when_some(
+                            selected_romanization(&line.romanized, look.scripts),
+                            |this, text| this.child(romanized_lyrics_lane(text, look.lane, &theme)),
+                        )
+                    },
+                ),
         )
         .when(haze > 0., |this| this.opacity(1. - VEIL * haze))
         .map(|this| match look.size * BLUR * haze {
@@ -2893,17 +2921,97 @@ fn selected_romanization_tokens<'a>(
     Some(&romanized.tokens)
 }
 
+fn token_windows(
+    line_text: &str,
+    line_start: std::time::Duration,
+    words: &[music::LyricsWord],
+    tokens: &[(String, String)],
+) -> Vec<(std::time::Duration, std::time::Duration)> {
+    if words.is_empty() {
+        return vec![(line_start, line_start); tokens.len()];
+    }
+
+    let mut word_spans = Vec::with_capacity(words.len());
+    let mut cursor = 0;
+    for word in words {
+        if word.text.is_empty() {
+            continue;
+        }
+        if let Some(remainder) = line_text.get(cursor..) {
+            if let Some(rel) = remainder.find(&word.text) {
+                let start_byte = cursor + rel;
+                let end_byte = start_byte + word.text.len();
+                word_spans.push((start_byte..end_byte, word.start, word.end));
+                cursor = end_byte;
+                continue;
+            }
+        }
+        word_spans.push((cursor..cursor, word.start, word.end));
+    }
+
+    let mut token_ranges = Vec::with_capacity(tokens.len());
+    let mut token_cursor = 0;
+    for (text, _) in tokens {
+        if text.trim().is_empty() {
+            let last_end = token_ranges.last().map(|&(_, e)| e).unwrap_or(line_start);
+            token_ranges.push((last_end, last_end));
+            continue;
+        }
+        let (tok_start_byte, tok_end_byte) = if let Some(remainder) = line_text.get(token_cursor..)
+        {
+            if let Some(rel) = remainder.find(text) {
+                let s = token_cursor + rel;
+                let e = s + text.len();
+                token_cursor = e;
+                (s, e)
+            } else {
+                (token_cursor, token_cursor + text.len())
+            }
+        } else {
+            (token_cursor, token_cursor + text.len())
+        };
+
+        let mut t_start = None;
+        let mut t_end = None;
+        for (w_span, w_start, w_end) in &word_spans {
+            if w_span.end > tok_start_byte && w_span.start < tok_end_byte {
+                if t_start.is_none() || *w_start < t_start.unwrap() {
+                    t_start = Some(*w_start);
+                }
+                if t_end.is_none() || *w_end > t_end.unwrap() {
+                    t_end = Some(*w_end);
+                }
+            }
+        }
+
+        let last_end = token_ranges.last().map(|&(_, e)| e).unwrap_or(line_start);
+        let start = t_start.unwrap_or(last_end);
+        let end = t_end.unwrap_or(start);
+        token_ranges.push((start, end));
+    }
+
+    token_ranges
+}
+
 fn ruby_lyrics_lane(
     tokens: &[(String, String)],
+    line_text: &str,
+    line_start: std::time::Duration,
+    words: Option<&[music::LyricsWord]>,
+    position: std::time::Duration,
+    karaoke: bool,
     voice: Voice,
     sung: Sung,
     lane_size: Pixels,
     active: bool,
 ) -> Div {
-    let ruby_color = match active {
-        true => sung.theme.foreground.opacity(0.85),
-        false => sung.theme.muted_foreground,
+    let windows = match (active && karaoke, words) {
+        (true, Some(words)) if !words.is_empty() => {
+            token_windows(line_text, line_start, words, tokens)
+        }
+        _ => Vec::new(),
     };
+
     let lane = div()
         .flex()
         .flex_row()
@@ -2915,24 +3023,75 @@ fn ruby_lyrics_lane(
         .children(
             tokens
                 .iter()
-                .filter(|(text, _)| !text.is_empty())
-                .map(|(text, ruby)| {
+                .enumerate()
+                .filter(|(_, (text, _))| !text.is_empty())
+                .map(|(index, (text, ruby))| {
                     if text.chars().all(char::is_whitespace) {
                         return div().w(px(6.)).into_any_element();
                     }
+
+                    let share = if !active {
+                        0.0
+                    } else if !karaoke || words.is_none() {
+                        1.0
+                    } else if let Some(&(start, end)) = windows.get(index) {
+                        if position < start {
+                            0.0
+                        } else if position >= end || start >= end {
+                            1.0
+                        } else {
+                            ((position - start).as_secs_f32()
+                                / (end - start).as_secs_f32().max(0.001))
+                            .clamp(0.0, 1.0)
+                        }
+                    } else {
+                        1.0
+                    };
+
+                    let ruby_color = if !active {
+                        sung.theme.muted_foreground
+                    } else if share >= 1.0 {
+                        sung.theme.foreground.opacity(0.85)
+                    } else if share > 0.0 {
+                        sung.theme.foreground
+                    } else {
+                        sung.theme.muted_foreground
+                    };
+
+                    let kanji_text = SharedString::from(text.clone());
+                    let kanji = div()
+                        .relative()
+                        .whitespace_nowrap()
+                        .line_height(relative(1.0))
+                        .child(kanji_text.clone())
+                        .when(share > 0., |this| {
+                            this.child(
+                                div()
+                                    .absolute()
+                                    .left_0()
+                                    .top_0()
+                                    .bottom_0()
+                                    .w(relative(share))
+                                    .overflow_hidden()
+                                    .text_color(sung.karaoke_tint)
+                                    .child(
+                                        div()
+                                            .whitespace_nowrap()
+                                            .line_height(relative(1.0))
+                                            .child(kanji_text),
+                                    ),
+                            )
+                        });
+
                     div()
                         .flex()
                         .flex_col()
                         .items_center()
-                        .child(
-                            div()
-                                .line_height(relative(1.0))
-                                .child(SharedString::from(text.clone())),
-                        )
+                        .child(kanji)
                         .when(!ruby.is_empty(), |this| {
                             this.child(
                                 div()
-                                    .mt(px(4.))
+                                    .mt(px(3.))
                                     .text_size(lane_size)
                                     .line_height(relative(1.0))
                                     .font_weight(FontWeight::NORMAL)
