@@ -430,8 +430,8 @@ pub fn active_word(words: &[LyricsWord], at: Duration) -> Option<usize> {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum LyricsSaveFormat {
-    #[default]
     StandardLrc,
+    #[default]
     EnhancedLrc,
     ProviderNative,
 }
@@ -501,7 +501,7 @@ pub fn to_enhanced_lrc(lyrics: &Lyrics) -> String {
                             let w_sec = word.start.as_secs() % 60;
                             let w_cs = word.start.subsec_millis() / 10;
                             line_buf.push_str(&format!(
-                                " <{:02}:{:02}.{:02}>{}",
+                                "<{:02}:{:02}.{:02}>{}",
                                 w_min, w_sec, w_cs, word.text
                             ));
                         }
@@ -928,5 +928,31 @@ mod tests {
         assert_eq!(active_word(&words, Duration::from_millis(100)), Some(0));
         assert_eq!(active_word(&words, Duration::from_millis(500)), Some(1));
         assert_eq!(active_word(&words, Duration::from_millis(2000)), None);
+    }
+
+    #[test]
+    fn enhanced_lrc_and_krc_formatting() {
+        let mut line_data = line(0, 5, "hello world");
+        line_data.words = Some(vec![
+            LyricsWord {
+                start: Duration::from_millis(0),
+                end: Duration::from_millis(2000),
+                text: "hello ".to_owned(),
+            },
+            LyricsWord {
+                start: Duration::from_millis(2000),
+                end: Duration::from_millis(5000),
+                text: "world".to_owned(),
+            },
+        ]);
+        let lyrics = Lyrics::Synced {
+            lines: std::sync::Arc::from([line_data]),
+        };
+
+        let enhanced = to_enhanced_lrc(&lyrics);
+        assert_eq!(enhanced, "[00:00.00]<00:00.00>hello <00:02.00>world\n");
+
+        let krc = to_krc(&lyrics);
+        assert_eq!(krc, "[0,5000]<0,2000,0>hello <2000,3000,0>world\n");
     }
 }
