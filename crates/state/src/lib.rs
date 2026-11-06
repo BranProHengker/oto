@@ -82,8 +82,8 @@ pub use search::{AlbumHit, ArtistHit, Hit, Kind, PlaylistHit, Search};
 pub use session::{Failure, ProviderInfo, Session, SessionEvent, SessionState};
 pub use settings::{
     AppSettings, ConnectName, DiscordName, FilterValue, FullscreenControlsAutohide, LYRICS_SOURCES,
-    PlayerBarLayout, Reloaded, RomanizationScripts, SYSTEM_FONT, SideTab, ThemeFamily,
-    ThemeVariant, equalizer_profile_label, remember_window, window_placement,
+    PlayerBarLayout, Reloaded, RomanizationScripts, RomanizationStyle, SYSTEM_FONT, SideTab,
+    ThemeFamily, ThemeVariant, equalizer_profile_label, remember_window, window_placement,
 };
 pub use signal::{Change, Equalizing, FLOAT_BITS, Following, Signal, SignalPath};
 pub use song::SongDetail;

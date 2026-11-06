@@ -17,7 +17,7 @@ use music::{Contributor, Shape, Track, Voice};
 use router::{Destination, LibraryTab, Link as _};
 use state::{
     AppSettings, Lyrics, LyricsState, Network, Playback, PlaybackState, Queue, RomanizationScripts,
-    Shelf, SideTab, Sonora, Steered, Whence,
+    RomanizationStyle, Shelf, SideTab, Sonora, Steered, Whence,
 };
 use ui::{
     ActiveTheme as _, Avatar, Button, Card, DraggedPin, Edge, Initials, Menu, MenuItem, Motion,
@@ -286,6 +286,7 @@ struct Sung {
     karaoke: bool,
     lane: Pixels,
     scripts: Option<RomanizationScripts>,
+    style: RomanizationStyle,
     theme: ui::Theme,
     karaoke_tint: gpui::Hsla,
     lift: f32,
@@ -302,6 +303,7 @@ pub(crate) struct VerseLook {
     pub(crate) lane: Pixels,
     pub(crate) karaoke: bool,
     pub(crate) scripts: Option<RomanizationScripts>,
+    pub(crate) style: RomanizationStyle,
     /// How far out of focus the verse sits, from 0 for sharp to 1 at the sheet's edge.
     pub(crate) haze: f32,
 }
@@ -865,6 +867,57 @@ impl Aside {
         cx.notify();
     }
 
+    fn lyrics_floating_bar(&self, cx: &mut Context<Self>) -> Option<impl IntoElement> {
+        if self.tab != SideTab::Lyrics {
+            return None;
+        }
+        let credit = self.credit.as_ref()?;
+        let source_name = credit.source;
+        let theme = *cx.theme();
+
+        let switch_btn = Button::new("lyrics-floating-switch")
+            .ghost()
+            .small()
+            .icon("icons/arrow-up-down.svg")
+            .label(source_name)
+            .on_click(cx.listener(|this, _, window, cx| {
+                let position = window.mouse_position();
+                this.open_lyrics_menu(position, cx);
+            }));
+
+        let save_btn = Button::new("lyrics-floating-save")
+            .ghost()
+            .small()
+            .icon("icons/download.svg")
+            .tooltip("lyrics-save-beside-song")
+            .on_click(cx.listener(|this, _, _, cx| {
+                this.save_current_lyrics_beside_song(cx);
+            }));
+
+        Some(
+            div()
+                .id("lyrics-floating-pill")
+                .absolute()
+                .top_3()
+                .right_4()
+                .flex()
+                .items_center()
+                .gap_1()
+                .px_1p5()
+                .py(px(2.))
+                .rounded_full()
+                .bg(theme.popover.opacity(0.85))
+                .border_1()
+                .border_color(theme.border.opacity(0.6))
+                .shadow_md()
+                .opacity(0.75)
+                .hover(|s| s.opacity(1.0).bg(theme.popover))
+                .child(switch_btn)
+                .child(div().h_3().w_px().bg(theme.border.opacity(0.5)))
+                .child(save_btn),
+        )
+    }
+
     fn row(
         track: Track,
         index: usize,
@@ -1364,13 +1417,14 @@ impl Aside {
         let following = (self.verse_of.as_deref() != lyrics.following())
             .then(|| lyrics.following().map(str::to_owned));
         let take = lyrics.revision();
-        let (karaoke_lyrics, romanization_scripts) = {
+        let (karaoke_lyrics, romanization_scripts, romanization_style) = {
             let settings = self.settings.read(cx);
             (
                 settings.karaoke_lyrics(),
                 settings
                     .romanized_lyrics()
                     .then(|| settings.romanization_scripts()),
+                settings.romanization_style(),
             )
         };
         let karaoke_effects = karaoke_lyrics && effects();
@@ -1386,6 +1440,7 @@ impl Aside {
             karaoke: karaoke_effects,
             lane: lane_size,
             scripts: romanization_scripts,
+            style: romanization_style,
             theme,
             karaoke_tint: theme.foreground,
             lift: 1.,
@@ -1691,12 +1746,23 @@ impl Aside {
                         ..sung
                     };
 
-                    let primary = match (primary_karaoke, line.words.as_ref(), wrapped) {
-                        (true, Some(words), Some(plan)) => {
+                    let ruby_tokens = (sung.style == RomanizationStyle::Ruby && !primary_karaoke)
+                        .then(|| {
+                            selected_romanization_tokens(&line.romanized, romanization_scripts)
+                        })
+                        .flatten();
+
+                    let primary = match (ruby_tokens, primary_karaoke, line.words.as_ref(), wrapped)
+                    {
+                        (Some(tokens), _, _, _) => {
+                            ruby_lyrics_lane(tokens, line.voice, sung, lane_size, active)
+                                .into_any_element()
+                        }
+                        (_, true, Some(words), Some(plan)) => {
                             karaoke_lane(plan, line.start, words, position, verse, line.voice, sung)
                                 .into_any_element()
                         }
-                        (_, _, Some(plan)) => {
+                        (_, _, _, Some(plan)) => {
                             fixed_lyrics_lane(&plan.text, line.voice, sung).into_any_element()
                         }
                         _ => div()
@@ -1768,10 +1834,14 @@ impl Aside {
                         .gap_1()
                         .when(!line.voice.lead(), |this| this.items_end().text_right())
                         .child(primary)
-                        .when_some(
-                            selected_romanization(&line.romanized, romanization_scripts),
-                            |this, text| this.child(romanized_lyrics_lane(text, lane_size, &theme)),
-                        )
+                        .when(ruby_tokens.is_none(), |this| {
+                            this.when_some(
+                                selected_romanization(&line.romanized, romanization_scripts),
+                                |this, text| {
+                                    this.child(romanized_lyrics_lane(text, lane_size, &theme))
+                                },
+                            )
+                        })
                         .children(lanes)
                         .when(depth > 0., |this| {
                             this.layer_scale(1. - (1. - PRESSED) * depth)
@@ -1908,7 +1978,8 @@ impl Aside {
 
         if state == LyricsState::Ready
             && shown
-            && let Some((from, by)) = self.credit.as_ref().map(|credit| credit.lines.clone())
+            && let Some((_from, by)) = self.credit.as_ref().map(|credit| credit.lines.clone())
+            && by.is_some()
         {
             let credit = body.len();
             let along = viewport_along(&scroll, credit, scroll.bounds(), drag.downward);
@@ -1918,33 +1989,6 @@ impl Aside {
                 true => presentation + drift.unwrap_or_default(),
                 false => px(0.),
             };
-            let switch_btn = Button::new("lyrics-switch-provider")
-                .secondary()
-                .small()
-                .icon("icons/arrow-up-down.svg")
-                .label(t!("lyrics-switch"))
-                .on_click(cx.listener(|this, _, window, cx| {
-                    let position = window.mouse_position();
-                    this.open_lyrics_menu(position, cx);
-                }));
-
-            let save_btn = Button::new("lyrics-save-button")
-                .ghost()
-                .small()
-                .icon("icons/download.svg")
-                .tooltip("lyrics-save-beside-song")
-                .on_click(cx.listener(|this, _, _, cx| {
-                    this.save_current_lyrics_beside_song(cx);
-                }));
-
-            let source_row = div()
-                .flex()
-                .items_center()
-                .gap_2()
-                .child(from)
-                .child(switch_btn)
-                .child(save_btn);
-
             let note = div()
                 .w_full()
                 .max_w(reach)
@@ -1954,7 +1998,6 @@ impl Aside {
                 .flex_col()
                 .text_size(theme.text(Text::Small))
                 .text_color(theme.muted_foreground)
-                .child(source_row)
                 .children(by);
             body.push(adrift(note, translation, false, window));
         }
@@ -2384,6 +2427,7 @@ impl Render for Aside {
                     .when(self.tab == SideTab::Lyrics, |this| {
                         this.child(self.verses(window, cx)).child(self.witness())
                     })
+                    .children(self.lyrics_floating_bar(cx))
                     .when(self.tab == SideTab::Queue && empty, |this| {
                         this.child(vacant(t!("queue-empty"), cx).flex_1())
                     })
@@ -2485,6 +2529,7 @@ pub(crate) fn verse(
         karaoke,
         lane: look.lane,
         scripts: look.scripts,
+        style: look.style,
         theme,
         karaoke_tint: mix(
             theme.foreground,
@@ -2497,11 +2542,17 @@ pub(crate) fn verse(
             false => gpui::point(1., 0.5),
         },
     };
+    let ruby_tokens = (sung.style == RomanizationStyle::Ruby && !worded)
+        .then(|| selected_romanization_tokens(&line.romanized, look.scripts))
+        .flatten();
+
     let primary = match (
+        ruby_tokens,
         worded && primary_karaoke_visible(line, look.active, position),
         line.words.as_deref(),
     ) {
-        (true, Some(words)) => karaoke_lane(
+        (Some(tokens), _, _) => ruby_lyrics_lane(tokens, line.voice, sung, look.lane, look.active),
+        (_, true, Some(words)) => karaoke_lane(
             &loose_plan(&line.text, words),
             line.start,
             words,
@@ -2536,10 +2587,12 @@ pub(crate) fn verse(
                 .gap_1()
                 .when(!line.voice.lead(), |this| this.items_end().text_right())
                 .child(primary)
-                .when_some(
-                    selected_romanization(&line.romanized, look.scripts),
-                    |this, text| this.child(romanized_lyrics_lane(text, look.lane, &theme)),
-                ),
+                .when(ruby_tokens.is_none(), |this| {
+                    this.when_some(
+                        selected_romanization(&line.romanized, look.scripts),
+                        |this, text| this.child(romanized_lyrics_lane(text, look.lane, &theme)),
+                    )
+                }),
         )
         .when(haze > 0., |this| this.opacity(1. - VEIL * haze))
         .map(|this| match look.size * BLUR * haze {
@@ -2816,6 +2869,76 @@ fn selected_romanization(
     (scripts.contains(romanized.writing_system)
         || romanized.writing_system == music::WritingSystem::Other)
         .then(|| romanized.text.clone())
+}
+
+fn selected_romanization_tokens<'a>(
+    romanized: &'a Option<music::RomanizedText>,
+    scripts: Option<RomanizationScripts>,
+) -> Option<&'a [(String, String)]> {
+    let romanized = romanized.as_ref()?;
+    let scripts = scripts?;
+    if !scripts.contains(romanized.writing_system)
+        && romanized.writing_system != music::WritingSystem::Other
+    {
+        return None;
+    }
+    if romanized.tokens.is_empty() {
+        return None;
+    }
+    Some(&romanized.tokens)
+}
+
+fn ruby_lyrics_lane(
+    tokens: &[(String, String)],
+    voice: Voice,
+    sung: Sung,
+    lane_size: Pixels,
+    active: bool,
+) -> Div {
+    let ruby_color = match active {
+        true => sung.theme.foreground.opacity(0.85),
+        false => sung.theme.muted_foreground,
+    };
+    let lane = div()
+        .flex()
+        .flex_row()
+        .flex_wrap()
+        .gap_x(px(6.))
+        .gap_y(px(4.))
+        .items_start()
+        .when(!voice.lead(), |this| this.justify_end())
+        .children(
+            tokens
+                .iter()
+                .filter(|(text, _)| !text.is_empty())
+                .map(|(text, ruby)| {
+                    if text == " " {
+                        return div().w(px(6.)).into_any_element();
+                    }
+                    div()
+                        .flex()
+                        .flex_col()
+                        .items_center()
+                        .child(
+                            div()
+                                .line_height(relative(1.0))
+                                .child(SharedString::from(text.clone())),
+                        )
+                        .when(!ruby.is_empty(), |this| {
+                            this.child(
+                                div()
+                                    .mt(px(4.))
+                                    .text_size(lane_size)
+                                    .line_height(relative(1.0))
+                                    .font_weight(FontWeight::NORMAL)
+                                    .text_color(ruby_color)
+                                    .child(SharedString::from(ruby.clone())),
+                            )
+                        })
+                        .into_any_element()
+                }),
+        );
+    lifted(lane, sung)
 }
 
 /// Which source a sheet came from and, when it names them, who wrote the song.

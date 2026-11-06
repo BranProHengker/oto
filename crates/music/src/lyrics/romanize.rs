@@ -44,6 +44,7 @@ pub fn plain(text: &str) -> Option<RomanizedText> {
             .collect::<Vec<_>>()
             .join("\n"),
         writing_system: system,
+        tokens: Vec::new(),
     })
 }
 
@@ -67,15 +68,44 @@ fn detect<'a>(texts: impl Iterator<Item = &'a str>) -> Option<WritingSystem> {
 }
 
 fn convert(text: &str, system: WritingSystem) -> Option<RomanizedText> {
-    let romanized = match system {
-        WritingSystem::Japanese => super::japanese::romanize(text),
-        _ => universal(text),
+    let (romanized, tokens) = match system {
+        WritingSystem::Japanese => {
+            let tokens = super::japanese::ruby_tokens(text);
+            let romanized = super::japanese::romanize(text);
+            (romanized, tokens)
+        }
+        WritingSystem::Chinese => {
+            let romanized = universal(text);
+            let tokens = chinese_ruby_tokens(text);
+            (romanized, tokens)
+        }
+        _ => {
+            let romanized = universal(text);
+            (romanized, Vec::new())
+        }
     };
     let romanized = tidy(&romanized);
     (!romanized.is_empty() && romanized != tidy(text)).then_some(RomanizedText {
         text: romanized,
         writing_system: system,
+        tokens,
     })
+}
+
+fn chinese_ruby_tokens(text: &str) -> Vec<(String, String)> {
+    let mut tokens = Vec::new();
+    for ch in text.chars() {
+        if ch.is_whitespace() {
+            if !tokens.last().is_some_and(|(s, _)| s == " ") {
+                tokens.push((" ".to_string(), String::new()));
+            }
+        } else if let Some(pinyin) = deunicode_char(ch) {
+            tokens.push((ch.to_string(), pinyin.to_string()));
+        } else {
+            tokens.push((ch.to_string(), String::new()));
+        }
+    }
+    tokens
 }
 
 fn dominant_system(text: &str) -> Option<WritingSystem> {

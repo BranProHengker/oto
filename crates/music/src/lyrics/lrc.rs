@@ -195,12 +195,14 @@ fn merge_dual_lines(lines: &mut Vec<LyricsLine>) {
                 line.romanized = Some(RomanizedText {
                     text: right_str,
                     writing_system: WritingSystem::Other,
+                    tokens: Vec::new(),
                 });
             } else if !left_non_latin && right_non_latin {
                 line.text = right_str;
                 line.romanized = Some(RomanizedText {
                     text: left_str,
                     writing_system: WritingSystem::Other,
+                    tokens: Vec::new(),
                 });
             }
         }
@@ -255,6 +257,7 @@ fn merge_dual_lines(lines: &mut Vec<LyricsLine>) {
                         current.romanized = Some(RomanizedText {
                             text: romanized_clean,
                             writing_system: WritingSystem::Other,
+                            tokens: Vec::new(),
                         });
                     } else {
                         current.secondary.push(LyricsLane {

@@ -177,6 +177,15 @@ pub enum SideTab {
     Members,
 }
 
+/// How romanized lyrics are aligned: word-by-word (ruby) or full line below.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "kebab-case")]
+pub enum RomanizationStyle {
+    #[default]
+    Ruby,
+    Line,
+}
+
 /// The writing systems lyrics romanization applies to. Only CJK are enabled by default.
 /// A partial object in `settings.json` keeps the defaults for the scripts it leaves out.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -424,6 +433,8 @@ struct Values {
     panel_lyrics_scale: f32,
     fullscreen_lyrics_scale: f32,
     romanization_scripts: RomanizationScripts,
+    #[serde(default)]
+    romanization_style: RomanizationStyle,
     adaptive_menu: bool,
     check_updates: bool,
     close_to_tray: bool,
@@ -622,6 +633,7 @@ impl Default for Values {
             panel_lyrics_scale: DEFAULT_LYRICS_SCALE,
             fullscreen_lyrics_scale: DEFAULT_LYRICS_SCALE,
             romanization_scripts: RomanizationScripts::default(),
+            romanization_style: RomanizationStyle::default(),
             adaptive_menu: false,
             check_updates: cfg!(target_os = "windows"),
             close_to_tray: !cfg!(target_os = "linux"),
@@ -1150,6 +1162,10 @@ impl AppSettings {
         self.values.romanization_scripts
     }
 
+    pub fn romanization_style(&self) -> RomanizationStyle {
+        self.values.romanization_style
+    }
+
     pub fn adaptive_menu(&self) -> bool {
         self.values.adaptive_menu
     }
@@ -1653,6 +1669,11 @@ impl AppSettings {
 
     pub fn set_romanized_lyrics(&mut self, romanized: bool, cx: &mut Context<Self>) {
         self.values.romanized_lyrics = romanized;
+        self.schedule_save(cx);
+    }
+
+    pub fn set_romanization_style(&mut self, style: RomanizationStyle, cx: &mut Context<Self>) {
+        self.values.romanization_style = style;
         self.schedule_save(cx);
     }
 

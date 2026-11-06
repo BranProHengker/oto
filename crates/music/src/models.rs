@@ -457,6 +457,8 @@ impl LyricsLane {
 pub struct RomanizedText {
     pub text: String,
     pub writing_system: WritingSystem,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tokens: Vec<(String, String)>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

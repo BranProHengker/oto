@@ -3,7 +3,7 @@ use gpui::{AnyElement, Context, DragMoveEvent, Pixels, Point, Render, SharedStri
 use i18n::t;
 use music::{LyricsSaveFormat, WritingSystem};
 use router::{Destination, SettingsPage, navigate};
-use state::{AppSettings, LYRICS_SOURCES};
+use state::{AppSettings, LYRICS_SOURCES, RomanizationStyle};
 use ui::{
     ActiveTheme as _, Button, Ghost, MAX_LYRICS_SCALE, MIN_LYRICS_SCALE, MenuItem, Picker, Switch,
     drop_gap, drop_marker, grip, tabular,
@@ -364,6 +364,32 @@ impl SettingsView {
         let settings = self.settings.read(cx);
         let on = settings.romanized_lyrics();
         let scripts = settings.romanization_scripts();
+        let style = settings.romanization_style();
+        let style_picker = Picker::new(
+            "romanization-style",
+            &self.popovers,
+            match style {
+                RomanizationStyle::Ruby => t!("settings-romanization-ruby"),
+                RomanizationStyle::Line => t!("settings-romanization-line"),
+            },
+        )
+        .width(Picker::REGULAR)
+        .items([
+            MenuItem::new("style-ruby", t!("settings-romanization-ruby"))
+                .selected(style == RomanizationStyle::Ruby)
+                .on_click(cx.listener(|this, _, _, cx| {
+                    this.settings.update(cx, |settings, cx| {
+                        settings.set_romanization_style(RomanizationStyle::Ruby, cx);
+                    });
+                })),
+            MenuItem::new("style-line", t!("settings-romanization-line"))
+                .selected(style == RomanizationStyle::Line)
+                .on_click(cx.listener(|this, _, _, cx| {
+                    this.settings.update(cx, |settings, cx| {
+                        settings.set_romanization_style(RomanizationStyle::Line, cx);
+                    });
+                })),
+        ]);
         let picker = Picker::new(
             "romanization-scripts",
             &self.popovers,
@@ -386,7 +412,7 @@ impl SettingsView {
             .flex()
             .items_center()
             .gap_2()
-            .when(on, |this| this.child(picker))
+            .when(on, |this| this.child(style_picker).child(picker))
             .child(Switch::new("romanized-lyrics", on).on_click(cx.listener(
                 move |this, _, _, cx| {
                     this.settings.update(cx, |settings, cx| {

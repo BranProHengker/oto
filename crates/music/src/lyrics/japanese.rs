@@ -255,6 +255,110 @@ pub(super) fn romanize(text: &str) -> String {
     )
 }
 
+pub(super) fn ruby_tokens(text: &str) -> Vec<(String, String)> {
+    let Some(pieces) = pieces(text) else {
+        let kana = kakasi::convert(text).hiragana;
+        return kana
+            .split_whitespace()
+            .map(|word| (word.to_string(), roman(word)))
+            .collect();
+    };
+
+    let mut tokens: Vec<(String, String)> = Vec::new();
+    let mut previous_is_content = false;
+    let mut previous_bound = false;
+
+    for piece in &pieces {
+        match piece.script {
+            Script::Gap => {
+                if !tokens.last().is_some_and(|(s, _)| s == " ") {
+                    tokens.push((" ".to_string(), String::new()));
+                }
+                previous_is_content = false;
+                previous_bound = false;
+            }
+            Script::Mark => {
+                if piece.source.chars().any(char::is_alphanumeric) {
+                    tokens.push((piece.source.clone(), String::new()));
+                } else if let Some(last) = tokens.last_mut() {
+                    last.0.push_str(&piece.source);
+                } else {
+                    tokens.push((piece.source.clone(), String::new()));
+                }
+                previous_is_content = false;
+                previous_bound = false;
+            }
+            Script::Kanji | Script::Kata => {
+                tokens.push((piece.source.clone(), piece.kana.clone()));
+                previous_is_content = true;
+                previous_bound = piece.bound;
+            }
+            Script::Kana => {
+                let follows = previous_is_content;
+                let bound = previous_bound;
+                let mut fresh = !follows;
+                for part in around(&piece.kana) {
+                    if part == "を" {
+                        tokens.push(("を".to_string(), "を".to_string()));
+                        fresh = true;
+                    } else if fresh {
+                        tokens.push((part.clone(), part));
+                    } else {
+                        let mut rest = part.as_str();
+                        let mut opened = false;
+                        if !bound {
+                            if let Some(particle) = CASE.iter().find(|p| rest.starts_with(**p)) {
+                                tokens.push(((*particle).to_owned(), (*particle).to_owned()));
+                                rest = &rest[particle.len()..];
+                                opened = true;
+                            } else if let Some(particle) =
+                                AUX.iter().find(|p| rest.starts_with(**p))
+                            {
+                                tokens.push(((*particle).to_owned(), (*particle).to_owned()));
+                                rest = &rest[particle.len()..];
+                                opened = true;
+                            }
+                        }
+                        let (body, particles) = peeled(rest, opened);
+                        if !body.is_empty() {
+                            if opened {
+                                tokens.push((body.to_owned(), body.to_owned()));
+                            } else if let Some(last) = tokens.last_mut() {
+                                last.0.push_str(body);
+                                last.1.push_str(body);
+                            } else {
+                                tokens.push((body.to_owned(), body.to_owned()));
+                            }
+                        }
+                        for particle in particles {
+                            tokens.push((particle.clone(), particle));
+                        }
+                    }
+                }
+                previous_is_content = false;
+                previous_bound = false;
+            }
+        }
+    }
+
+    tokens
+        .into_iter()
+        .map(|(source, kana)| {
+            if kana.is_empty() || source == " " {
+                (source, String::new())
+            } else {
+                let romaji = roman(&kana);
+                let clean = polish(&romaji);
+                if clean.is_empty() || clean == source {
+                    (source, String::new())
+                } else {
+                    (source, clean)
+                }
+            }
+        })
+        .collect()
+}
+
 fn kanji(letter: char) -> bool {
     matches!(letter as u32, 0x3005 | 0x3400..=0x4dbf | 0x4e00..=0x9fff | 0xf900..=0xfaff)
 }

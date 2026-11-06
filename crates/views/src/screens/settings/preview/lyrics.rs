@@ -7,7 +7,7 @@ use std::time::Duration;
 use gpui::prelude::*;
 use gpui::{AnyElement, Context, Div, Pixels, Window, div};
 use music::{LyricsLine, LyricsWord, RomanizedText, Voice, WritingSystem};
-use state::RomanizationScripts;
+use state::{RomanizationScripts, RomanizationStyle};
 use ui::{ActiveTheme as _, Theme};
 
 use crate::chrome::{VerseLook, verse, verse_sizes};
@@ -48,6 +48,7 @@ struct Look {
     karaoke: bool,
     blur: bool,
     scripts: Option<RomanizationScripts>,
+    style: RomanizationStyle,
 }
 
 impl LyricsPreview {
@@ -74,6 +75,7 @@ pub(in crate::screens::settings) fn preview(
         scripts: settings
             .romanized_lyrics()
             .then(|| settings.romanization_scripts()),
+        style: settings.romanization_style(),
     };
     let sizes = verse_sizes(false, settings.fullscreen_lyrics_scale(), &theme);
     let field = settings.ambient().then(|| {
@@ -114,6 +116,7 @@ fn lines(look: Look, sizes: (Pixels, Pixels), height: Pixels, theme: Theme) -> D
                 lane,
                 karaoke: look.karaoke,
                 scripts: look.scripts,
+                style: look.style,
                 haze,
             },
             position,
@@ -165,6 +168,13 @@ fn sample() -> Vec<LyricsLine> {
             let romanized = (index == SUNG_LINE).then(|| RomanizedText {
                 text: i18n::lookup(ROMANIZED, None).to_string(),
                 writing_system: WritingSystem::Japanese,
+                tokens: vec![
+                    ("ここに".into(), "koko ni".into()),
+                    ("面白い".into(), "omoshiroi".into()),
+                    ("文章を".into(), "bunshou o".into()),
+                    ("入れて".into(), "irete".into()),
+                    ("ください".into(), "kudasai".into()),
+                ],
             });
             LyricsLine {
                 start,
