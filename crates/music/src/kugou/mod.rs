@@ -165,6 +165,33 @@ struct Song {
     singer: String,
     #[serde(default, rename = "album_name")]
     album: String,
+    #[serde(default)]
+    filename: String,
+}
+
+impl Song {
+    fn display_title(&self, query_title: &str) -> String {
+        if let Some((_, rest)) = self.filename.split_once(" - ") {
+            let rest = rest.trim();
+            if !rest.is_empty()
+                && (crate::lyrics::titles_alike(rest, query_title)
+                    || (!query_title.is_empty()
+                        && rest.to_lowercase().contains(&query_title.to_lowercase())))
+            {
+                return rest.to_owned();
+            }
+        }
+        if crate::lyrics::titles_alike(&self.name, query_title) {
+            return self.name.clone();
+        }
+        if let Some((_, rest)) = self.filename.split_once(" - ") {
+            let rest = rest.trim();
+            if !rest.is_empty() {
+                return rest.to_owned();
+            }
+        }
+        self.name.clone()
+    }
 }
 
 #[derive(Deserialize)]
@@ -204,7 +231,7 @@ impl LyricsProvider for Kugou {
         if songs.is_empty() && !query.title.is_empty() {
             songs = self.songs(&query.title).await.unwrap_or_default();
         }
-        let songs = shortlist(songs, query.duration);
+        let songs = shortlist(songs, query);
 
         let mut tasks = JoinSet::new();
         for song in songs {
@@ -245,13 +272,48 @@ impl LyricsProvider for Kugou {
     }
 }
 
-fn shortlist(songs: Vec<Song>, duration: Duration) -> Vec<Song> {
-    let mut songs = songs;
-    songs.sort_by_key(|song| {
-        Duration::from_secs(song.duration)
-            .as_secs()
-            .abs_diff(duration.as_secs())
-    });
+fn song_matches_query(song: &Song, query: &LyricsQuery) -> bool {
+    let display = song.display_title(&query.title);
+    crate::lyrics::titles_alike(&song.name, &query.title)
+        || crate::lyrics::titles_alike(&display, &query.title)
+        || (!query.title.is_empty() && display.to_lowercase().contains(&query.title.to_lowercase()))
+}
+
+fn shortlist(mut songs: Vec<Song>, query: &LyricsQuery) -> Vec<Song> {
+    if songs.is_empty() {
+        return songs;
+    }
+
+    let target_name =
+        if let Some(matched_song) = songs.iter().find(|s| song_matches_query(s, query)) {
+            matched_song.name.clone()
+        } else {
+            let valid_top = songs.iter().find(|s| {
+                let duration_close = query.duration.is_zero()
+                    || Duration::from_secs(s.duration)
+                        .as_secs()
+                        .abs_diff(query.duration.as_secs())
+                        <= crate::lyrics::CLOSE_ENOUGH;
+                let artist_close = crate::lyrics::artists_alike(&s.singer, &query.artist);
+                duration_close && artist_close
+            });
+            if let Some(top) = valid_top {
+                top.name.clone()
+            } else {
+                songs[0].name.clone()
+            }
+        };
+
+    songs.retain(|s| s.name == target_name);
+
+    if !query.duration.is_zero() {
+        songs.sort_by_key(|song| {
+            Duration::from_secs(song.duration)
+                .as_secs()
+                .abs_diff(query.duration.as_secs())
+        });
+    }
+
     songs.truncate(SONGS);
     songs
 }
@@ -312,10 +374,7 @@ fn hit(song: &Song, sheet_text: &str, adjust_ms: i64, title: &str) -> Option<Lyr
             },
         },
         instrumental: quiet,
-        title: match title.is_empty() {
-            true => song.name.clone(),
-            false => title.to_owned(),
-        },
+        title: song.display_title(title),
         artist: song.singer.clone(),
         album: (!song.album.is_empty()).then(|| song.album.clone()),
         duration: (song.duration > 0).then(|| Duration::from_secs(song.duration)),

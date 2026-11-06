@@ -16,14 +16,14 @@ use crate::{Lyrics, LyricsHit, LyricsLine, LyricsQuery, LyricsWord};
 /// The provider that reads a local file's own tags.
 pub const LOCAL: &str = "Local";
 
-const CLOSE_ENOUGH: u64 = 3;
-const WAY_OFF: u64 = 10;
-const TITLE: u32 = 40;
-const ARTIST: u32 = 30;
-const ALBUM: u32 = 15;
-const SYNCED: u32 = 200;
-const WORDED: u32 = 400;
-const DRIFTED: u32 = 50;
+pub const CLOSE_ENOUGH: u64 = 3;
+pub const WAY_OFF: u64 = 10;
+pub const TITLE: u32 = 200;
+pub const ARTIST: u32 = 30;
+pub const ALBUM: u32 = 15;
+pub const SYNCED: u32 = 200;
+pub const WORDED: u32 = 400;
+pub const DRIFTED: u32 = 50;
 const TRUNCATED: u32 = 500;
 const TRUSTED: u32 = 25;
 
@@ -73,7 +73,7 @@ pub fn rank_with_priority(
     scored
         .into_iter()
         .map(|(_, _, _, hit)| hit)
-        .filter(|hit| seen.insert(fingerprint(&hit.lyrics)))
+        .filter(|hit| seen.insert((hit.source, fingerprint(&hit.lyrics))))
         .collect()
 }
 
@@ -116,9 +116,7 @@ pub fn instrumental(query: &LyricsQuery, hits: &[LyricsHit]) -> bool {
 /// Whether a hit is for the queried track at all: the same title and artist, and a length close
 /// enough when both are known. Ranking and the instrumental check never look at any other hit.
 pub fn matched(query: &LyricsQuery, hit: &LyricsHit) -> bool {
-    if !artists_alike(&hit.artist, &query.artist) {
-        return false;
-    }
+    let artists_match = artists_alike(&hit.artist, &query.artist);
 
     let duration_close = hit.duration.is_none_or(|duration| {
         query.duration.is_zero() || duration.as_secs().abs_diff(query.duration.as_secs()) <= WAY_OFF
@@ -127,7 +125,7 @@ pub fn matched(query: &LyricsQuery, hit: &LyricsHit) -> bool {
         return false;
     }
 
-    if titles_alike(&hit.title, &query.title) {
+    if artists_match && titles_alike(&hit.title, &query.title) {
         return true;
     }
 
@@ -135,10 +133,19 @@ pub fn matched(query: &LyricsQuery, hit: &LyricsHit) -> bool {
         if !query.duration.is_zero()
             && duration.as_secs().abs_diff(query.duration.as_secs()) <= CLOSE_ENOUGH
         {
-            let query_non_latin = has_non_latin(&query.title);
-            let hit_non_latin = has_non_latin(&hit.title);
-            if query_non_latin != hit_non_latin {
-                return true;
+            if artists_match {
+                let query_non_latin = has_non_latin(&query.title);
+                let hit_non_latin = has_non_latin(&hit.title);
+                if query_non_latin != hit_non_latin {
+                    return true;
+                }
+            }
+            if titles_alike(&hit.title, &query.title) {
+                let query_artist_non_latin = has_non_latin(&query.artist);
+                let hit_artist_non_latin = has_non_latin(&hit.artist);
+                if query_artist_non_latin != hit_artist_non_latin {
+                    return true;
+                }
             }
         }
     }
@@ -371,9 +378,18 @@ pub(crate) fn has_non_latin(text: &str) -> bool {
     })
 }
 
-fn artists_alike(left: &str, right: &str) -> bool {
-    alike(left, right)
+pub(crate) fn artists_alike(left: &str, right: &str) -> bool {
+    if alike(left, right)
         || artist_names(left).any(|left| artist_names(right).any(|right| alike(left, right)))
+    {
+        return true;
+    }
+
+    let de_left = deunicode::deunicode(left);
+    let de_right = deunicode::deunicode(right);
+    alike(&de_left, &de_right)
+        || artist_names(&de_left)
+            .any(|left| artist_names(&de_right).any(|right| alike(left, right)))
 }
 
 fn artist_names(artists: &str) -> impl Iterator<Item = &str> {
