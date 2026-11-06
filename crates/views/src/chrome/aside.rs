@@ -1116,7 +1116,9 @@ impl Aside {
             let save_item = MenuItem::new("lyrics-save-beside-song", t!("lyrics-save-beside-song"))
                 .icon("icons/download.svg")
                 .on_click(move |_, _, cx| {
-                    aside_entity.read(cx).save_current_lyrics_beside_song(cx);
+                    aside_entity.update(cx, |this, cx| {
+                        this.save_current_lyrics_beside_song(cx);
+                    });
                 });
             menu = menu.item(save_item);
         }
@@ -1129,11 +1131,11 @@ impl Aside {
         Some(popup.on_close(cx.listener(|this, _, _, cx| this.dismiss_lyrics_menu(cx))))
     }
 
-    fn save_current_lyrics_beside_song(&self, cx: &App) {
+    fn save_current_lyrics_beside_song(&self, cx: &mut App) {
         let (hit, track) = {
             let lyrics = self.lyrics.read(cx);
             let playback = self.playback.read(cx);
-            (lyrics.current().cloned(), playback.current().cloned())
+            (lyrics.current().cloned(), playback.track().cloned())
         };
 
         let Some(hit) = hit else {
