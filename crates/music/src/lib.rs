@@ -81,6 +81,11 @@ pub fn is_local_id(id: &str) -> bool {
         || id.starts_with(LOCAL_PLAYLIST_PREFIX)
 }
 
+pub fn path_from_track_id(id: &str) -> Option<&std::path::Path> {
+    id.strip_prefix(LOCAL_TRACK_PREFIX)
+        .map(std::path::Path::new)
+}
+
 pub fn distinct_covers(tracks: &[Track], wanted: usize) -> Vec<String> {
     let mut covers: Vec<String> = Vec::with_capacity(wanted);
     for cover in tracks.iter().filter_map(|track| track.cover.as_deref()) {

@@ -1147,18 +1147,17 @@ impl Aside {
         let format = self.settings.read(cx).lyrics_save_format();
         let (content, ext) = music::format_lyrics(&hit.lyrics, hit.source, format);
 
-        let target =
-            if let Some(local_path) = track_id.and_then(music::local::wire::path_from_track_id) {
-                local_path.with_extension(ext)
-            } else {
-                let filename = format!("{} - {}.{}", track.artists, track.name, ext);
-                let safe_filename =
-                    filename.replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], "_");
-                let dest_dir = dirs::audio_dir()
-                    .or_else(dirs::download_dir)
-                    .unwrap_or_else(|| std::path::PathBuf::from("."));
-                dest_dir.join(&safe_filename)
-            };
+        let target = if let Some(local_path) = track_id.and_then(music::path_from_track_id) {
+            local_path.with_extension(ext)
+        } else {
+            let filename = format!("{} - {}.{}", track.artists, track.name, ext);
+            let safe_filename =
+                filename.replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], "_");
+            let dest_dir = dirs::audio_dir()
+                .or_else(dirs::download_dir)
+                .unwrap_or_else(|| std::path::PathBuf::from("."));
+            dest_dir.join(&safe_filename)
+        };
 
         match std::fs::write(&target, &content) {
             Ok(_) => {
