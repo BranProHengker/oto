@@ -52,7 +52,9 @@ use time::{Month, OffsetDateTime};
 
 pub use audio::Meter;
 pub use equalizer::Equalizer;
-pub use lyrics::{LyricsSaveFormat, format_lyrics, to_enhanced_lrc, to_krc, to_standard_lrc};
+pub use lyrics::{
+    LyricsSaveFormat, format_lyrics, titles_alike, to_enhanced_lrc, to_krc, to_standard_lrc,
+};
 pub use models::{
     Album, AlbumCatalogue, AlbumDetail, Artist, ArtistCatalogue, ArtistProfile, ArtistRef,
     Contributor, CoverSize, Credit, Genre, GenreDetail, GenreItem, GenreSection, HomeFeed,

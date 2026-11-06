@@ -129,12 +129,34 @@ pub fn instrumental(query: &LyricsQuery, hits: &[LyricsHit]) -> bool {
 /// Whether a hit is for the queried track at all: the same title and artist, and a length close
 /// enough when both are known. Ranking and the instrumental check never look at any other hit.
 pub fn matched(query: &LyricsQuery, hit: &LyricsHit) -> bool {
-    if !alike(&hit.title, &query.title) || !artists_alike(&hit.artist, &query.artist) {
+    if !artists_alike(&hit.artist, &query.artist) {
         return false;
     }
-    hit.duration.is_none_or(|duration| {
+
+    let duration_close = hit.duration.is_none_or(|duration| {
         query.duration.is_zero() || duration.as_secs().abs_diff(query.duration.as_secs()) <= WAY_OFF
-    })
+    });
+    if !duration_close {
+        return false;
+    }
+
+    if titles_alike(&hit.title, &query.title) {
+        return true;
+    }
+
+    if let Some(duration) = hit.duration {
+        if !query.duration.is_zero()
+            && duration.as_secs().abs_diff(query.duration.as_secs()) <= CLOSE_ENOUGH
+        {
+            let query_non_latin = has_non_latin(&query.title);
+            let hit_non_latin = has_non_latin(&hit.title);
+            if query_non_latin != hit_non_latin {
+                return true;
+            }
+        }
+    }
+
+    false
 }
 
 pub fn score(query: &LyricsQuery, hit: &LyricsHit) -> i64 {
@@ -147,7 +169,7 @@ pub fn score(query: &LyricsQuery, hit: &LyricsHit) -> i64 {
             score -= i64::from(DRIFTED);
         }
     }
-    if alike(&hit.title, &query.title) {
+    if titles_alike(&hit.title, &query.title) {
         score += i64::from(TITLE);
     }
     if artists_alike(&hit.artist, &query.artist) {
@@ -155,7 +177,7 @@ pub fn score(query: &LyricsQuery, hit: &LyricsHit) -> i64 {
     }
     if let Some(album) = &query.album
         && let Some(named) = &hit.album
-        && alike(named, album)
+        && titles_alike(named, album)
     {
         score += i64::from(ALBUM);
     }
@@ -285,6 +307,81 @@ fn alike(left: &str, right: &str) -> bool {
         false => (&right, &left),
     };
     long.contains(short.as_str()) && short.len() * 2 >= long.len()
+}
+
+pub fn titles_alike(left: &str, right: &str) -> bool {
+    if alike(left, right) {
+        return true;
+    }
+
+    let left_parts = title_candidates(left);
+    let right_parts = title_candidates(right);
+    for l in &left_parts {
+        for r in &right_parts {
+            if alike(l, r) {
+                return true;
+            }
+        }
+    }
+
+    let de_left = deunicode::deunicode(left);
+    let de_right = deunicode::deunicode(right);
+    if alike(&de_left, &de_right) {
+        return true;
+    }
+
+    for l in &left_parts {
+        let de_l = deunicode::deunicode(l);
+        for r in &right_parts {
+            let de_r = deunicode::deunicode(r);
+            if alike(&de_l, &de_r) {
+                return true;
+            }
+        }
+    }
+
+    false
+}
+
+fn title_candidates<'a>(text: &'a str) -> Vec<&'a str> {
+    let mut candidates = Vec::new();
+    candidates.push(text);
+
+    if let Some((a, b)) = text.split_once(" - ") {
+        candidates.push(a.trim());
+        candidates.push(b.trim());
+    }
+
+    if let Some((a, b)) = text.split_once(" / ") {
+        candidates.push(a.trim());
+        candidates.push(b.trim());
+    }
+
+    if let Some((before, rest)) = text.split_once('(') {
+        if let Some((inside, _)) = rest.split_once(')') {
+            candidates.push(before.trim());
+            candidates.push(inside.trim());
+        }
+    }
+    if let Some((before, rest)) = text.split_once('[') {
+        if let Some((inside, _)) = rest.split_once(']') {
+            candidates.push(before.trim());
+            candidates.push(inside.trim());
+        }
+    }
+
+    candidates.retain(|c| !c.is_empty());
+    candidates
+}
+
+pub(crate) fn has_non_latin(text: &str) -> bool {
+    text.chars().any(|c| {
+        c.is_alphabetic()
+            && !matches!(
+                c as u32,
+                0x0041..=0x024f | 0x1d00..=0x1eff | 0x2c60..=0x2c7f | 0xa720..=0xa7ff | 0xab30..=0xab6f
+            )
+    })
 }
 
 fn artists_alike(left: &str, right: &str) -> bool {
@@ -764,6 +861,23 @@ mod tests {
         assert!(alike("Jaded", "Jaded - Single"));
         assert!(alike("Jaded (Remastered 2024)", "Jaded"));
         assert!(alike("Love Story", "Love Story (Taylor's Version)"));
+    }
+
+    #[test]
+    fn cross_script_and_dual_titles_match() {
+        assert!(titles_alike("オリイト - Aureate", "Aureate"));
+        assert!(titles_alike("Aureate (オリイト)", "Aureate"));
+        assert!(titles_alike("スパークル", "supakuru"));
+
+        let query = LyricsQuery {
+            title: "Aureate".to_owned(),
+            artist: "tayori".to_owned(),
+            album: None,
+            duration: Duration::from_secs(202),
+            track: None,
+        };
+        let hit = hit("オリイト", "tayori", 202, true);
+        assert!(matched(&query, &hit));
     }
 
     #[test]
