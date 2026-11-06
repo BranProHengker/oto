@@ -1848,17 +1848,14 @@ impl Aside {
                         .gap_1()
                         .when(!line.voice.lead(), |this| this.items_end().text_right())
                         .child(primary)
-                        .when(
-                            ruby_tokens.is_none() && romanization_style != RomanizationStyle::Ruby,
-                            |this| {
-                                this.when_some(
-                                    selected_romanization(&line.romanized, romanization_scripts),
-                                    |this, text| {
-                                        this.child(romanized_lyrics_lane(text, lane_size, &theme))
-                                    },
-                                )
-                            },
-                        )
+                        .when(ruby_tokens.is_none(), |this| {
+                            this.when_some(
+                                selected_romanization(&line.romanized, romanization_scripts),
+                                |this, text| {
+                                    this.child(romanized_lyrics_lane(text, lane_size, &theme))
+                                },
+                            )
+                        })
                         .children(lanes)
                         .when(depth > 0., |this| {
                             this.layer_scale(1. - (1. - PRESSED) * depth)
@@ -2617,15 +2614,12 @@ pub(crate) fn verse(
                 .gap_1()
                 .when(!line.voice.lead(), |this| this.items_end().text_right())
                 .child(primary)
-                .when(
-                    ruby_tokens.is_none() && look.style != RomanizationStyle::Ruby,
-                    |this| {
-                        this.when_some(
-                            selected_romanization(&line.romanized, look.scripts),
-                            |this, text| this.child(romanized_lyrics_lane(text, look.lane, &theme)),
-                        )
-                    },
-                ),
+                .when(ruby_tokens.is_none(), |this| {
+                    this.when_some(
+                        selected_romanization(&line.romanized, look.scripts),
+                        |this, text| this.child(romanized_lyrics_lane(text, look.lane, &theme)),
+                    )
+                }),
         )
         .when(haze > 0., |this| this.opacity(1. - VEIL * haze))
         .map(|this| match look.size * BLUR * haze {

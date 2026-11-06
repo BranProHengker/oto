@@ -14,6 +14,11 @@ pub fn apply(lines: &mut [LyricsLine]) {
             if romanized.writing_system == WritingSystem::Other {
                 romanized.writing_system = system;
             }
+            if romanized.tokens.is_empty() {
+                if let Some(generated) = convert(&line.text, system) {
+                    romanized.tokens = generated.tokens;
+                }
+            }
         } else {
             line.romanized = convert(&line.text, system);
         }
@@ -21,6 +26,11 @@ pub fn apply(lines: &mut [LyricsLine]) {
             if let Some(romanized) = lane.romanized.as_mut() {
                 if romanized.writing_system == WritingSystem::Other {
                     romanized.writing_system = system;
+                }
+                if romanized.tokens.is_empty() {
+                    if let Some(generated) = convert(&lane.text, system) {
+                        romanized.tokens = generated.tokens;
+                    }
                 }
             } else {
                 lane.romanized = convert(&lane.text, system);

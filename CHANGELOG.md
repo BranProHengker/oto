@@ -7,6 +7,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.2.4] - 2026-11-06
+
+### Added
+
+- Auto-generate Furigana morpheme tokens for local lyrics files: Local `.lrc` and downloaded twin-timestamp lyrics without pre-existing word tokens now automatically generate Furigana tokens via Kakasi.
+
+### Fixed
+
+- Fallback Romanization is always displayed whenever word tokens are absent or beyond the active focus window, ensuring Romaji never unexpectedly disappears.
+
 ## [1.2.3] - 2026-11-06
 
 ### Added
