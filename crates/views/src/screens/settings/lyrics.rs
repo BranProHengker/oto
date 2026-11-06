@@ -1,7 +1,7 @@
 use gpui::prelude::*;
 use gpui::{AnyElement, Context, DragMoveEvent, Pixels, Point, Render, SharedString, Window, div};
 use i18n::t;
-use music::WritingSystem;
+use music::{LyricsSaveFormat, WritingSystem};
 use router::{Destination, SettingsPage, navigate};
 use state::{AppSettings, LYRICS_SOURCES};
 use ui::{
@@ -9,7 +9,7 @@ use ui::{
     drop_gap, drop_marker, grip, tabular,
 };
 
-use super::rows::drill;
+use super::rows::{drill, segmented};
 use super::{Group, SettingsView, Slot};
 
 /// A lyrics source being dragged within the priority list. It draws as a chip under the cursor
@@ -32,8 +32,11 @@ impl SettingsView {
                 Slot::PanelLyricsSize,
                 Slot::FullscreenLyricsSize,
             ]),
-            Group::new("settings-group-sources", "icons/list-music.svg")
-                .rows([Slot::LyricsSources, Slot::LyricsForLocal]),
+            Group::new("settings-group-sources", "icons/list-music.svg").rows([
+                Slot::LyricsSources,
+                Slot::LyricsForLocal,
+                Slot::LyricsSaveFormat,
+            ]),
         ]
     }
 
@@ -42,6 +45,28 @@ impl SettingsView {
             Group::new("settings-group-lyrics-order", "icons/arrow-up-down.svg")
                 .rows([Slot::LyricsPriority]),
         ]
+    }
+
+    pub(super) fn lyrics_save_format_row(&self, cx: &mut Context<Self>) -> AnyElement {
+        let current = self.settings.read(cx).lyrics_save_format();
+
+        let choices = segmented(
+            "lyrics-save-format",
+            LyricsSaveFormat::ALL.map(|format| (format, i18n::lookup(format.key(), None))),
+            current,
+            cx.listener(|this, format: &LyricsSaveFormat, _, cx| {
+                let format = *format;
+                this.settings.update(cx, |settings, cx| {
+                    settings.set_lyrics_save_format(format, cx);
+                });
+                cx.notify();
+            }),
+        );
+
+        self.row(
+            t!("settings-lyrics-save-format"),
+            choices.into_any_element(),
+        )
     }
 
     pub(super) fn panel_lyrics_size_row(&self, cx: &mut Context<Self>) -> AnyElement {

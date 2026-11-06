@@ -92,6 +92,7 @@ enum Slot {
     LyricsSources,
     LyricsPriority,
     LyricsForLocal,
+    LyricsSaveFormat,
     Normalisation,
     Gapless,
     Crossfade,
@@ -915,6 +916,10 @@ impl SettingsView {
                 t!("settings-lyrics-for-local-files"),
                 t!("settings-lyrics-for-local-files-detail"),
             ),
+            Slot::LyricsSaveFormat => (
+                t!("settings-lyrics-save-format"),
+                t!("settings-lyrics-save-format-detail"),
+            ),
             Slot::SpotifyConnect => (
                 t!("settings-spotify-connect"),
                 t!("settings-spotify-connect-detail"),
@@ -1108,6 +1113,7 @@ impl SettingsView {
             Slot::Karaoke => self.karaoke_lyrics_row(cx),
             Slot::Romanized => self.romanized_lyrics_row(cx),
             Slot::LyricsForLocal => self.lyrics_for_local_files_row(cx),
+            Slot::LyricsSaveFormat => self.lyrics_save_format_row(cx),
             Slot::SpotifyConnect => self.spotify_connect_row(cx),
             Slot::SpotifyConnectName => self.spotify_connect_name_row(cx),
             Slot::SpotifyConnectCustom => self.spotify_connect_custom_row(),

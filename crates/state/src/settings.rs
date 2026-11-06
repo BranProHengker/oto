@@ -27,7 +27,7 @@ use gpui::{
 };
 use music::lyrics::LOCAL;
 use music::scrobble::Account;
-use music::{Codec, Quality, Transcode, WritingSystem};
+use music::{Codec, LyricsSaveFormat, Quality, Transcode, WritingSystem};
 use notify::{Config, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher as _};
 use rusqlite::{OptionalExtension, params};
 use serde::{Deserialize, Serialize};
@@ -414,6 +414,7 @@ struct Values {
     /// off afterwards is not given it back.
     subsonic_lyrics_offered: bool,
     lyrics_providers: Vec<String>,
+    lyrics_save_format: LyricsSaveFormat,
     /// Every known lyrics source, the preferred one first. Lyrics of the same kind from two
     /// sources go to the one listed higher.
     lyrics_provider_priority: Vec<String>,
@@ -614,6 +615,7 @@ impl Default for Values {
             subsonic_lyrics_offered: false,
             lyrics_provider_priority: lyrics_priority(&[]),
             lyrics_providers: LYRICS_SOURCES.iter().map(|name| name.to_string()).collect(),
+            lyrics_save_format: LyricsSaveFormat::default(),
             karaoke_lyrics: true,
             blur_lyrics: true,
             romanized_lyrics: true,
@@ -1118,6 +1120,10 @@ impl AppSettings {
 
     pub fn karaoke_lyrics(&self) -> bool {
         self.values.karaoke_lyrics
+    }
+
+    pub fn lyrics_save_format(&self) -> LyricsSaveFormat {
+        self.values.lyrics_save_format
     }
 
     pub fn blur_lyrics(&self) -> bool {
@@ -1632,6 +1638,11 @@ impl AppSettings {
 
     pub fn set_karaoke_lyrics(&mut self, karaoke: bool, cx: &mut Context<Self>) {
         self.values.karaoke_lyrics = karaoke;
+        self.schedule_save(cx);
+    }
+
+    pub fn set_lyrics_save_format(&mut self, format: LyricsSaveFormat, cx: &mut Context<Self>) {
+        self.values.lyrics_save_format = format;
         self.schedule_save(cx);
     }
 

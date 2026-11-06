@@ -9,6 +9,8 @@ pub(crate) mod ttml;
 use std::collections::HashSet;
 use std::time::Duration;
 
+use serde::{Deserialize, Serialize};
+
 use crate::{Lyrics, LyricsHit, LyricsLine, LyricsQuery, LyricsWord};
 
 /// The provider that reads a local file's own tags.
@@ -326,6 +328,157 @@ pub fn active_word(words: &[LyricsWord], at: Duration) -> Option<usize> {
         .iter()
         .rposition(|word| word.start <= at)
         .filter(|index| at < words[*index].end)
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum LyricsSaveFormat {
+    #[default]
+    StandardLrc,
+    EnhancedLrc,
+    ProviderNative,
+}
+
+impl LyricsSaveFormat {
+    pub const ALL: [Self; 3] = [Self::StandardLrc, Self::EnhancedLrc, Self::ProviderNative];
+
+    pub fn id(self) -> &'static str {
+        match self {
+            Self::StandardLrc => "standard-lrc",
+            Self::EnhancedLrc => "enhanced-lrc",
+            Self::ProviderNative => "provider-native",
+        }
+    }
+
+    pub fn key(self) -> &'static str {
+        match self {
+            Self::StandardLrc => "settings-lyrics-save-format-standard",
+            Self::EnhancedLrc => "settings-lyrics-save-format-enhanced",
+            Self::ProviderNative => "settings-lyrics-save-format-native",
+        }
+    }
+}
+
+pub fn to_standard_lrc(lyrics: &Lyrics) -> String {
+    let mut out = String::new();
+    match lyrics {
+        Lyrics::Plain { text } => out.push_str(text),
+        Lyrics::Synced { lines } => {
+            for line in lines {
+                let minutes = line.start.as_secs() / 60;
+                let seconds = line.start.as_secs() % 60;
+                let centis = line.start.subsec_millis() / 10;
+                out.push_str(&format!(
+                    "[{:02}:{:02}.{:02}] {}\n",
+                    minutes, seconds, centis, line.text
+                ));
+                if let Some(romanized) = &line.romanized {
+                    if !romanized.text.trim().is_empty() {
+                        out.push_str(&format!(
+                            "[{:02}:{:02}.{:02}] {}\n",
+                            minutes, seconds, centis, romanized.text
+                        ));
+                    }
+                }
+            }
+        }
+    }
+    out
+}
+
+pub fn to_enhanced_lrc(lyrics: &Lyrics) -> String {
+    let mut out = String::new();
+    match lyrics {
+        Lyrics::Plain { text } => out.push_str(text),
+        Lyrics::Synced { lines } => {
+            for line in lines {
+                let line_min = line.start.as_secs() / 60;
+                let line_sec = line.start.as_secs() % 60;
+                let line_cs = line.start.subsec_millis() / 10;
+                match &line.words {
+                    Some(words) if !words.is_empty() => {
+                        let mut line_buf =
+                            format!("[{:02}:{:02}.{:02}]", line_min, line_sec, line_cs);
+                        for word in words {
+                            let w_min = word.start.as_secs() / 60;
+                            let w_sec = word.start.as_secs() % 60;
+                            let w_cs = word.start.subsec_millis() / 10;
+                            line_buf.push_str(&format!(
+                                " <{:02}:{:02}.{:02}>{}",
+                                w_min, w_sec, w_cs, word.text
+                            ));
+                        }
+                        out.push_str(&line_buf);
+                        out.push('\n');
+                    }
+                    _ => {
+                        out.push_str(&format!(
+                            "[{:02}:{:02}.{:02}] {}\n",
+                            line_min, line_sec, line_cs, line.text
+                        ));
+                    }
+                }
+                if let Some(romanized) = &line.romanized {
+                    if !romanized.text.trim().is_empty() {
+                        out.push_str(&format!(
+                            "[{:02}:{:02}.{:02}] {}\n",
+                            line_min, line_sec, line_cs, romanized.text
+                        ));
+                    }
+                }
+            }
+        }
+    }
+    out
+}
+
+pub fn to_krc(lyrics: &Lyrics) -> String {
+    let mut out = String::new();
+    match lyrics {
+        Lyrics::Plain { text } => out.push_str(text),
+        Lyrics::Synced { lines } => {
+            for line in lines {
+                let start_ms = line.start.as_millis();
+                let duration_ms = line
+                    .end
+                    .map(|end| end.as_millis().saturating_sub(start_ms))
+                    .unwrap_or(2000);
+                out.push_str(&format!("[{},{}]", start_ms, duration_ms));
+                match &line.words {
+                    Some(words) if !words.is_empty() => {
+                        for word in words {
+                            let offset = word.start.as_millis().saturating_sub(start_ms);
+                            let dur = word.end.as_millis().saturating_sub(word.start.as_millis());
+                            out.push_str(&format!("<{},{},0>{}", offset, dur, word.text));
+                        }
+                    }
+                    _ => {
+                        out.push_str(&format!("<0,{},0>{}", duration_ms, line.text));
+                    }
+                }
+                out.push('\n');
+            }
+        }
+    }
+    out
+}
+
+pub fn format_lyrics(
+    lyrics: &Lyrics,
+    source: &str,
+    format: LyricsSaveFormat,
+) -> (String, &'static str) {
+    match format {
+        LyricsSaveFormat::StandardLrc => (to_standard_lrc(lyrics), "lrc"),
+        LyricsSaveFormat::EnhancedLrc => (to_enhanced_lrc(lyrics), "lrc"),
+        LyricsSaveFormat::ProviderNative => {
+            if source == "Kugou" && lyrics.worded() {
+                (to_krc(lyrics), "krc")
+            } else {
+                (to_enhanced_lrc(lyrics), "lrc")
+            }
+        }
+    }
 }
 
 #[cfg(test)]

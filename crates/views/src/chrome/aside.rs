@@ -1108,12 +1108,78 @@ impl Aside {
             }
         }
 
+        if lyrics.current().is_some() {
+            let sep = MenuItem::separator("lyrics-save-separator");
+            menu = menu.item(sep);
+
+            let aside_entity = cx.entity().clone();
+            let save_item = MenuItem::new("lyrics-save-beside-song", t!("lyrics-save-beside-song"))
+                .icon("icons/download.svg")
+                .on_click(move |_, _, cx| {
+                    aside_entity.read(cx).save_current_lyrics_beside_song(cx);
+                });
+            menu = menu.item(save_item);
+        }
+
         let mut popup = Popup::new(position, menu);
         if position.y > window.viewport_size().height / 2. {
             popup = popup.above();
         }
 
         Some(popup.on_close(cx.listener(|this, _, _, cx| this.dismiss_lyrics_menu(cx))))
+    }
+
+    fn save_current_lyrics_beside_song(&self, cx: &App) {
+        let (hit, track) = {
+            let lyrics = self.lyrics.read(cx);
+            let playback = self.playback.read(cx);
+            (lyrics.current().cloned(), playback.current().cloned())
+        };
+
+        let Some(hit) = hit else {
+            return;
+        };
+        let Some(track) = track else {
+            return;
+        };
+        let track_id = track.id.as_deref();
+
+        let format = self.settings.read(cx).lyrics_save_format();
+        let (content, ext) = music::format_lyrics(&hit.lyrics, hit.source, format);
+
+        let target =
+            if let Some(local_path) = track_id.and_then(music::local::wire::path_from_track_id) {
+                local_path.with_extension(ext)
+            } else {
+                let filename = format!("{} - {}.{}", track.artists, track.name, ext);
+                let safe_filename =
+                    filename.replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], "_");
+                let dest_dir = dirs::audio_dir()
+                    .or_else(dirs::download_dir)
+                    .unwrap_or_else(|| std::path::PathBuf::from("."));
+                dest_dir.join(&safe_filename)
+            };
+
+        match std::fs::write(&target, &content) {
+            Ok(_) => {
+                let filename = target
+                    .file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .to_string();
+                state::Toasts::post(
+                    state::Toast::new(state::Outcome::Done, "toast-lyrics-saved").name(filename),
+                    cx,
+                );
+            }
+            Err(err) => {
+                log::warn!("lyrics: cannot save {}: {err}", target.display());
+                state::Toasts::post(
+                    state::Toast::new(state::Outcome::Failed, "toast-lyrics-save-failed"),
+                    cx,
+                );
+            }
+        }
     }
 
     /// The panel's title and, over this app's own queue, the controls that change it. They go
@@ -1861,12 +1927,22 @@ impl Aside {
                     this.open_lyrics_menu(position, cx);
                 }));
 
+            let save_btn = Button::new("lyrics-save-button")
+                .ghost()
+                .small()
+                .icon("icons/download.svg")
+                .tooltip("lyrics-save-beside-song")
+                .on_click(cx.listener(|this, _, _, cx| {
+                    this.save_current_lyrics_beside_song(cx);
+                }));
+
             let source_row = div()
                 .flex()
                 .items_center()
                 .gap_2()
                 .child(from)
-                .child(switch_btn);
+                .child(switch_btn)
+                .child(save_btn);
 
             let note = div()
                 .w_full()

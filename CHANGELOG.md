@@ -9,6 +9,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Lyrics save format option in Settings → Lyrics supports exporting to Standard LRC, Enhanced Karaoke LRC with word timings, or Provider Native (e.g. Decoded KRC for KuGou).
+- Quick save lyrics button in the lyrics panel and switcher menu allows saving current lyrics directly beside the audio file.
 - Lyrics provider switcher menu in the lyrics footer allows switching between available lyric sources on the fly with live sync and karaoke indicators.
 
 ### Fixed
