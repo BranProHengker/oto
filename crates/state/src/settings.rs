@@ -976,7 +976,11 @@ impl AppSettings {
     /// settings file says.
     pub fn cache_gb(&self) -> u32 {
         let (low, high) = crate::vault::CACHE_GB_RANGE;
-        self.values.cache_gb.clamp(low, high)
+        if self.values.cache_gb == 0 || self.values.cache_gb >= crate::vault::CACHE_GB_UNLIMITED {
+            crate::vault::CACHE_GB_UNLIMITED
+        } else {
+            self.values.cache_gb.clamp(low, high)
+        }
     }
 
     pub fn offline_mode(&self) -> bool {

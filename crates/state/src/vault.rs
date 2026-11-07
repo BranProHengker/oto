@@ -21,9 +21,11 @@ use music::vault::{MASTER, Vault};
 const KEYCHAIN_URL: &str = "sonora://kept-tracks";
 const KEYCHAIN_USER: &str = "sonora";
 /// How many gigabytes the cache of played tracks may take until the listener says otherwise.
-pub(crate) const CACHE_GB: u32 = 2;
+pub(crate) const CACHE_GB: u32 = 1;
+/// The sentinel value representing unlimited cache size.
+pub const CACHE_GB_UNLIMITED: u32 = 65;
 /// The bounds of that setting.
-pub const CACHE_GB_RANGE: (u32, u32) = (1, 64);
+pub const CACHE_GB_RANGE: (u32, u32) = (1, 65);
 /// What a keychain error says when the desktop has no Secret Service at all, rather than one
 /// that is locked, busy or declined. Only these count as having no keychain to ask.
 const NO_SERVICE: [&str; 3] = [
@@ -34,7 +36,11 @@ const NO_SERVICE: [&str; 3] = [
 
 /// A size in gigabytes as the bytes the vault counts in.
 pub(crate) fn bytes(gb: u32) -> u64 {
-    u64::from(gb) << 30
+    if gb == 0 || gb >= CACHE_GB_UNLIMITED {
+        u64::MAX
+    } else {
+        u64::from(gb) << 30
+    }
 }
 
 /// Finds the master key, or makes and stores one on a first run, and unlocks `vault` with it.

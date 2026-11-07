@@ -91,7 +91,7 @@ pub use tags::{TagState, Tags};
 pub use toast::{Outcome, Target, Toast, ToastAction, Toasts};
 pub use updates::{Release, UpdateState, Updates, VERSION};
 pub use usage::Usage;
-pub use vault::CACHE_GB_RANGE;
+pub use vault::{CACHE_GB_RANGE, CACHE_GB_UNLIMITED};
 pub use wake::Wake;
 pub use window_shape::{apply_window_rounding, install_rounded_window_hook};
 

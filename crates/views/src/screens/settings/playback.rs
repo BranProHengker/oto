@@ -185,6 +185,12 @@ impl SettingsView {
             .unwrap_or_else(|| self.playback.read(cx).cache_gb());
         let fraction = (current.saturating_sub(low)) as f32 / (high - low) as f32;
 
+        let label = if current >= state::CACHE_GB_UNLIMITED {
+            t!("settings-cache-size-unlimited")
+        } else {
+            t!("settings-cache-size-value", count = current)
+        };
+
         let control = div()
             .flex()
             .items_center()
@@ -192,10 +198,10 @@ impl SettingsView {
             .child(
                 div()
                     .flex_none()
-                    .w(theme.metrics.cover * SLEEP_LABEL)
+                    .min_w(theme.metrics.cover * SLEEP_LABEL)
                     .whitespace_nowrap()
                     .text_right()
-                    .child(t!("settings-cache-size-value", count = current)),
+                    .child(label),
             )
             .child(
                 div().w(theme.metrics.cover * SLEEP_WIDTH).child(

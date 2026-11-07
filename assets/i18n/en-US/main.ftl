@@ -771,6 +771,7 @@ settings-keep-tracks-detail = Saves what you play, locked to this computer, so p
 settings-cache-size = Cache size
 settings-cache-size-detail = How much space the tracks you played may take. The ones played longest ago make room first, and downloads do not count toward it
 settings-cache-size-value = { $count } GB
+settings-cache-size-unlimited = Unlimited
 settings-cache-used = Space used
 settings-cache-used-detail = What the tracks kept after playing take on this computer. Clearing them leaves your downloads alone
 settings-cache-clear = Clear
@@ -1523,5 +1524,4 @@ lrc-studio-no-lyrics = No synchronized lyrics found
 lrc-studio-edit-placeholder = Type lyric line text here...
 lrc-studio-time-placeholder = mm:ss.xx
 lrc-studio-saved-toast = Lyrics saved successfully!
-
 

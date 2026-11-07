@@ -2735,7 +2735,11 @@ impl Playback {
     /// Spotify's own files do but only follow a new limit at its next sign-in.
     pub fn set_cache_gb(&mut self, gb: u32, cx: &mut Context<Self>) {
         let (low, high) = crate::vault::CACHE_GB_RANGE;
-        let gb = gb.clamp(low, high);
+        let gb = if gb == 0 || gb >= crate::vault::CACHE_GB_UNLIMITED {
+            crate::vault::CACHE_GB_UNLIMITED
+        } else {
+            gb.clamp(low, high)
+        };
         if self.cache_gb == gb {
             return;
         }
