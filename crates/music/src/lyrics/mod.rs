@@ -49,12 +49,12 @@ pub fn rank_with_priority(
         .into_iter()
         .filter(|hit| eligible(query, hit))
         .map(|hit| {
-            (
-                grade(query, &hit.lyrics),
-                position(hit.source),
-                score(query, &hit),
-                hit,
-            )
+            let place = if hit.source == LOCAL && hit.trust >= 200 {
+                0
+            } else {
+                position(hit.source)
+            };
+            (grade(query, &hit.lyrics), place, score(query, &hit), hit)
         })
         .collect();
     scored.sort_by(

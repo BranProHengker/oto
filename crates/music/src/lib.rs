@@ -400,6 +400,9 @@ pub trait MusicApi: Send + Sync {
 pub trait LyricsProvider: Send + Sync {
     fn name(&self) -> &'static str;
     async fn search(&self, query: &LyricsQuery) -> Result<Vec<LyricsHit>>;
+    fn revision(&self, _query: &LyricsQuery) -> Option<u64> {
+        None
+    }
 }
 
 /// What an engine is started with. `equalizer` is shared rather than copied: the engine keeps

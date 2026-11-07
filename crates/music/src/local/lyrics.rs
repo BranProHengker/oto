@@ -12,10 +12,24 @@ use super::{tags, wire};
 
 /// Wins a tie against most services without outranking a better kind of sheet.
 const TRUST: u32 = 100;
+/// Explicit sidecar lyrics (.ttml or .lrc) placed by the user take top priority.
+const TRUST_SIDECAR: u32 = 200;
 
 /// Extensions a lyrics file beside the track may carry, in the order they are tried. TTML comes
 /// first since it can time every word. Linux filesystems tell the cases apart.
 const SIDECARS: [&str; 4] = ["ttml", "TTML", "lrc", "LRC"];
+
+/// Returns a sidecar lyrics file beside the track if one exists on disk.
+pub fn sidecar_file(path: &Path) -> Option<PathBuf> {
+    SIDECARS.iter().find_map(|extension| {
+        let sidecar_path = path.with_extension(extension);
+        if sidecar_path.is_file() {
+            Some(sidecar_path)
+        } else {
+            None
+        }
+    })
+}
 
 /// Reads the lyrics of a local file: a `.ttml` or `.lrc` file beside it, else what its own tags
 /// carry.
@@ -39,13 +53,14 @@ impl LyricsProvider for LocalLyrics {
         let Some(path) = path else {
             return Ok(Vec::new());
         };
-        let read = tokio::task::spawn_blocking(move || read(&path));
-        let Some(lyrics) = read.await.context("local lyrics task panicked")?? else {
+        let read = tokio::task::spawn_blocking(move || read_with_kind(&path));
+        let Some((lyrics, is_sidecar)) = read.await.context("local lyrics task panicked")?? else {
             return Ok(Vec::new());
         };
+        let trust = if is_sidecar { TRUST_SIDECAR } else { TRUST };
         Ok(vec![LyricsHit {
             source: LOCAL,
-            trust: TRUST,
+            trust,
             lyrics,
             instrumental: false,
             title: query.title.clone(),
@@ -54,6 +69,19 @@ impl LyricsProvider for LocalLyrics {
             duration: Some(query.duration),
             writers: Vec::new(),
         }])
+    }
+
+    fn revision(&self, query: &LyricsQuery) -> Option<u64> {
+        let path = query
+            .track
+            .as_ref()
+            .and_then(|track| wire::path_from_track_id(&track.id))
+            .map(PathBuf::from)
+            .or_else(|| find_local_track(query))?;
+        let target = sidecar_file(&path).unwrap_or(path);
+        let mtime = fs::metadata(&target).ok()?.modified().ok()?;
+        let duration = mtime.duration_since(std::time::UNIX_EPOCH).ok()?;
+        Some(duration.as_nanos() as u64)
     }
 }
 
@@ -117,10 +145,15 @@ fn find_local_track(query: &LyricsQuery) -> Option<PathBuf> {
 
 /// A lyrics file of the same name wins, since someone put it there for this track; the tags are
 /// the fallback when there is none, or when it holds no line that decodes.
+#[cfg(test)]
 fn read(path: &Path) -> Result<Option<Lyrics>> {
+    read_with_kind(path).map(|opt| opt.map(|(lyrics, _)| lyrics))
+}
+
+fn read_with_kind(path: &Path) -> Result<Option<(Lyrics, bool)>> {
     match sidecar(path) {
-        Some(lyrics) => Ok(Some(lyrics)),
-        None => tags::lyrics(path),
+        Some(lyrics) => Ok(Some((lyrics, true))),
+        None => tags::lyrics(path).map(|opt| opt.map(|lyrics| (lyrics, false))),
     }
 }
 

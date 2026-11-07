@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 
 const VERSION: u32 = 4;
 const PASSING: bool = cfg!(debug_assertions);
-const CAPACITY: usize = 500;
+const CAPACITY: usize = 50;
 
 /// Everything the services said about one track. A service in `answered` replied, even if it had
 /// nothing, so it is not asked again. One that failed is left out and gets asked next time.
@@ -114,12 +114,20 @@ impl Sheets {
         }
     }
 
-    /// Deletes the old `lyrics.json`. Its sheets were filed by which services were enabled, so
-    /// none of them can be read as one track's answer.
+    /// Deletes the old `lyrics.json` and prunes stored sheets beyond capacity. Its sheets were
+    /// filed by which services were enabled, so none of them can be read as one track's answer.
     pub(crate) fn migrate(&self) {
         if PASSING {
             return;
         }
+        let _ = self.cache.open().and_then(|conn| {
+            conn.execute(
+                "DELETE FROM lyrics WHERE key NOT IN
+                     (SELECT key FROM lyrics ORDER BY stored DESC LIMIT ?)",
+                rusqlite::params![CAPACITY as i64],
+            )?;
+            Ok(())
+        });
         let path = legacy_path();
         match fs::remove_file(&path) {
             Ok(()) => log::info!("lyrics: removed the old cached sheets"),

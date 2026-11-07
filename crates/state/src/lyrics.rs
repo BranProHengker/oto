@@ -53,6 +53,8 @@ pub struct Lyrics {
     ahead: Option<Task<()>>,
     ahead_of: Option<String>,
     save: Option<Task<()>>,
+    /// File revision (mtime) of the local lyrics source to enable realtime hot-reload.
+    local_revision: Option<u64>,
     /// Moves the old lyrics.json into the cache database, once.
     _migration: Task<()>,
 }
@@ -116,6 +118,7 @@ impl Lyrics {
             ahead: None,
             ahead_of: None,
             save: None,
+            local_revision: None,
             _migration: migration,
         }
     }
@@ -181,9 +184,12 @@ impl Lyrics {
         let Some(id) = track.id.as_deref() else {
             return self.forget(cx);
         };
+        let query = self.query(track, id, cx);
         if self.following.as_deref() == Some(id) {
+            self.hot_reload_if_changed(id, track, &query, cx);
             return;
         }
+        self.local_revision = None;
         let (track, id) = (track.clone(), id.to_owned());
         self.following = Some(id.clone());
         self.chosen = 0;
@@ -199,11 +205,35 @@ impl Lyrics {
                 .iter()
                 .all(|provider| found.covers(provider))
         {
-            let query = self.query(&track, &id, cx);
             self.show(&found, &query, cx);
             return;
         }
         self.load(id, track, cx);
+    }
+
+    fn hot_reload_if_changed(
+        &mut self,
+        id: &str,
+        track: &Track,
+        query: &LyricsQuery,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(local_provider) = self.providers.iter().find(|p| p.name() == LOCAL) else {
+            return;
+        };
+        let Some(current_rev) = local_provider.revision(query) else {
+            return;
+        };
+        if let Some(last_rev) = self.local_revision {
+            if current_rev != last_rev {
+                log::info!("lyrics: local file changed (mtime changed), hot-reloading");
+                self.local_revision = Some(current_rev);
+                self.recent.retain(|(held, _)| held != id);
+                self.load(id.to_owned(), track.clone(), cx);
+            }
+        } else {
+            self.local_revision = Some(current_rev);
+        }
     }
 
     /// Puts what `found` holds from the enabled sources on screen as the settled answer.
@@ -321,6 +351,7 @@ impl Lyrics {
         if self.following.is_none() {
             return;
         }
+        self.local_revision = None;
         self.task = None;
         self.following = None;
         self.hits.clear();
