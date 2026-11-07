@@ -129,21 +129,27 @@ pub fn matched(query: &LyricsQuery, hit: &LyricsHit) -> bool {
         return true;
     }
 
-    if let Some(duration) = hit.duration {
-        if !query.duration.is_zero()
-            && duration.as_secs().abs_diff(query.duration.as_secs()) <= CLOSE_ENOUGH
-        {
-            if artists_match {
+    if artists_match
+        && query
+            .album
+            .as_deref()
+            .is_some_and(|album| titles_alike(&hit.title, album))
+        && hit.duration.is_some_and(|duration| {
+            !query.duration.is_zero()
+                && duration.as_secs().abs_diff(query.duration.as_secs()) <= CLOSE_ENOUGH
+        })
+    {
+        return true;
+    }
+
+    if artists_match {
+        if let Some(duration) = hit.duration {
+            if !query.duration.is_zero()
+                && duration.as_secs().abs_diff(query.duration.as_secs()) <= CLOSE_ENOUGH
+            {
                 let query_non_latin = has_non_latin(&query.title);
                 let hit_non_latin = has_non_latin(&hit.title);
                 if query_non_latin != hit_non_latin {
-                    return true;
-                }
-            }
-            if titles_alike(&hit.title, &query.title) {
-                let query_artist_non_latin = has_non_latin(&query.artist);
-                let hit_artist_non_latin = has_non_latin(&hit.artist);
-                if query_artist_non_latin != hit_artist_non_latin {
                     return true;
                 }
             }
@@ -164,6 +170,12 @@ pub fn score(query: &LyricsQuery, hit: &LyricsHit) -> i64 {
         }
     }
     if titles_alike(&hit.title, &query.title) {
+        score += i64::from(TITLE);
+    } else if query
+        .album
+        .as_deref()
+        .is_some_and(|album| titles_alike(&hit.title, album))
+    {
         score += i64::from(TITLE);
     }
     if artists_alike(&hit.artist, &query.artist) {
@@ -368,6 +380,7 @@ fn title_candidates<'a>(text: &'a str) -> Vec<&'a str> {
     candidates
 }
 
+#[allow(dead_code)]
 pub(crate) fn has_non_latin(text: &str) -> bool {
     text.chars().any(|c| {
         c.is_alphabetic()
@@ -394,7 +407,7 @@ pub(crate) fn artists_alike(left: &str, right: &str) -> bool {
 
 fn artist_names(artists: &str) -> impl Iterator<Item = &str> {
     artists
-        .split([',', '&', ';'])
+        .split([',', '&', ';', '/', '、', '・'])
         .map(str::trim)
         .filter(|artist| !artist.is_empty())
 }
@@ -880,6 +893,32 @@ mod tests {
             track: None,
         };
         let hit = hit("オリイト", "tayori", 202, true);
+        assert!(matched(&query, &hit));
+    }
+
+    #[test]
+    fn unrelated_artists_with_same_title_do_not_match() {
+        let query = LyricsQuery {
+            title: "Desire".to_owned(),
+            artist: "PELICAN FANCLUB".to_owned(),
+            album: None,
+            duration: Duration::from_secs(221),
+            track: None,
+        };
+        let hit = hit("Desire", "尚雯婕", 221, true);
+        assert!(!matched(&query, &hit));
+    }
+
+    #[test]
+    fn album_single_fallback_matches_hit_title() {
+        let query = LyricsQuery {
+            title: "Desire".to_owned(),
+            artist: "PELICAN FANCLUB".to_owned(),
+            album: Some("ディザイア".to_owned()),
+            duration: Duration::from_secs(221),
+            track: None,
+        };
+        let hit = hit("ディザイア", "PELICAN FANCLUB", 221, true);
         assert!(matched(&query, &hit));
     }
 

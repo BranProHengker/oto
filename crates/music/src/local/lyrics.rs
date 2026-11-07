@@ -1,6 +1,6 @@
 use std::fs;
 use std::io::ErrorKind;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use anyhow::{Context as _, Result};
 use async_trait::async_trait;
@@ -19,7 +19,7 @@ const SIDECARS: [&str; 4] = ["ttml", "TTML", "lrc", "LRC"];
 
 /// Reads the lyrics of a local file: a `.ttml` or `.lrc` file beside it, else what its own tags
 /// carry.
-/// Any other track gets no answer.
+/// When streaming, falls back to searching the local library index for a matching sidecar.
 pub struct LocalLyrics;
 
 #[async_trait]
@@ -29,14 +29,16 @@ impl LyricsProvider for LocalLyrics {
     }
 
     async fn search(&self, query: &LyricsQuery) -> Result<Vec<LyricsHit>> {
-        let Some(path) = query
+        let path = query
             .track
             .as_ref()
             .and_then(|track| wire::path_from_track_id(&track.id))
-        else {
+            .map(PathBuf::from)
+            .or_else(|| find_local_track(query));
+
+        let Some(path) = path else {
             return Ok(Vec::new());
         };
-        let path = path.to_path_buf();
         let read = tokio::task::spawn_blocking(move || read(&path));
         let Some(lyrics) = read.await.context("local lyrics task panicked")?? else {
             return Ok(Vec::new());
@@ -53,6 +55,64 @@ impl LyricsProvider for LocalLyrics {
             writers: Vec::new(),
         }])
     }
+}
+
+/// Searches the local library index for a track matching the query's title and artist that has a
+/// sidecar lyrics file (`.ttml` or `.lrc`).
+fn find_local_track(query: &LyricsQuery) -> Option<PathBuf> {
+    if query.title.is_empty() {
+        return None;
+    }
+    let cache = storage::Cache::standard();
+    let connection = cache.open().ok()?;
+    let mut stmt = connection
+        .prepare("SELECT path, track FROM local_files")
+        .ok()?;
+    let rows = stmt
+        .query_map([], |row| {
+            let path: String = row.get(0)?;
+            let track: String = row.get(1)?;
+            Ok((path, track))
+        })
+        .ok()?;
+
+    for (path_str, track_json) in rows.flatten() {
+        let path = PathBuf::from(&path_str);
+        let stem = path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or_default();
+
+        let mut title_matches = crate::lyrics::titles_alike(stem, &query.title)
+            || stem.to_lowercase().contains(&query.title.to_lowercase());
+
+        let mut artist_matches = query.artist.is_empty()
+            || crate::lyrics::artists_alike(stem, &query.artist)
+            || path_str
+                .to_lowercase()
+                .contains(&query.artist.to_lowercase());
+
+        if let Ok(tagged) = serde_json::from_str::<wire::Tagged>(&track_json) {
+            if crate::lyrics::titles_alike(&tagged.track.name, &query.title) {
+                title_matches = true;
+            }
+            if !query.artist.is_empty()
+                && (crate::lyrics::artists_alike(&tagged.track.artists, &query.artist)
+                    || tagged
+                        .track
+                        .artists
+                        .to_lowercase()
+                        .contains(&query.artist.to_lowercase()))
+            {
+                artist_matches = true;
+            }
+        }
+
+        if title_matches && artist_matches && sidecar(&path).is_some() {
+            return Some(path);
+        }
+    }
+    None
 }
 
 /// A lyrics file of the same name wins, since someone put it there for this track; the tags are

@@ -231,6 +231,29 @@ impl LyricsProvider for Kugou {
         if songs.is_empty() && !query.title.is_empty() {
             songs = self.songs(&query.title).await.unwrap_or_default();
         }
+        if songs.is_empty() {
+            let primary_artist = query
+                .artist
+                .split([',', '&', ';', '/', '、', '・'])
+                .next()
+                .unwrap_or("")
+                .trim();
+            if !primary_artist.is_empty() && primary_artist != query.artist {
+                let fallback = format!("{} - {}", query.title, primary_artist);
+                songs = self.songs(&fallback).await.unwrap_or_default();
+            }
+        }
+        if songs.is_empty() {
+            if let Some(album) = query.album.as_deref() {
+                if !album.is_empty() && album != query.title {
+                    let fallback = format!("{album} {}", query.artist);
+                    songs = self.songs(&fallback).await.unwrap_or_default();
+                    if songs.is_empty() {
+                        songs = self.songs(album).await.unwrap_or_default();
+                    }
+                }
+            }
+        }
         let songs = shortlist(songs, query);
 
         let mut tasks = JoinSet::new();
@@ -273,10 +296,18 @@ impl LyricsProvider for Kugou {
 }
 
 fn song_matches_query(song: &Song, query: &LyricsQuery) -> bool {
+    let artist_match = crate::lyrics::artists_alike(&song.singer, &query.artist);
+    if !artist_match {
+        return false;
+    }
     let display = song.display_title(&query.title);
     crate::lyrics::titles_alike(&song.name, &query.title)
         || crate::lyrics::titles_alike(&display, &query.title)
         || (!query.title.is_empty() && display.to_lowercase().contains(&query.title.to_lowercase()))
+        || query.album.as_deref().is_some_and(|album| {
+            crate::lyrics::titles_alike(&song.name, album)
+                || crate::lyrics::titles_alike(&display, album)
+        })
 }
 
 fn shortlist(mut songs: Vec<Song>, query: &LyricsQuery) -> Vec<Song> {
@@ -284,25 +315,13 @@ fn shortlist(mut songs: Vec<Song>, query: &LyricsQuery) -> Vec<Song> {
         return songs;
     }
 
-    let target_name =
-        if let Some(matched_song) = songs.iter().find(|s| song_matches_query(s, query)) {
-            matched_song.name.clone()
-        } else {
-            let valid_top = songs.iter().find(|s| {
-                let duration_close = query.duration.is_zero()
-                    || Duration::from_secs(s.duration)
-                        .as_secs()
-                        .abs_diff(query.duration.as_secs())
-                        <= crate::lyrics::CLOSE_ENOUGH;
-                let artist_close = crate::lyrics::artists_alike(&s.singer, &query.artist);
-                duration_close && artist_close
-            });
-            if let Some(top) = valid_top {
-                top.name.clone()
-            } else {
-                songs[0].name.clone()
-            }
-        };
+    let Some(target_name) = songs
+        .iter()
+        .find(|s| song_matches_query(s, query))
+        .map(|s| s.name.clone())
+    else {
+        return Vec::new();
+    };
 
     songs.retain(|s| s.name == target_name);
 

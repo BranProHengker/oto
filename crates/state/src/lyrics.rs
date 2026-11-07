@@ -301,8 +301,8 @@ impl Lyrics {
         !music::is_local_id(id) || self.settings.read(cx).lyrics_for_local_files()
     }
 
-    fn reads_file(&self, id: &str, cx: &Context<Self>) -> bool {
-        music::is_local_id(id) && self.settings.read(cx).lyrics_provider_enabled(LOCAL)
+    fn reads_file(&self, _id: &str, cx: &Context<Self>) -> bool {
+        self.settings.read(cx).lyrics_provider_enabled(LOCAL)
     }
 
     /// Ends a lookup's bookkeeping; true when it was for the track on screen.

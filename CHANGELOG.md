@@ -7,6 +7,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.2.5] - 2026-11-07
+
+### Added
+
+- Enable local sidecar lyrics (`.lrc` and `.ttml`) search for streaming tracks (Apple Music, YouTube Music, Spotify) when a matching local file exists.
+
+### Fixed
+
+- Prevent cross-script artist false positive matching where unrelated artists sharing a common Latin song title (e.g. PELICAN FANCLUB vs 尚雯婕 for "Desire") were matched.
+- Add album-as-single title match fallback and scoring bonus for tracks where the single release title matches the album name.
+- Fix KuGou search shortlist fallback from picking unrelated songs when search titles differ from normalized queries (e.g. Left-Right Confusion falling back to Eat the Wind).
+- Add primary artist and album search query fallbacks for KuGou provider.
+
 ## [1.2.4] - 2026-11-06
 
 ### Added
