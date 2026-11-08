@@ -1174,6 +1174,7 @@ impl Aside {
                 .icon("icons/download.svg")
                 .on_click(move |_, _, cx| {
                     aside_entity.update(cx, |this, cx| {
+                        this.dismiss_lyrics_menu(cx);
                         this.save_current_lyrics_beside_song(cx);
                     });
                 });
@@ -1217,6 +1218,10 @@ impl Aside {
                 .unwrap_or_else(|| std::path::PathBuf::from("."));
             dest_dir.join(&safe_filename)
         };
+
+        if let Some(parent) = target.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
 
         match std::fs::write(&target, &content) {
             Ok(_) => {

@@ -1348,3 +1348,11 @@ shortcut-seek-forward = Maju 5 detik
 shortcut-seek-forward-detail = Lompat maju 5 detik
 shortcut-seek-backward = Mundur 5 detik
 shortcut-seek-backward-detail = Lompat mundur 5 detik
+
+# Lyrics save and LRC Studio
+lyrics-save-beside-song = Simpan file lirik
+toast-lyrics-saved = Berhasil menyimpan { $name }
+toast-lyrics-save-failed = Tidak dapat menyimpan file lirik
+lrc-studio-save-local = Simpan di sebelah lagu (.lrc)
+lrc-studio-download = Unduh .lrc
+lrc-studio-saved-toast = Lirik berhasil disimpan!

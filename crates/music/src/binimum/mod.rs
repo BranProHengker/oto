@@ -8,7 +8,8 @@ use crate::lyrics::ttml;
 use crate::{LyricsHit, LyricsProvider, LyricsQuery};
 
 const SOURCE: &str = "Apple Music";
-const SEARCH: &str = "https://lyrics-api.binimum.org/";
+const SEARCH_LRCRED: &str = "https://lrc.red/api/v1";
+const SEARCH_BINIMUM: &str = "https://lyrics-api.binimum.org/";
 const TRUST: u32 = 180;
 const AGENT: &str = concat!(
     "sonora/",
@@ -28,13 +29,40 @@ impl Binimum {
     }
 
     async fn find(&self, query: &LyricsQuery) -> Result<Vec<Match>> {
+        // 1. Try lrc.red first (primary, fast, unblocked)
+        if let Ok(results) = self.find_endpoint(SEARCH_LRCRED, query, false).await {
+            if !results.is_empty() {
+                return Ok(results);
+            }
+        }
+        // 2. Try lrc.red full-text query
+        if let Ok(results) = self.find_endpoint(SEARCH_LRCRED, query, true).await {
+            if !results.is_empty() {
+                return Ok(results);
+            }
+        }
+        // 3. Fallback to binimum if lrc.red didn't match
+        self.find_endpoint(SEARCH_BINIMUM, query, false).await
+    }
+
+    async fn find_endpoint(
+        &self,
+        endpoint: &str,
+        query: &LyricsQuery,
+        use_q: bool,
+    ) -> Result<Vec<Match>> {
         let duration = query.duration.as_secs().to_string();
-        let mut params = vec![
-            ("track", query.title.as_str()),
-            ("artist", query.artist.as_str()),
-        ];
-        if let Some(album) = query.album.as_deref().filter(|album| !album.is_empty()) {
-            params.push(("album", album));
+        let query_str;
+        let mut params = Vec::new();
+        if use_q {
+            query_str = format!("{} {}", query.artist, query.title);
+            params.push(("q", query_str.as_str()));
+        } else {
+            params.push(("track", query.title.as_str()));
+            params.push(("artist", query.artist.as_str()));
+            if let Some(album) = query.album.as_deref().filter(|album| !album.is_empty()) {
+                params.push(("album", album));
+            }
         }
         if !query.duration.is_zero() {
             params.push(("duration", duration.as_str()));
@@ -42,7 +70,7 @@ impl Binimum {
 
         let response = self
             .http
-            .get(SEARCH)
+            .get(endpoint)
             .query(&params)
             .header("User-Agent", AGENT)
             .send()

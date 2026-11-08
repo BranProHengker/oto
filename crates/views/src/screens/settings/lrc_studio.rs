@@ -1622,6 +1622,10 @@ impl SettingsView {
             dest_dir.join(&safe_filename)
         };
 
+        if let Some(parent) = target.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+
         match fs::write(&target, &content) {
             Ok(_) => {
                 let file_name = target.file_name().unwrap_or_default().to_string_lossy();

@@ -12,6 +12,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 
 - Proportional lyrics spacing & margins: dual-line and standard lyrics now scale phrase gaps, highlight padding, and margins proportionally with text size, while Furigana (Ruby) mode safely retains comfortable line spacing.
+- Revived Apple Music lyrics provider with high-performance `lrc.red` engine, bringing reliable word-by-word (syllable-level) synchronized lyrics and furigana/romaji transliterations without Cloudflare blocks.
+
+### Fixed
+
+- Prevent crash/force-close when clicking save/download lyrics button by cleanly dismissing popup menus and ensuring destination directories are created before saving.
+- Added missing Indonesian localization for lyrics save and LRC Studio download actions.
 
 ## [1.2.6] - 2026-11-08
 
