@@ -17,8 +17,8 @@
 //! Loudness normalisation lives here too. A provider only reports how loud a track is, and the
 //! engine decides what gain that earns.
 
-use std::sync::Arc;
 use std::sync::mpsc::{Receiver, RecvTimeoutError, TryRecvError, channel};
+use std::sync::{Arc, Mutex, PoisonError};
 use std::time::{Duration, Instant};
 
 use anyhow::{Context as _, Result, anyhow, ensure};
@@ -412,6 +412,8 @@ async fn engine_loop<F: Fetch>(
 ) {
     let (cue, mut written) = Cue::new();
     let (changed, mut gone) = unbounded_channel();
+    let heard = Heard::default();
+    let heard_audio = heard.clone();
     let chain = Chain {
         volume: Volume::new(config.gain),
         equalizer: config.equalizer.clone(),
@@ -442,6 +444,7 @@ async fn engine_loop<F: Fetch>(
                 interval,
                 normalisation,
                 crossfade,
+                heard_audio,
             )
         });
     if let Err(error) = spawned {
@@ -681,7 +684,7 @@ async fn engine_loop<F: Fetch>(
                 // without telling the state to rebuild it, and playback would stay silent.
                 let Some(join) = join else {
                     if gone.try_recv().is_ok() {
-                        events.send(PlaybackEvent::OutputChanged).ok();
+                        events.send(PlaybackEvent::OutputChanged { heard: heard.position(&cue) }).ok();
                         return;
                     }
                     break;
@@ -700,7 +703,7 @@ async fn engine_loop<F: Fetch>(
             }
             lost = gone.recv() => {
                 if lost.is_some() {
-                    events.send(PlaybackEvent::OutputChanged).ok();
+                    events.send(PlaybackEvent::OutputChanged { heard: heard.position(&cue) }).ok();
                 }
                 return;
             }
@@ -996,6 +999,7 @@ impl<F: Fetch> Playing<F> {
 
 /// The track being heard, which is not always the one being decoded: at the end of a track the
 /// decoder has moved on, or stopped, while the queue still holds the last seconds of it.
+#[derive(Clone)]
 struct Mark {
     id: String,
     channels: u16,
@@ -1010,6 +1014,30 @@ impl Mark {
         let mine = cue.played().saturating_sub(self.offset);
         let frames = mine / u64::from(self.channels).max(1);
         self.base + Duration::from_secs_f64(frames as f64 / f64::from(self.rate).max(1.0))
+    }
+}
+
+/// The mark of the track being heard, shared between the audio thread, which moves it, and the
+/// engine loop, which reads it when the output is lost to say where playback stood.
+#[derive(Clone, Default)]
+struct Heard(Arc<Mutex<Option<Mark>>>);
+
+impl Heard {
+    fn set(&self, mark: Option<Mark>) {
+        *self.0.lock().unwrap_or_else(PoisonError::into_inner) = mark;
+    }
+
+    fn get(&self) -> Option<Mark> {
+        self.0
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone()
+    }
+
+    /// The track being heard and how far into it, from what the output has drawn.
+    fn position(&self, cue: &Cue) -> Option<(String, Duration)> {
+        let mark = self.get()?;
+        Some((mark.id.clone(), mark.at(cue)))
     }
 }
 
@@ -1046,6 +1074,7 @@ fn audio_loop<F: Fetch>(
     interval: Duration,
     normalise: bool,
     mut crossfade: Duration,
+    heard: Heard,
 ) {
     let mut paced = match Paced::open(cue.clone(), chain, changed.clone()) {
         Ok(paced) => paced,
@@ -1065,7 +1094,6 @@ fn audio_loop<F: Fetch>(
     let mut fading: Option<Fading<F>> = None;
     let mut written = 0u64;
     let mut joining: Option<Join<F>> = None;
-    let mut heard: Option<Mark> = None;
     let mut queued: Option<(String, F::Loaded)> = None;
     let mut playing = false;
     let mut reported_at = Instant::now();
@@ -1099,9 +1127,12 @@ fn audio_loop<F: Fetch>(
                 })
                 .ok();
             events.send(PlaybackEvent::Ended { id: Some(ended) }).ok();
-            heard = current.as_ref().map(|held| held.mark(paced.rate()));
+            heard.set(current.as_ref().map(|held| held.mark(paced.rate())));
             match next {
                 Some((id, duration)) => {
+                    if let Some(following) = &current {
+                        paced.follow_rate(following.rate);
+                    }
                     announce_length(&events, &id, duration);
                     events
                         .send(PlaybackEvent::Playing {
@@ -1116,9 +1147,9 @@ fn audio_loop<F: Fetch>(
 
         // reported from the sound, so it keeps moving while the last seconds play out
         if playing
-            && let Some(mark) = &heard
             && reported_at.elapsed() >= interval
             && !cue.cleared()
+            && let Some(mark) = heard.get()
         {
             reported_at = Instant::now();
             events
@@ -1142,7 +1173,10 @@ fn audio_loop<F: Fetch>(
                     fading = None;
                     written = 0;
                     current = Playing::open(fetch.as_ref(), &id, loaded, at, 0, normalise, &events);
-                    heard = current.as_ref().map(|held| held.mark(paced.rate()));
+                    heard.set(current.as_ref().map(|held| held.mark(paced.rate())));
+                    if let Some(held) = &current {
+                        paced.follow_rate(held.rate);
+                    }
                     playing = start && current.is_some();
                     match playing {
                         true if paced.play().is_err() => return,
@@ -1165,7 +1199,7 @@ fn audio_loop<F: Fetch>(
                     queued = None;
                     joining = None;
                     fading = None;
-                    heard = None;
+                    heard.set(None);
                     written = 0;
                     playing = false;
                     paced.pause();
@@ -1175,7 +1209,7 @@ fn audio_loop<F: Fetch>(
                     if playing && paced.play().is_err() {
                         return;
                     }
-                    if let Some(mark) = &heard {
+                    if let Some(mark) = heard.get() {
                         events
                             .send(PlaybackEvent::Playing {
                                 id: Some(mark.id.clone()),
@@ -1187,7 +1221,7 @@ fn audio_loop<F: Fetch>(
                 Job::Pause => {
                     playing = false;
                     paced.pause();
-                    if let Some(mark) = &heard {
+                    if let Some(mark) = heard.get() {
                         events
                             .send(PlaybackEvent::Paused {
                                 id: Some(mark.id.clone()),
@@ -1224,7 +1258,7 @@ fn audio_loop<F: Fetch>(
                         continue;
                     }
                     written = 0;
-                    heard = current.as_ref().map(|held| held.mark(paced.rate()));
+                    heard.set(current.as_ref().map(|held| held.mark(paced.rate())));
                     cue.arm();
                 }
                 Job::Seek(position) => {
@@ -1269,7 +1303,7 @@ fn audio_loop<F: Fetch>(
                     fading = None;
                     joining = None;
                     written = 0;
-                    heard = current.as_ref().map(|held| held.mark(paced.rate()));
+                    heard.set(current.as_ref().map(|held| held.mark(paced.rate())));
                     cue.arm();
                 }
                 Job::Gain(level) => paced.set_volume(level),
@@ -1325,7 +1359,7 @@ fn audio_loop<F: Fetch>(
                     events
                         .send(PlaybackEvent::Ended { id: Some(ended_id) })
                         .ok();
-                    heard = Some(next_playing.mark(paced.rate()));
+                    heard.set(Some(next_playing.mark(paced.rate())));
                     announce_length(&events, &next_id, next_duration);
                     events
                         .send(PlaybackEvent::Playing {

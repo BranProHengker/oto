@@ -157,7 +157,7 @@ pub(in crate::screens::settings) fn preview(
                     .map_or_else(|| device.name.clone(), |option| option.label.clone())
             })
             .map_or_else(|| t!("settings-output-device-system"), SharedString::from),
-        detail: outputs.rate(cx).map(rate),
+        detail: device.map(|device| rate(device.format.rate)),
     });
     let perfect = path
         .as_ref()

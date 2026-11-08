@@ -81,6 +81,7 @@ impl RenderOnce for Row {
                     .child(div().truncate().child(title))
                     .children(detail.map(|detail| {
                         div()
+                            .pr_8()
                             .text_size(theme.text(ui::Text::Small))
                             .text_color(theme.muted_foreground)
                             .child(detail)
