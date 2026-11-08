@@ -140,6 +140,22 @@ fn find_local_track(query: &LyricsQuery) -> Option<PathBuf> {
             return Some(path);
         }
     }
+
+    let dirs = [dirs::audio_dir(), dirs::download_dir()];
+    for dir in dirs.into_iter().flatten() {
+        let candidates = [
+            format!("{} - {}.lrc", query.artist, query.title),
+            format!("{}.lrc", query.title),
+        ];
+        for candidate in candidates {
+            let safe = candidate.replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], "_");
+            let p = dir.join(safe);
+            if p.is_file() {
+                return Some(p);
+            }
+        }
+    }
+
     None
 }
 
@@ -181,6 +197,12 @@ fn sidecar(path: &Path) -> Option<Lyrics> {
 fn lrc_lyrics(lrc_path: &Path, text: &str) -> Option<Lyrics> {
     let lines = lrc::parse(text.trim_start_matches('\u{feff}'));
     if lines.is_empty() {
+        if !text.trim().is_empty() {
+            return Some(Lyrics::Plain {
+                text: text.to_string(),
+                romanized: None,
+            });
+        }
         log::warn!("lyrics: {} holds no valid LRC line", lrc_path.display());
         return None;
     }

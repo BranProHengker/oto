@@ -214,11 +214,11 @@ impl Lyrics {
     fn hot_reload_if_changed(
         &mut self,
         id: &str,
-        track: &Track,
+        _track: &Track,
         query: &LyricsQuery,
         cx: &mut Context<Self>,
     ) {
-        let Some(local_provider) = self.providers.iter().find(|p| p.name() == LOCAL) else {
+        let Some(local_provider) = self.providers.iter().find(|p| p.name() == LOCAL).cloned() else {
             return;
         };
         let Some(current_rev) = local_provider.revision(query) else {
@@ -226,14 +226,61 @@ impl Lyrics {
         };
         if let Some(last_rev) = self.local_revision {
             if current_rev != last_rev {
-                log::info!("lyrics: local file changed (mtime changed), hot-reloading");
+                log::info!("lyrics: local file changed (mtime changed), hot-reloading local lyrics");
                 self.local_revision = Some(current_rev);
-                self.recent.retain(|(held, _)| held != id);
-                self.load(id.to_owned(), track.clone(), cx);
+                self.reload_local_lyrics(id.to_owned(), query.clone(), cx);
             }
         } else {
             self.local_revision = Some(current_rev);
         }
+    }
+
+    fn reload_local_lyrics(
+        &mut self,
+        id: String,
+        query: LyricsQuery,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(local_provider) = self.providers.iter().find(|p| p.name() == LOCAL).cloned() else {
+            return;
+        };
+        let settings = self.settings.read(cx);
+        let priority = settings.lyrics_provider_priority();
+
+        cx.spawn(async move |this, cx| {
+            let found = local_provider
+                .search(&query)
+                .await
+                .ok()
+                .map(|mut hits| {
+                    hits.retain(|hit| music::lyrics::matched(&query, hit));
+                    hits
+                })
+                .unwrap_or_default();
+
+            this.update(cx, |this, cx| {
+                if this.following.as_deref() != Some(&id) {
+                    return;
+                }
+                this.hits.retain(|hit| hit.source != LOCAL);
+                this.hits.extend(found.clone());
+
+                let ranking = query.clone();
+                this.hits = ordered(&ranking, std::mem::take(&mut this.hits), &priority);
+
+                if let Some(entry) = this.recent.iter_mut().find(|(held, _)| held == &id) {
+                    entry.1.hits.retain(|hit| hit.source != LOCAL);
+                    entry.1.hits.extend(found);
+                }
+
+                let instrumental = music::lyrics::instrumental(&ranking, &this.hits);
+                this.state = state_for(&this.hits, instrumental);
+                this.revision = this.revision.wrapping_add(1);
+                cx.notify();
+            })
+            .ok();
+        })
+        .detach();
     }
 
     /// Puts what `found` holds from the enabled sources on screen as the settled answer.
