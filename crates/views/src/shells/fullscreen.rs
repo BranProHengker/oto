@@ -73,7 +73,7 @@ const TEXT_SHADOW: [f32; 3] = [1.5, 4., 10.];
 const DOCK_BLUR: Pixels = px(8.);
 /// Below this the dock's blur is not worth a layer of its own.
 const DOCK_BLUR_LEAST: Pixels = px(0.05);
-const REST: Duration = Duration::from_millis(1500);
+const REST: Duration = Duration::from_millis(1000);
 const WAKE_DEBOUNCE: Duration = Duration::from_millis(400);
 /// How far the pointer has to travel, in pixels, before it wakes the controls, so the drift a
 /// resting hand gives a trackpad or a sensitive mouse leaves them asleep.
