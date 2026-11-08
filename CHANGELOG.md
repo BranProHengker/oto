@@ -7,6 +7,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.2.7] - 2026-11-08
+
+### Added
+
+- Proportional lyrics spacing & margins: dual-line and standard lyrics now scale phrase gaps, highlight padding, and margins proportionally with text size, while Furigana (Ruby) mode safely retains comfortable line spacing.
+
 ## [1.2.6] - 2026-11-08
 
 ### Added
