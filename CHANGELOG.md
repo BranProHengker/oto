@@ -7,6 +7,22 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.2.6] - 2026-11-08
+
+### Added
+
+- Track sample rate matching: exclusive direct outputs automatically adapt their hardware sample rate to each track's native sample rate.
+- Two-finger touchpad swipe navigation: navigate history back and forward with smooth touchpad gestures and responsive visual cue.
+- Artist favorite songs shelf: access your favorite songs directly from the artist page with quick remove action on hover.
+- High-DPI and multi-resolution platform icons for Linux X11, SNI status tray, Windows per-monitor DPI, and macOS dock.
+
+### Fixed
+
+- Non-destructive hot reload of local lyrics sidecars without clearing online provider hits or causing preview loading loops.
+- Fallback plain text parsing for local `.lrc` files without timestamps.
+- Stop paused restored tracks from holding system wake lock on startup.
+- Fullscreen controls idle timeout shortened for snappier response.
+
 ## [1.2.5] - 2026-11-07
 
 ### Added
