@@ -49,9 +49,16 @@ const AHEAD: f32 = 0.6;
 const REVEAL: f32 = 0.6;
 const ACTIVE_VERSE_GROWTH: Pixels = px(2.);
 const FULLSCREEN_VERSE_GROWTH: Pixels = px(3.);
+/// Space between phrases, relative to the resting verse size.
+const VERSE_GAP: f32 = 0.6;
+/// Vertical room around each phrase, relative to its resting text size.
+const VERSE_PADDING: f32 = 0.15;
+/// Side room around each phrase, relative to its resting text size. It is wider than
+/// `VERSE_PADDING` because the line height and the space above capitals already pad the text
+/// vertically, so the two read as equal.
+const VERSE_SIDE_PADDING: f32 = 0.45;
 /// How much larger than the lane text unsynced lyrics are set, while staying below a synced verse.
 const PLAIN_LYRICS_GROWTH: f32 = 1.15;
-const LYRICS_HORIZONTAL_INSET_REM: f32 = 1.5;
 // The largest window fullscreen lyrics keep their own size in. A larger one grows them by its
 // share of this one, so a verse keeps its size relative to the window.
 const LYRICS_FRAME: Size<Pixels> = size(px(1152.), px(648.));
@@ -77,9 +84,6 @@ const HAZE_LEAST: Pixels = px(0.05);
 const HAZE_STEP: Pixels = px(0.25);
 // How far a verse sinks while it is held.
 const PRESSED: f32 = 0.955;
-// The widest a line of lyrics is set, in multiples of its own size. Left to fill
-// a fullscreen panel, a lead verse and a background one end up at opposite edges.
-const REACH: f32 = 24.;
 // What a sheet settling on the best answer comes in through: it blurs and fades
 // on the way, once, on a curve that is the same going in as coming out.
 const RESOLVE_BLUR: f32 = 0.2;
@@ -1428,14 +1432,26 @@ impl Aside {
             )
         };
         let karaoke_effects = karaoke_lyrics && effects();
+        let frame_scale = match self.titled {
+            true => 1.,
+            false => lyrics_frame_scale(window.viewport_size()),
+        };
         let scale = match self.titled {
             true => self.settings.read(cx).panel_lyrics_scale(),
-            false => {
-                self.settings.read(cx).fullscreen_lyrics_scale()
-                    * lyrics_frame_scale(window.viewport_size())
-            }
-        };
+            false => self.settings.read(cx).fullscreen_lyrics_scale(),
+        } * frame_scale;
         let (verse, lane_size) = verse_sizes(self.titled, scale, &theme);
+        let line_height = active_verse_size(verse) * ui::LEADING;
+        let has_ruby = romanization_style == RomanizationStyle::Ruby
+            && lines.as_ref().is_some_and(|lines| {
+                lines.iter().any(|line| {
+                    selected_romanization_tokens(&line.romanized, romanization_scripts).is_some()
+                })
+            });
+        let phrase_gap = match has_ruby {
+            true => px(16.),
+            false => verse_gap(verse),
+        };
         let sung = Sung {
             karaoke: karaoke_effects,
             lane: lane_size,
@@ -1485,7 +1501,8 @@ impl Aside {
             self.pin_verse(focus, window, cx);
         }
 
-        let reach = verse * REACH;
+        let verse_pad = verse * VERSE_SIDE_PADDING;
+        let sheet_padding = theme.metrics.pad * 0.75;
         let wrap_size = active_verse_size(verse);
         let scroll = self.verse_bar.read(cx).scroll().clone();
         let (nudges, presentation) = {
@@ -1500,10 +1517,9 @@ impl Aside {
             (true, true) => self.lagged(&scroll, presentation, verse, nudges),
             _ => Drag::default(),
         };
-        let inset = window.rem_size() * LYRICS_HORIZONTAL_INSET_REM;
-        let wrap_width = (scroll.bounds().size.width - inset)
-            .min(reach - inset)
-            .max(px(0.));
+        let row_width = scroll.bounds().size.width - sheet_padding * 2.;
+        // Both voices and wrapped phrases share the same inset from either panel edge.
+        let wrap_width = (row_width - verse_pad * 2.).max(Pixels::ZERO);
         if self.lyrics_wrap_width != Some(wrap_width) || self.lyrics_wrap_size != Some(wrap_size) {
             self.lyrics_wrap_width = Some(wrap_width);
             self.lyrics_wrap_size = Some(wrap_size);
@@ -1629,8 +1645,7 @@ impl Aside {
                         )
                         .id(("instrumental", index))
                         .w_full()
-                        .max_w(reach)
-                        .px_2()
+                        .px(verse_pad)
                         .rounded(theme.radius)
                         .cursor_pointer()
                         .when(notes_touch.warmth > 0., |this| {
@@ -1796,7 +1811,7 @@ impl Aside {
                                 &line.secondary,
                                 romanization_scripts,
                                 lane_size,
-                                active_verse_size(verse) * ui::LEADING,
+                                line_height,
                                 wrap_width,
                                 window,
                             );
@@ -1872,13 +1887,17 @@ impl Aside {
                     let traded = index
                         .checked_sub(1)
                         .is_some_and(|previous| lines[previous].voice != line.voice);
+                    let is_ruby = ruby_tokens.is_some();
+                    let py = match is_ruby {
+                        true => px(4.),
+                        false => verse * VERSE_PADDING,
+                    };
                     let verse_line = div()
                         .id(("verse", index))
                         .w_full()
-                        .max_w(reach)
-                        .px_2()
-                        .py_1()
-                        .when(traded, |this| this.mt_2())
+                        .px(verse_pad)
+                        .py(py)
+                        .when(traded, |this| this.mt(phrase_gap * 0.5))
                         .rounded(theme.radius)
                         .cursor_pointer()
                         .when(warmth > 0., |this| {
@@ -1891,7 +1910,7 @@ impl Aside {
                             }),
                         )
                         .text_size(verse)
-                        .line_height(active_verse_size(verse) * ui::LEADING)
+                        .line_height(line_height)
                         .text_color(tint)
                         .font_weight(FontWeight::SEMIBOLD)
                         .on_hover(cx.listener(move |this, over: &bool, _, cx| {
@@ -1931,8 +1950,8 @@ impl Aside {
                         vec![
                             div()
                                 .w_full()
-                                .max_w(reach)
-                                .px_2()
+                                .px(verse_pad)
+                                .py(verse * VERSE_PADDING)
                                 .flex()
                                 .flex_col()
                                 .gap_1()
@@ -2005,8 +2024,7 @@ impl Aside {
             };
             let note = div()
                 .w_full()
-                .max_w(reach)
-                .px_2()
+                .px(verse_pad)
                 .pt_2()
                 .flex()
                 .flex_col()
@@ -2041,10 +2059,11 @@ impl Aside {
             .flex()
             .flex_col()
             .items_center()
-            .gap_4()
+            .when(shown, |this| this.items_start())
+            .gap(phrase_gap)
             .flex_1()
             .min_h_0()
-            .px_1()
+            .px(sheet_padding)
             .pt(over)
             .pb(under)
             .when(effects(), |this| {
@@ -2595,11 +2614,15 @@ pub(crate) fn verse(
         true => look.haze,
         false => 0.,
     };
+    let py = match is_ruby {
+        true => px(4.),
+        false => look.size * VERSE_PADDING,
+    };
 
     div()
         .w_full()
-        .px_2()
-        .py_1()
+        .px(look.size * VERSE_SIDE_PADDING)
+        .py(py)
         .text_size(match look.active {
             true => active_size,
             false => look.size,
@@ -2636,6 +2659,11 @@ pub(crate) fn verse_sizes(panel: bool, scale: f32, theme: &ui::Theme) -> (Pixels
         false => theme.text(Text::Title) + FULLSCREEN_VERSE_GROWTH,
     };
     (verse * scale, theme.text(Text::Body) * scale)
+}
+
+/// The gap between lyric phrases, scaled with the text in both the sheet and its preview.
+pub(crate) fn verse_gap(verse: Pixels) -> Pixels {
+    verse * VERSE_GAP
 }
 
 // a lane with no measured plan of its own, split on the spot
@@ -3656,7 +3684,7 @@ fn adrift(
         .w_full()
         .flex()
         .flex_col()
-        .items_center()
+        .items_start()
         .child(
             row.top(grid)
                 .layer_translate(gpui::point(px(0.), shift - grid)),
