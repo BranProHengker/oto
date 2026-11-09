@@ -53,8 +53,15 @@ impl LyricsProvider for LocalLyrics {
         let Some(path) = path else {
             return Ok(Vec::new());
         };
-        let read = tokio::task::spawn_blocking(move || read_with_kind(&path));
-        let Some((lyrics, is_sidecar)) = read.await.context("local lyrics task panicked")?? else {
+        let res = if let Ok(handle) = tokio::runtime::Handle::try_current() {
+            handle
+                .spawn_blocking(move || read_with_kind(&path))
+                .await
+                .context("local lyrics task panicked")??
+        } else {
+            read_with_kind(&path)?
+        };
+        let Some((lyrics, is_sidecar)) = res else {
             return Ok(Vec::new());
         };
         let trust = if is_sidecar { TRUST_SIDECAR } else { TRUST };

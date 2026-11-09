@@ -246,17 +246,22 @@ impl Lyrics {
         };
         let settings = self.settings.read(cx);
         let priority = settings.lyrics_provider_priority();
+        let io = self.io.clone();
 
         cx.spawn(async move |this, cx| {
-            let found = local_provider
-                .search(&query)
-                .await
-                .ok()
-                .map(|mut hits| {
-                    hits.retain(|hit| music::lyrics::matched(&query, hit));
-                    hits
-                })
-                .unwrap_or_default();
+            let search_query = query.clone();
+            let worker = io.spawn(async move {
+                local_provider
+                    .search(&search_query)
+                    .await
+                    .ok()
+                    .map(|mut hits| {
+                        hits.retain(|hit| music::lyrics::matched(&search_query, hit));
+                        hits
+                    })
+                    .unwrap_or_default()
+            });
+            let found = worker.await.unwrap_or_default();
 
             this.update(cx, |this, cx| {
                 if this.following.as_deref() != Some(&id) {
