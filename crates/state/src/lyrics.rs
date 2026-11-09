@@ -273,6 +273,10 @@ impl Lyrics {
                     entry.1.hits.extend(found);
                 }
 
+                if this.chosen >= this.hits.len() {
+                    this.chosen = 0;
+                }
+
                 let instrumental = music::lyrics::instrumental(&ranking, &this.hits);
                 this.state = state_for(&this.hits, instrumental);
                 this.revision = this.revision.wrapping_add(1);

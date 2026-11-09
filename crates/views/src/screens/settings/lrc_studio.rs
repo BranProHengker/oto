@@ -1622,28 +1622,42 @@ impl SettingsView {
             dest_dir.join(&safe_filename)
         };
 
-        if let Some(parent) = target.parent() {
-            let _ = std::fs::create_dir_all(parent);
-        }
+        let has_local_path = self.lrc_studio.detected_local_path.is_some();
+        let target_clone = target.clone();
+        cx.spawn(async move |this, cx| {
+            let res = cx
+                .background_executor()
+                .spawn(async move {
+                    if let Some(parent) = target_clone.parent() {
+                        let _ = std::fs::create_dir_all(parent);
+                    }
+                    std::fs::write(&target_clone, content)
+                })
+                .await;
 
-        match fs::write(&target, &content) {
-            Ok(_) => {
-                let file_name = target.file_name().unwrap_or_default().to_string_lossy();
-                if self.lrc_studio.detected_local_path.is_some() {
-                    self.lrc_studio.status = Some((
-                        format!("Saved {file_name} successfully beside song!"),
-                        false,
-                    ));
-                } else {
-                    self.lrc_studio.status =
-                        Some((format!("Saved to {}", target.display()), false));
+            this.update(cx, |this, cx| {
+                match res {
+                    Ok(_) => {
+                        let file_name = target.file_name().unwrap_or_default().to_string_lossy();
+                        if has_local_path {
+                            this.lrc_studio.status = Some((
+                                format!("Saved {file_name} successfully beside song!"),
+                                false,
+                            ));
+                        } else {
+                            this.lrc_studio.status =
+                                Some((format!("Saved to {}", target.display()), false));
+                        }
+                    }
+                    Err(e) => {
+                        this.lrc_studio.status = Some((format!("Failed to save .lrc: {e}"), true));
+                    }
                 }
-            }
-            Err(e) => {
-                self.lrc_studio.status = Some((format!("Failed to save .lrc: {e}"), true));
-            }
-        }
-        cx.notify();
+                cx.notify();
+            })
+            .ok();
+        })
+        .detach();
     }
 
     fn copy_lyrics_to_clipboard(&mut self, cx: &mut Context<Self>) {

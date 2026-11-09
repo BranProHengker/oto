@@ -1189,7 +1189,7 @@ impl Aside {
         Some(popup.on_close(cx.listener(|this, _, _, cx| this.dismiss_lyrics_menu(cx))))
     }
 
-    fn save_current_lyrics_beside_song(&self, cx: &mut App) {
+    fn save_current_lyrics_beside_song(&self, cx: &mut Context<Self>) {
         let (hit, track) = {
             let lyrics = self.lyrics.read(cx);
             let playback = self.playback.read(cx);
@@ -1219,30 +1219,42 @@ impl Aside {
             dest_dir.join(&safe_filename)
         };
 
-        if let Some(parent) = target.parent() {
-            let _ = std::fs::create_dir_all(parent);
-        }
+        let target_clone = target.clone();
+        cx.spawn(async move |_this, cx| {
+            let res = cx
+                .background_executor()
+                .spawn(async move {
+                    if let Some(parent) = target_clone.parent() {
+                        let _ = std::fs::create_dir_all(parent);
+                    }
+                    std::fs::write(&target_clone, content)
+                })
+                .await;
 
-        match std::fs::write(&target, &content) {
-            Ok(_) => {
-                let filename = target
-                    .file_name()
-                    .unwrap_or_default()
-                    .to_string_lossy()
-                    .to_string();
-                state::Toasts::post(
-                    state::Toast::new(state::Outcome::Done, "toast-lyrics-saved").name(filename),
-                    cx,
-                );
-            }
-            Err(err) => {
-                log::warn!("lyrics: cannot save {}: {err}", target.display());
-                state::Toasts::post(
-                    state::Toast::new(state::Outcome::Failed, "toast-lyrics-save-failed"),
-                    cx,
-                );
-            }
-        }
+            cx.update(|cx| match res {
+                Ok(_) => {
+                    let filename = target
+                        .file_name()
+                        .unwrap_or_default()
+                        .to_string_lossy()
+                        .to_string();
+                    state::Toasts::post(
+                        state::Toast::new(state::Outcome::Done, "toast-lyrics-saved")
+                            .name(filename)
+                            .single_line(),
+                        cx,
+                    );
+                }
+                Err(err) => {
+                    log::warn!("lyrics: cannot save {}: {err}", target.display());
+                    state::Toasts::post(
+                        state::Toast::new(state::Outcome::Failed, "toast-lyrics-save-failed"),
+                        cx,
+                    );
+                }
+            });
+        })
+        .detach();
     }
 
     /// The panel's title and, over this app's own queue, the controls that change it. They go
