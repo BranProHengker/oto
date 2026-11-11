@@ -7,6 +7,27 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-11-11
+
+### Added
+
+- Upstream Sonora v0.48.0 & v0.48.1 synchronization:
+  - Soloist engine integration: official Spotify headless player daemon, pairing wizard, lossless streaming, and bypass for playback key refusal errors.
+  - New WGSL ambient waves shader (`ui::Waves`) and fluid visualizer spring physics.
+  - Sidebar folding to icons rail with draggable edges and responsive layout.
+  - Updated GPUI framework with sub-pixel snapping and paint spans.
+  - Full localization for Soloist setup, settings, and toast notifications in English and Indonesian.
+  - Discord RPC iTunes artwork fallback for rich presence.
+
+### Preserved
+
+- Oto core differentiators intact:
+  - Furigana / Ruby romanization and word-by-word Japanese karaoke sweep.
+  - Multi-source lyrics engine (`lrc.red`, `kugou`, `netease`).
+  - DJ Automix crossfade with bass dip & silence trimming.
+  - Universal hybrid playlist importer & LRC Studio.
+  - Unlimited offline cache option and full Oto desktop branding.
+
 ## [1.2.7] - 2026-11-08
 
 ### Added
