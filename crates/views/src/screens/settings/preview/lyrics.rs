@@ -125,7 +125,7 @@ fn lines(look: Look, sizes: (Pixels, Pixels), height: Pixels, theme: Theme) -> D
                 haze,
             },
             position,
-            theme,
+            &theme,
         )
     };
     let fade = size * VERSE_FADE;

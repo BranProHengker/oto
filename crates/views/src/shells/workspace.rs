@@ -18,9 +18,14 @@ use crate::shared::confirm::Confirm;
 use crate::shared::menus::CardMenu;
 use crate::shared::playlist_editor::PlaylistEditor;
 use crate::shared::playlist_importer::PlaylistImporter;
+use crate::shared::soloist::SoloistSetup;
 use crate::shared::tag_editor::TagEditor;
 use crate::shared::widevine::WidevinePrompt;
 use crate::shells::Shell;
+
+/// The paint layer toasts take. Dialogs paint at 0 and menus at 1, so a toast shows over an
+/// open dialog and a menu opened after it still shows over the toast.
+const TOAST_LAYER: usize = 1;
 
 pub(crate) struct Workspace {
     sidebar: Entity<SidebarLeft>,
@@ -33,6 +38,7 @@ pub(crate) struct Workspace {
     confirm: Entity<Confirm>,
     card_menu: Entity<CardMenu>,
     widevine: Entity<WidevinePrompt>,
+    soloist: Entity<SoloistSetup>,
     jam_join: Entity<JamJoin>,
     jam_code: Entity<JamCode>,
     session_join: Entity<SessionJoin>,
@@ -76,6 +82,7 @@ impl Workspace {
             confirm: Confirm::entity(cx),
             card_menu: CardMenu::entity(cx),
             widevine: cx.new(WidevinePrompt::new),
+            soloist: cx.new(SoloistSetup::new),
             jam_join: cx.new(JamJoin::new),
             jam_code: cx.new(JamCode::new),
             session_join: cx.new(SessionJoin::new),
@@ -180,7 +187,6 @@ impl Shell for Workspace {
             navigation: true,
             sidebar_open: sidebar.is_open(),
             sidebar_right: Some(self.sidebar_right.read(cx).is_open()),
-            offset: sidebar.occupied_width(),
             border: true,
             content,
             transparent: false,
@@ -388,7 +394,9 @@ impl Render for Workspace {
                             .clone()
                             .cached(StyleRefinement::default().w_full().h(bar_height)),
                     )
-                    .child(self.toasts.clone()),
+                    // Deferred above the dialogs, which are deferred too, so a toast raised
+                    // while one is open shows over it and its backdrop.
+                    .child(deferred(self.toasts.clone()).with_priority(TOAST_LAYER)),
             )
             // deferred so the cards sit above the sidebars' resize grips, and ahead of the
             // dialogs so those still cover them
@@ -399,6 +407,7 @@ impl Render for Workspace {
             .child(self.tag_editor.clone())
             .child(self.confirm.clone())
             .child(self.widevine.clone())
+            .child(self.soloist.clone())
             .child(self.jam_join.clone())
             .child(self.jam_code.clone())
             .child(self.session_join.clone())

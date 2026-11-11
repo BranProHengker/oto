@@ -9,7 +9,8 @@ mod equalizer;
 mod themes;
 
 pub use self::equalizer::equalizer_profile_label;
-pub use self::themes::{ThemeFamily, ThemeVariant};
+pub use self::themes::{ThemeFamily, ThemeOffer, ThemeVariant};
+pub(crate) use self::themes::{is_own_link, read_link as read_theme_link};
 
 use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap};
@@ -40,7 +41,8 @@ use self::equalizer::Profile;
 use crate::equalizer::DeviceRule;
 use crate::pins::PinSort;
 use crate::queue::{Resume, gap_target};
-use crate::{Outcome, Repeat, Shuffle, Sonora, Toasts};
+use crate::updates::{Channel, updates_itself};
+use crate::{Outcome, Repeat, Sonora, Toasts};
 
 /// How Sonora is named on the device list of the provider's apps. `Both` is the app's name with
 /// the computer's in brackets, so two machines on one account tell apart.
@@ -240,6 +242,48 @@ impl Default for RomanizationScripts {
     }
 }
 
+/// The views of the fullscreen player the visualizer is drawn in. Only the cover has it by
+/// default.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct VisualizerScreens {
+    cover: bool,
+    lyrics: bool,
+    queue: bool,
+}
+
+impl VisualizerScreens {
+    /// Whether the visualizer is drawn while the fullscreen player shows `panel`, which is the
+    /// cover alone when there is none. The members panel never shows there.
+    pub fn contains(self, panel: Option<SideTab>) -> bool {
+        match panel {
+            None => self.cover,
+            Some(SideTab::Lyrics) => self.lyrics,
+            Some(SideTab::Queue) => self.queue,
+            Some(SideTab::Members) => false,
+        }
+    }
+
+    fn set(&mut self, panel: Option<SideTab>, shown: bool) {
+        match panel {
+            None => self.cover = shown,
+            Some(SideTab::Lyrics) => self.lyrics = shown,
+            Some(SideTab::Queue) => self.queue = shown,
+            Some(SideTab::Members) => {}
+        }
+    }
+}
+
+impl Default for VisualizerScreens {
+    fn default() -> Self {
+        Self {
+            cover: true,
+            lyrics: false,
+            queue: false,
+        }
+    }
+}
+
 /// A window's saved position and size in logical pixels, plus whether it was maximized.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
@@ -424,11 +468,16 @@ struct Values {
     /// Set once Subsonic has been added to a list saved before it existed, so a user who turns it
     /// off afterwards is not given it back.
     subsonic_lyrics_offered: bool,
+    /// Whether lyrics show anywhere and are looked up at all.
+    lyrics_enabled: bool,
     lyrics_providers: Vec<String>,
     lyrics_save_format: LyricsSaveFormat,
     /// Every known lyrics source, the preferred one first. Lyrics of the same kind from two
     /// sources go to the one listed higher.
     lyrics_provider_priority: Vec<String>,
+    /// Whether lyrics timed word by word are shown ahead of any others, whatever source they
+    /// come from. The source order then only settles lyrics of the same kind.
+    lyrics_word_synced_first: bool,
     karaoke_lyrics: bool,
     blur_lyrics: bool,
     romanized_lyrics: bool,
@@ -439,6 +488,9 @@ struct Values {
     romanization_style: RomanizationStyle,
     adaptive_menu: bool,
     check_updates: bool,
+    /// The release channel chosen in settings, by its id. Empty follows the running build's own
+    /// channel, and a copy a package manager installed ignores it.
+    update_channel: String,
     close_to_tray: bool,
     tray_icon: bool,
     stay_awake: bool,
@@ -510,6 +562,7 @@ struct Appearance {
     visualizer_style: String,
     /// Whether the visualizer draws the track at its own level rather than at the volume.
     visualizer_absolute: bool,
+    visualizer_screens: VisualizerScreens,
     player_bar_layout: String,
     player_bar_transparent: bool,
     icons: String,
@@ -611,7 +664,7 @@ impl Default for Values {
             discord_presence: false,
             discord_name: DiscordName::Sonora,
             discord_show_paused: false,
-            discord_badge: true,
+            discord_badge: false,
             discord_without_details: false,
             discord_hide_on_connect: false,
             discord_sonora_button: true,
@@ -627,9 +680,15 @@ impl Default for Values {
             stream_quality: Quality::default().id().to_owned(),
             local_lyrics_offered: false,
             subsonic_lyrics_offered: false,
+            lyrics_enabled: true,
             lyrics_provider_priority: lyrics_priority(&[]),
-            lyrics_providers: LYRICS_SOURCES.iter().map(|name| name.to_string()).collect(),
+            // Kugou and NetEase, the last two, start switched off.
+            lyrics_providers: LYRICS_SOURCES[..7]
+                .iter()
+                .map(|name| name.to_string())
+                .collect(),
             lyrics_save_format: LyricsSaveFormat::default(),
+            lyrics_word_synced_first: false,
             karaoke_lyrics: true,
             blur_lyrics: true,
             romanized_lyrics: true,
@@ -638,8 +697,9 @@ impl Default for Values {
             romanization_scripts: RomanizationScripts::default(),
             romanization_style: RomanizationStyle::default(),
             adaptive_menu: false,
-            check_updates: cfg!(target_os = "windows"),
-            close_to_tray: !cfg!(target_os = "linux"),
+            check_updates: cfg!(target_os = "windows") || updates_itself(),
+            update_channel: String::new(),
+            close_to_tray: true,
             tray_icon: true,
             stay_awake: true,
             language: i18n::AUTO.to_owned(),
@@ -678,11 +738,12 @@ struct StateValues {
     volume: f32,
     sidebar_width: f32,
     sidebar_open: bool,
+    sidebar_rail: bool,
     sidebar_right_width: f32,
     sidebar_right_open: bool,
     sidebar_right_tab: SideTab,
     fullscreen_tab: Option<SideTab>,
-    shuffle: Shuffle,
+    shuffle: bool,
     repeat: Repeat,
     radio: bool,
     provider: String,
@@ -710,11 +771,12 @@ impl Default for StateValues {
             volume: DEFAULT_VOLUME,
             sidebar_width: DEFAULT_SIDEBAR_WIDTH,
             sidebar_open: true,
+            sidebar_rail: false,
             sidebar_right_width: DEFAULT_SIDEBAR_RIGHT_WIDTH,
             sidebar_right_open: false,
             sidebar_right_tab: SideTab::Queue,
             fullscreen_tab: Some(SideTab::Lyrics),
-            shuffle: Shuffle::Off,
+            shuffle: false,
             repeat: Repeat::Off,
             radio: true,
             provider: "spotify".to_owned(),
@@ -808,6 +870,7 @@ impl Default for Appearance {
             visualizer: true,
             visualizer_style: ui::VisualizerStyle::default().id().to_owned(),
             visualizer_absolute: false,
+            visualizer_screens: VisualizerScreens::default(),
             player_bar_layout: PlayerBarLayout::default().id().to_owned(),
             player_bar_transparent: true,
             icons: icons::BASE.to_owned(),
@@ -919,7 +982,6 @@ impl AppSettings {
                 StateValues::default()
             }
         };
-        themes::adopt_legacy(&values.appearance.theme, &themes_path(&path));
         let themes = themes::load(&themes_path(&path), &[]).themes;
         let families = themes::catalog(&themes);
 
@@ -1106,6 +1168,10 @@ impl AppSettings {
         Quality::from_id(&self.values.stream_quality).unwrap_or_default()
     }
 
+    pub fn lyrics_enabled(&self) -> bool {
+        self.values.lyrics_enabled
+    }
+
     pub fn lyrics_providers(&self) -> &[String] {
         &self.values.lyrics_providers
     }
@@ -1132,6 +1198,11 @@ impl AppSettings {
         }
         self.values.lyrics_provider_priority = order;
         self.schedule_save(cx);
+    }
+
+    /// Whether lyrics timed word by word are shown ahead of any others, whatever their source.
+    pub fn lyrics_word_synced_first(&self) -> bool {
+        self.values.lyrics_word_synced_first
     }
 
     pub fn lyrics_provider_enabled(&self, provider: &str) -> bool {
@@ -1181,6 +1252,10 @@ impl AppSettings {
         self.values.adaptive_menu
     }
 
+    pub fn update_channel(&self) -> Channel {
+        Channel::from_id(&self.values.update_channel)
+    }
+
     pub fn check_updates(&self) -> bool {
         self.values.check_updates
     }
@@ -1220,6 +1295,10 @@ impl AppSettings {
         self.state.sidebar_open
     }
 
+    pub fn sidebar_rail(&self) -> bool {
+        self.state.sidebar_rail
+    }
+
     pub fn sidebar_right_width(&self) -> f32 {
         self.state.sidebar_right_width
     }
@@ -1228,17 +1307,23 @@ impl AppSettings {
         self.state.sidebar_right_open
     }
 
+    /// The queue stands in for the lyrics while they are turned off.
     pub fn sidebar_right_tab(&self) -> SideTab {
-        self.state.sidebar_right_tab
+        match self.state.sidebar_right_tab {
+            SideTab::Lyrics if !self.lyrics_enabled() => SideTab::Queue,
+            tab => tab,
+        }
     }
 
     /// The panel the fullscreen view last showed beside the cover, or `None` when it showed the
-    /// artwork alone.
+    /// artwork alone, or while lyrics are turned off.
     pub fn fullscreen_tab(&self) -> Option<SideTab> {
-        self.state.fullscreen_tab
+        self.state
+            .fullscreen_tab
+            .filter(|tab| *tab != SideTab::Lyrics || self.lyrics_enabled())
     }
 
-    pub fn shuffle(&self) -> Shuffle {
+    pub fn shuffle(&self) -> bool {
         self.state.shuffle
     }
 
@@ -1305,7 +1390,7 @@ impl AppSettings {
                     .iter()
                     .find(|variant| variant.is_light() == light)
             })
-            .or(family.variants.first())
+            .or_else(|| family.variants.first())
     }
 
     pub fn adaptive_theme(&self) -> bool {
@@ -1359,6 +1444,11 @@ impl AppSettings {
     /// Whether the visualizer ignores Sonora's volume and draws the track at its own level.
     pub fn visualizer_absolute(&self) -> bool {
         self.values.appearance.visualizer_absolute
+    }
+
+    /// The views of the fullscreen player the visualizer is drawn in.
+    pub fn visualizer_screens(&self) -> VisualizerScreens {
+        self.values.appearance.visualizer_screens
     }
 
     pub fn fullscreen_controls_autohide(&self) -> FullscreenControlsAutohide {
@@ -1477,6 +1567,63 @@ impl AppSettings {
         self.theme_variant()
             .map(|(_, variant)| variant.overrides.clone().merged(inline))
             .unwrap_or_else(|| inline.clone())
+    }
+
+    /// Writes the theme or family a link offered into the themes folder and selects it the way
+    /// choosing its card does, turning the adaptive theme off since only the neutral themes wear
+    /// it. Returns the family's id.
+    pub fn install_theme(&mut self, offer: &ThemeOffer, cx: &mut Context<Self>) -> Result<String> {
+        let directory = themes_path(&self.path);
+        let id = themes::install(offer, &directory, &self.themes)?;
+        let loaded = themes::load(&directory, &self.themes);
+        let count = loaded
+            .themes
+            .iter()
+            .filter(|theme| theme.family == id)
+            .count();
+        anyhow::ensure!(
+            count >= offer.family.variants.len(),
+            "cannot load the installed theme {id}"
+        );
+        self.families = themes::catalog(&loaded.themes);
+        self.themes = loaded.themes;
+        if self.adaptive_theme() {
+            self.set_adaptive_theme(false, cx);
+        }
+        self.set_theme_family(&id, cx);
+        cx.notify();
+        Ok(id)
+    }
+
+    /// Deletes the user's theme family `id` from the themes folder and says whether it worked.
+    /// A selected theme in it falls back to Dark. A failure is logged and shown as a toast.
+    pub fn delete_theme_family(&mut self, id: &str, cx: &mut Context<Self>) -> bool {
+        let Some(family) = self.families.iter().find(|family| family.id == id).cloned() else {
+            return false;
+        };
+        let directory = themes_path(&self.path);
+        if let Err(error) = themes::remove(&family, &directory) {
+            log::warn!("settings: cannot delete theme {id}: {error:#}");
+            Toasts::about(
+                Outcome::Failed,
+                "toast-theme-delete-failed",
+                family.name,
+                cx,
+            );
+            return false;
+        }
+        log::info!("settings: deleted theme {id}");
+        let loaded = themes::load(&directory, &self.themes);
+        self.families = themes::catalog(&loaded.themes);
+        self.themes = loaded.themes;
+        if family.variant(self.theme()).is_some() {
+            self.set_theme(ThemeKind::Dark.id(), cx);
+        }
+        if self.state.theme_variants.remove(id).is_some() {
+            self.schedule_state_save(cx);
+        }
+        cx.notify();
+        true
     }
 
     /// Creates and returns the folder that holds custom themes.
@@ -1623,6 +1770,11 @@ impl AppSettings {
         self.schedule_save(cx);
     }
 
+    pub fn set_lyrics_enabled(&mut self, enabled: bool, cx: &mut Context<Self>) {
+        self.values.lyrics_enabled = enabled;
+        self.schedule_save(cx);
+    }
+
     pub fn set_lyrics_for_local_files(&mut self, enabled: bool, cx: &mut Context<Self>) {
         self.values.lyrics_for_local_files = enabled;
         self.schedule_save(cx);
@@ -1665,6 +1817,11 @@ impl AppSettings {
             self.values.lyrics_providers.push(provider.to_owned());
         }
         self.values.lyrics_providers.sort();
+        self.schedule_save(cx);
+    }
+
+    pub fn set_lyrics_word_synced_first(&mut self, first: bool, cx: &mut Context<Self>) {
+        self.values.lyrics_word_synced_first = first;
         self.schedule_save(cx);
     }
 
@@ -1718,6 +1875,11 @@ impl AppSettings {
 
     pub fn set_adaptive_menu(&mut self, adaptive_menu: bool, cx: &mut Context<Self>) {
         self.values.adaptive_menu = adaptive_menu;
+        self.schedule_save(cx);
+    }
+
+    pub fn set_update_channel(&mut self, channel: Channel, cx: &mut Context<Self>) {
+        self.values.update_channel = channel.id().to_owned();
         self.schedule_save(cx);
     }
 
@@ -1881,9 +2043,10 @@ impl AppSettings {
         self.schedule_state_save(cx);
     }
 
-    pub fn set_sidebar(&mut self, width: f32, open: bool, cx: &mut Context<Self>) {
+    pub fn set_sidebar(&mut self, width: f32, open: bool, rail: bool, cx: &mut Context<Self>) {
         self.state.sidebar_width = width;
         self.state.sidebar_open = open;
+        self.state.sidebar_rail = rail;
         self.schedule_state_save(cx);
     }
 
@@ -1913,7 +2076,7 @@ impl AppSettings {
         self.schedule_state_save(cx);
     }
 
-    pub fn set_shuffle(&mut self, shuffle: Shuffle, cx: &mut Context<Self>) {
+    pub fn set_shuffle(&mut self, shuffle: bool, cx: &mut Context<Self>) {
         self.state.shuffle = shuffle;
         self.schedule_state_save(cx);
     }
@@ -2156,6 +2319,18 @@ impl AppSettings {
         self.schedule_save(cx);
     }
 
+    /// Draws the visualizer, or stops drawing it, while the fullscreen player shows `panel`,
+    /// which is the cover alone when there is none.
+    pub fn set_visualizer_screen(
+        &mut self,
+        panel: Option<SideTab>,
+        shown: bool,
+        cx: &mut Context<Self>,
+    ) {
+        self.values.appearance.visualizer_screens.set(panel, shown);
+        self.schedule_save(cx);
+    }
+
     pub fn set_icons(&mut self, pack: impl Into<String>, cx: &mut Context<Self>) {
         let pack = pack.into();
         if self.values.appearance.icons == pack {
@@ -2322,7 +2497,7 @@ impl AppSettings {
         self.save_state_quietly(cx);
     }
 
-    /// Debounces a `state.sqlite` write without waking observers, for state no view renders.
+    /// Debounces a `state.sqlite` write without waking settings observers.
     fn save_state_quietly(&mut self, cx: &mut Context<Self>) {
         self.save_state = Some(cx.spawn(async move |this, cx| {
             cx.background_executor().timer(SAVE_DELAY).await;
@@ -2605,7 +2780,6 @@ impl AppSettings {
         };
 
         log::info!("settings: reloaded {}", self.path.display());
-        themes::adopt_legacy(&values.appearance.theme, &themes_path(&self.path));
         let previous = std::mem::replace(&mut self.values, values);
         self.disk = Some(bytes);
         self.writable = true;

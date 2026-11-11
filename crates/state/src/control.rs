@@ -11,13 +11,13 @@ use cli::wire::{self, Current, Failure, Reply, SessionInfo, State, Value};
 use futures::future;
 use gpui::{App, Context, Entity, Subscription, Task};
 use music::link::Linked;
-use music::{Album, MediaKind, MusicApi, MusicProvider, Playlist, Track};
+use music::{Album, MediaKind, MusicApi, MusicProvider, Playlist, SavedArtist, Track};
 use tokio::sync::{mpsc, oneshot};
 
 use crate::search::{self, Catalog};
 use crate::{
     Hit, Io, Library, Origin, Playback, PlaybackState, QueuePlacement, Repeat, Session,
-    SessionState, Shelf, Shuffle, Sonora, Whence, join, noted,
+    SessionState, Shelf, Sonora, Whence, join, noted,
 };
 
 /// What `sonora current` calls the provider of a local file, the slug `sonora providers` gives it.
@@ -27,11 +27,12 @@ const LOCAL: &str = "local";
 /// somewhere that does not go through `Playback`, such as the volume of a steered device.
 const WATCH_TICK: Duration = Duration::from_secs(1);
 
-/// What the three searches of a query answered: songs, albums and playlists.
+/// What the four searches of a query answered: songs, albums, playlists and artists.
 type Found = (
     anyhow::Result<Vec<Track>>,
     anyhow::Result<Vec<Album>>,
     anyhow::Result<Vec<Playlist>>,
+    anyhow::Result<Vec<SavedArtist>>,
 );
 
 /// Carries out what the command line asks of the running Sonora. Playback goes through
@@ -323,10 +324,11 @@ impl Control {
             let asked = query.text.clone();
             Io::global(cx).spawn(async move {
                 anyhow::Ok(
-                    future::join3(
+                    future::join4(
                         client.search(&asked),
                         client.search_albums(&asked),
                         client.search_playlists(&asked),
+                        client.search_artists(&asked),
                     )
                     .await,
                 )
@@ -358,11 +360,11 @@ impl Control {
     fn hits(
         &self,
         query: &SearchQuery,
-        (tracks, albums, playlists): Found,
+        (tracks, albums, playlists, artists): Found,
         client: &dyn MusicApi,
         cx: &mut App,
     ) -> Result<Vec<wire::Hit>, Failure> {
-        if let (Err(error), Err(_), Err(_)) = (&tracks, &albums, &playlists) {
+        if let (Err(error), Err(_), Err(_), Err(_)) = (&tracks, &albums, &playlists, &artists) {
             log::warn!("control: cannot search: {error:#}");
             noted(error, cx);
             return Err(Failure::Unfetched(query.text.clone()));
@@ -371,6 +373,7 @@ impl Control {
             tracks: tracks.unwrap_or_default(),
             albums: albums.unwrap_or_default(),
             playlists: playlists.unwrap_or_default(),
+            artists: artists.unwrap_or_default(),
         };
         let library = self.library.read(cx).state(Shelf::Streaming);
         let ranked = search::rank(
@@ -582,11 +585,11 @@ fn play(playback: &mut Playback, command: PlaybackCommand, cx: &mut Context<Play
             playback.set_volume(f32::from(target.clamp(0, 100)) / 100., cx);
         }
         PlaybackCommand::Shuffle(None) => {
-            return Reply::Value(Value::Shuffle(playback.shown_shuffle(cx) != Shuffle::Off));
+            return Reply::Value(Value::Shuffle(playback.shown_shuffle(cx)));
         }
         PlaybackCommand::Shuffle(Some(switch)) => match switch {
-            Switch::On => playback.set_shuffle(Shuffle::On, cx),
-            Switch::Off => playback.set_shuffle(Shuffle::Off, cx),
+            Switch::On => playback.set_shuffle(true, cx),
+            Switch::Off => playback.set_shuffle(false, cx),
             Switch::Toggle => playback.toggle_shuffle(cx),
         },
         PlaybackCommand::Repeat(None) => {
@@ -664,7 +667,7 @@ fn settled_on(session: &Session, slug: &str) -> bool {
 /// held inside the track on the steered device when there is one.
 fn moment(playback: &Playback, time: Time, cx: &App) -> Duration {
     let (now, length) = match playback.steered(cx) {
-        Some(steered) => (steered.position, steered.duration),
+        Some(steered) => (steered.state.live_position(), steered.state.duration),
         None => (
             playback.live_position(),
             playback
@@ -690,11 +693,11 @@ fn current(playback: &Playback, cx: &App) -> Option<Current> {
     let track = playback.shown_track(cx)?;
     let (state, position) = match playback.steered(cx) {
         Some(steered) => {
-            let state = match steered.playing {
+            let state = match steered.state.playing {
                 true => State::Playing,
                 false => State::Paused,
             };
-            (state, steered.position)
+            (state, steered.state.live_position())
         }
         None => {
             let state = match playback.state() {
@@ -717,7 +720,7 @@ fn current(playback: &Playback, cx: &App) -> Option<Current> {
         track: wire_track(&track),
         position: position.as_secs(),
         volume: percent(playback.shown_volume(cx)),
-        shuffle: playback.shown_shuffle(cx) != Shuffle::Off,
+        shuffle: playback.shown_shuffle(cx),
         repeat: wire_repeat(playback.shown_repeat(cx)),
         provider,
         liked: id.is_some_and(|id| sonora.library.read(cx).saved(id)),
@@ -819,10 +822,20 @@ async fn fetch(
             tracks,
             origin: Some(Origin::playlist(id)),
         }),
-        Linked::Artist(id) => client.artist(&id).await.map(|artist| Batch {
-            tracks: artist.top_tracks,
-            origin: Some(Origin::artist(id).named(artist.name)),
-        }),
+        Linked::Artist(id) => {
+            let (profile, tracks) =
+                tokio::join!(client.artist_profile(&id), client.artist_tracks(&id));
+            tracks.map(|tracks| {
+                let origin = Origin::artist(id.clone());
+                Batch {
+                    tracks,
+                    origin: Some(match profile {
+                        Ok(profile) => origin.named(profile.name),
+                        Err(_) => origin,
+                    }),
+                }
+            })
+        }
         Linked::User(_) | Linked::Jam(_) | Linked::Short => {
             return Err(Missed {
                 failure: Failure::Unqueueable(link),

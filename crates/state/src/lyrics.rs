@@ -170,9 +170,7 @@ impl Lyrics {
             return None;
         };
         let playback = self.playback.read(cx);
-        let position = playback
-            .steered(cx)
-            .map_or_else(|| playback.position(), |steered| steered.position);
+        let position = playback.shown_time(cx).0;
         music::lyrics::active(lines, position)
     }
 

@@ -21,8 +21,9 @@ pub fn tune() {
 #[cfg(not(all(target_os = "linux", target_env = "gnu")))]
 pub fn tune() {}
 
-/// Logs the memory footprint every `INTERVAL` while debug logging is on, and does nothing
-/// otherwise.
+/// Logs the memory footprint every `INTERVAL` when debug logging is on for this module, and does
+/// nothing otherwise. The log file keeps it off, so it runs only when `RUST_LOG` or `SONORA_LOG`
+/// asks for `sonora::memory=debug`.
 pub fn watch(cx: &mut App) {
     if !log::log_enabled!(log::Level::Debug) {
         return;
@@ -45,7 +46,7 @@ fn report(probed: (Footprint, Option<usize>), cx: &mut App) {
     let (entries, bytes) = ui::artwork_usage(cx).unwrap_or((0, 0));
     let queue = Sonora::global(cx).queue.read(cx);
     let past = queue.past().len();
-    let ahead = queue.upcoming().len() + queue.similar().len();
+    let ahead = queue.upcoming().len();
 
     log::debug!(
         "memory: rss {}, heap {}, gpu {}, file {}, artwork {entries} entries / {}, queue {past} past / {ahead} ahead",

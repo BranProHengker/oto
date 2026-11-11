@@ -26,8 +26,10 @@ pub mod netease;
 pub mod output;
 pub mod potoken;
 pub mod progress;
+mod redact;
 pub mod scrobble;
 mod sink;
+pub mod soloist;
 mod spectrum;
 pub mod spotify;
 mod stream;
@@ -38,7 +40,7 @@ pub mod trouble;
 pub mod vault;
 pub mod youtube;
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::num::NonZero;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -63,6 +65,7 @@ pub use models::{
     SavedArtist, Track, TrackKey, TrackTags, UserDetail, UserProfile, Voice, WritingSystem,
 };
 pub use output::{Server as SoundServer, missing_bridge};
+pub use redact::redact;
 pub use spectrum::{Analyzer, Level, Listening, Spectrum, Watch};
 
 pub const LOCAL_TRACK_PREFIX: &str = "local:";
@@ -124,7 +127,7 @@ pub trait MusicApi: Send + Sync {
 
     /// The provider's device network, for a provider that has one. Spotify Connect is the
     /// only one so far.
-    fn connect(&self) -> Option<Arc<dyn connect::Connect>> {
+    fn connect(&self) -> Option<Arc<connect::Connect>> {
         None
     }
 
@@ -154,6 +157,12 @@ pub trait MusicApi: Send + Sync {
         _known: &[Track],
     ) -> Result<ArtistCatalogue> {
         Ok(ArtistCatalogue::default())
+    }
+
+    /// The artist's songs for playback, with popular tracks first when available.
+    /// Providers extend the overview's tracks with their ranked catalogue or release order.
+    async fn artist_tracks(&self, artist_id: &str) -> Result<Vec<Track>> {
+        Ok(self.artist(artist_id).await?.top_tracks)
     }
 
     async fn artist_profile(&self, artist_id: &str) -> Result<ArtistProfile>;
@@ -366,6 +375,13 @@ pub trait MusicApi: Send + Sync {
         Ok(Vec::new())
     }
 
+    /// The artists the provider finds for `query`, best match first. A provider without an
+    /// artist search keeps the default of none, and search then names only the artists behind
+    /// the songs and albums it found.
+    async fn search_artists(&self, _query: &str) -> Result<Vec<SavedArtist>> {
+        Ok(Vec::new())
+    }
+
     async fn home(&self) -> Result<HomeFeed> {
         Ok(HomeFeed::default())
     }
@@ -529,6 +545,9 @@ pub struct TrackSignal {
     pub rate: u32,
     pub channels: u16,
     pub normalisation: Normalisation,
+    /// Whether the engine plays it to the system's output by itself, as Soloist does. Nothing
+    /// of Sonora's own sound path then touches it: no equalizer, no resampler, no chosen device.
+    pub direct: bool,
 }
 
 /// What loudness normalisation does to a track.
@@ -760,6 +779,13 @@ impl Fraction {
 
 pub trait PlaybackFactory: Send + Sync {
     fn start(&self, config: PlaybackConfig) -> (Box<dyn Player>, Box<dyn PlaybackEvents>);
+
+    /// The stream levels the next engine serves, when they differ from the ones the provider
+    /// signed in with. A provider with a second way to play answers here, since which one is in
+    /// use can change while the account stays signed in.
+    fn qualities(&self) -> Option<&'static [Offer]> {
+        None
+    }
 }
 
 /// What a provider's library is made of. It decides which `MusicApi` methods fill the library
@@ -1046,6 +1072,11 @@ pub trait MusicProvider: Send + Sync {
     fn protected(&self) -> bool {
         false
     }
+    /// Whether this provider can play through Soloist, Spotify's own headless player, on this
+    /// computer. The app offers its setup while such a provider is the current one.
+    fn soloist(&self) -> bool {
+        false
+    }
     /// Whether the artwork urls this provider hands out can be given to another service. A path
     /// on disk means nothing elsewhere, and a self-hosted url carries the credentials that fetch
     /// it, so the default is no.
@@ -1098,6 +1129,86 @@ pub fn iso_8601_to_epoch(value: Option<&str>) -> Option<i64> {
         .ok()?
         .unix_timestamp();
     Some(timestamp)
+}
+
+const SAME_SONG: Duration = Duration::from_secs(5);
+
+/// Keeps playable songs credited to the artist in their supplied order, collapsing repeat
+/// ids and matching titles of similar duration across releases. Remaster labels do not
+/// distinguish songs.
+fn artist_songs(tracks: Vec<Track>, artist_id: &str) -> Vec<Track> {
+    let mut kept: HashMap<String, Vec<Duration>> = HashMap::new();
+    let mut ids = HashSet::new();
+    tracks
+        .into_iter()
+        .filter(|track| {
+            if !track.playable {
+                return false;
+            }
+            let named = track
+                .artist_refs
+                .iter()
+                .filter_map(|artist| artist.id.as_deref());
+            named.clone().next().is_none() || named.into_iter().any(|id| id == artist_id)
+        })
+        .filter(|track| {
+            if let Some(id) = &track.id
+                && !ids.insert(id.clone())
+            {
+                return false;
+            }
+            let lengths = kept.entry(song_title(&track.name)).or_default();
+            let repeat = lengths.iter().any(|length| {
+                !length.is_zero()
+                    && !track.duration.is_zero()
+                    && length.abs_diff(track.duration) <= SAME_SONG
+            });
+            if !repeat {
+                lengths.push(track.duration);
+            }
+            !repeat
+        })
+        .collect()
+}
+
+/// A track title reduced to what tells songs apart: lowercase, without a remaster note in
+/// brackets or after a dash, and with its spacing collapsed.
+fn song_title(name: &str) -> String {
+    let lower = name.to_lowercase();
+    let rest = match lower.rsplit_once(" - ") {
+        Some((head, tail)) if remaster_note(tail) => head,
+        _ => lower.as_str(),
+    };
+    let mut title = String::with_capacity(rest.len());
+    let mut current = rest;
+    while let Some(open) = current.find(['(', '[']) {
+        let close = match current.as_bytes()[open] {
+            b'(' => ')',
+            _ => ']',
+        };
+        let Some(length) = current[open..].find(close) else {
+            break;
+        };
+        let end = open + length + 1;
+        title.push_str(&current[..open]);
+        if !remaster_note(&current[open + 1..end - 1]) {
+            title.push_str(&current[open..end]);
+        }
+        current = &current[end..];
+    }
+    title.push_str(current);
+    title.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+/// Recognizes remaster labels without discarding version names such as live or acoustic.
+fn remaster_note(note: &str) -> bool {
+    note.contains("remaster")
+        && note.split_whitespace().all(|word| {
+            matches!(
+                word,
+                "remaster" | "remastered" | "digitally" | "digital" | "version"
+            ) || word.chars().all(|character| character.is_ascii_digit())
+        })
 }
 
 #[cfg(test)]

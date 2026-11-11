@@ -2,10 +2,12 @@ pub(crate) mod about;
 pub(crate) mod adaptive;
 pub(crate) mod album_grid;
 pub(crate) mod ambient;
+pub(crate) mod animation;
 pub(crate) mod cards;
 pub(crate) mod cells;
 pub(crate) mod confirm;
 pub(crate) mod device_code;
+pub(crate) mod device_menu;
 pub(crate) mod equalizer;
 pub(crate) mod hero;
 pub(crate) mod local;
@@ -18,9 +20,11 @@ pub(crate) mod playlist_editor;
 pub(crate) mod playlist_importer;
 pub(crate) mod popups;
 pub(crate) mod shelves;
+pub(crate) mod soloist;
 pub(crate) mod steps;
 pub(crate) mod tag_editor;
 pub(crate) mod text;
+pub(crate) mod theme_miniature;
 pub(crate) mod track_card;
 pub(crate) mod tracks;
 pub(crate) mod transport;
@@ -60,4 +64,15 @@ pub(crate) fn provider_brand(slug: &str, cx: &gpui::App) -> gpui::Hsla {
         "subsonic" => gpui::rgb(SUBSONIC).into(),
         _ => ui::ActiveTheme::theme(cx).foreground,
     }
+}
+
+/// How much of the foreground text keeps where the theme would grey it over the ambient field.
+/// The theme's grey is about that share of white over the page colour.
+const QUIET: f32 = 0.56;
+
+/// The foreground at `QUIET`, in place of the theme's grey for text over the ambient field:
+/// unsung lyrics, quieter lanes and the artist line. A flat grey stands apart from the colours
+/// behind it, while translucent light takes them on.
+pub(crate) fn quiet(theme: &ui::Theme) -> gpui::Hsla {
+    theme.foreground.opacity(QUIET)
 }

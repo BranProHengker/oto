@@ -334,6 +334,7 @@ fn open_window(cx: &mut App) {
         updates: _,
         usage: _,
         wake: _,
+        soloist: _,
     } = Sonora::global(cx);
     let (session, library, playback, queue) = (
         session.clone(),

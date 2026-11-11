@@ -317,7 +317,7 @@ async fn fetch(http: &Arc<dyn HttpClient>, url: &str) -> Result<Vec<u8>> {
 fn shown(artwork: Option<Arc<Art>>, cx: &App) -> Shown {
     let playback = Sonora::global(cx).playback.read(cx);
     let playing = match playback.steered(cx) {
-        Some(remote) => remote.playing,
+        Some(remote) => remote.state.playing,
         None => matches!(
             playback.state(),
             PlaybackState::Playing | PlaybackState::Loading
@@ -335,7 +335,7 @@ fn shown(artwork: Option<Arc<Art>>, cx: &App) -> Shown {
         None => t!("player-nothing-playing").to_string(),
     };
     let song = track.is_some_and(|track| track.id.is_some());
-    let shuffle_on = Sonora::global(cx).queue.read(cx).shuffle() != state::Shuffle::Off;
+    let shuffle_on = Sonora::global(cx).queue.read(cx).shuffle();
     let repeat_on = playback.repeat() != Repeat::Off;
     Shown {
         artwork,

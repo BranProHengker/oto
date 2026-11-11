@@ -44,8 +44,8 @@ fastrand = "2.5"
 futures = "0.3"
 gethostname = "1.1"
 fluent-bundle = "0.16"
-gpui = { git = "https://github.com/sonorahq/gpui", rev = "6f271bf242b34c174aca298dd40f796995075494" }
-gpui_platform = { git = "https://github.com/sonorahq/gpui", rev = "6f271bf242b34c174aca298dd40f796995075494", features = [
+gpui = { git = "https://github.com/sonorahq/gpui", rev = "74cb5828755316fbdd2d79c2a64cbfc01d867c3d" }
+gpui_platform = { git = "https://github.com/sonorahq/gpui", rev = "74cb5828755316fbdd2d79c2a64cbfc01d867c3d", features = [
   "font-kit",
   "wayland",
   "x11",
@@ -191,6 +191,7 @@ tokio = { version = "1.53", features = [
   "net",
   "io-util",
   "macros",
+  "process",
   "sync",
   "time",
 ] }
@@ -248,6 +249,18 @@ opt-level = 3
 
 [profile.dev.package.rustfft]
 opt-level = 3
+
+[workspace.lints.clippy]
+redundant_clone = "warn"
+needless_collect = "warn"
+dbg_macro = "warn"
+empty_drop = "warn"
+cloned_instead_of_copied = "warn"
+flat_map_option = "warn"
+inefficient_to_string = "warn"
+set_contains_or_insert = "warn"
+branches_sharing_code = "warn"
+collection_is_never_read = "warn"
 
 [profile.dev.package.rusty_aac]
 opt-level = 3

@@ -8,7 +8,7 @@ use gpui::{App, AppContext as _, Context, Entity, Global, Task};
 use music::Track;
 use tokio::sync::mpsc;
 
-use crate::{Cover, Io, Playback, PlaybackState, Queue, Repeat, Shuffle, Sonora, join};
+use crate::{Cover, Io, Playback, PlaybackState, Queue, Repeat, Sonora, join};
 
 #[cfg(any(target_os = "linux", target_os = "freebsd"))]
 mod mpris;
@@ -82,7 +82,6 @@ pub fn attach(hwnd: Option<*mut c_void>, cx: &mut App) {
 pub struct Remote {
     controls: Controls,
     playback: Entity<Playback>,
-    queue: Entity<Queue>,
     cover: Entity<Cover>,
     io: Io,
     shown: Option<String>,
@@ -129,7 +128,6 @@ impl Remote {
         Self {
             controls,
             playback,
-            queue,
             cover,
             io,
             shown: None,
@@ -167,24 +165,27 @@ impl Remote {
                 #[cfg(any(target_os = "linux", target_os = "freebsd"))]
                 Command::Repeat(repeat) => playback.set_repeat(repeat, cx),
                 #[cfg(any(target_os = "linux", target_os = "freebsd"))]
-                Command::Shuffle(on) => {
-                    playback.set_shuffle(if on { Shuffle::On } else { Shuffle::Off }, cx)
-                }
+                Command::Shuffle(on) => playback.set_shuffle(on, cx),
             });
     }
 
     fn publish(&mut self, cx: &mut Context<Self>) {
-        let (state, at, track, volume, repeat) = {
-            let playback = self.playback.read(cx);
-            (
-                playback.state().clone(),
-                playback.position(),
-                playback.track().cloned(),
-                playback.volume(),
-                playback.repeat(),
-            )
+        let playback = self.playback.read(cx);
+        // Desktop media widgets follow the same device the player bar shows. In particular,
+        // Spotify Connect playback can be active on a phone while the local engine is idle.
+        let steered = playback.steered(cx);
+        let state = match steered.as_ref() {
+            Some(steered) => match steered.state.playing {
+                true => PlaybackState::Playing,
+                false => PlaybackState::Paused,
+            },
+            None => playback.state().clone(),
         };
-        let shuffle = self.queue.read(cx).shuffle() != Shuffle::Off;
+        let (at, _) = playback.shown_time(cx);
+        let track = playback.shown_track(cx);
+        let volume = playback.shown_volume(cx);
+        let repeat = playback.shown_repeat(cx);
+        let shuffle = playback.shown_shuffle(cx);
 
         if self.volume != Some(volume) {
             self.volume = Some(volume);
@@ -199,31 +200,30 @@ impl Remote {
             self.controls.set_repeat(repeat);
         }
 
-        let id = track.as_ref().and_then(|track| track.id.as_deref());
-        let cover: Option<String> = track
-            .as_ref()
-            .and_then(|track| self.artwork_url(track, cx))
-            .map(str::to_owned);
+        let track = track.as_ref();
+        let id = track.and_then(|track| track.id.as_deref());
+        let cover = track.and_then(|track| self.artwork_url(track, cx));
         let moved = id != self.shown.as_deref();
-        if moved || cover.as_deref() != self.source.as_deref() {
+        if moved || cover != self.source.as_deref() {
             self.shown = id.map(str::to_owned);
-            self.source = cover.clone();
+            self.source = cover.map(str::to_owned);
             self.artwork = None;
-            let remote = cover.as_deref().is_some_and(is_remote);
+            let remote = cover.is_some_and(is_remote);
             match (moved, remote) {
                 // a remote cover follows once it sits in the cache, and a sharper one for the
                 // track already on show leaves the published thumbnail up until the file lands
                 (false, true) => {}
                 // anything else is a file already
-                _ => self.describe(track.as_ref(), cover.as_deref().filter(|_| !remote), cx),
+                _ => self.describe(track, cover.filter(|_| !remote), cx),
             }
-            if let (Some(track), Some(url), true) = (track.clone(), cover, remote) {
+            if let (Some(track), Some(url), true) = (track, cover, remote) {
+                let (track, url) = (track.clone(), url.to_owned());
                 self.artwork = Some(self.fetch_artwork(track, url, cx));
             }
         }
-        if track.as_ref().map(|track| track.duration) != self.length {
+        if track.map(|track| track.duration) != self.length {
             let art = self.art.take();
-            self.describe(track.as_ref(), art.as_deref(), cx);
+            self.describe(track, art.as_deref(), cx);
         }
 
         if self.reported.as_ref() == Some(&state) && self.at.as_secs() == at.as_secs() {
@@ -234,10 +234,15 @@ impl Remote {
             _ => self.at,
         };
         let jumped = !moved && at.abs_diff(expected) > SEEK_SLACK;
+        let steady = !moved && !jumped && self.reported.as_ref() == Some(&state);
         self.reported = Some(state.clone());
         self.at = at;
         self.stamp = Instant::now();
 
+        // macos runs the clock
+        if cfg!(target_os = "macos") && steady {
+            return;
+        }
         self.controls.set_playback(&state, at);
         if jumped {
             self.controls.seeked(at);

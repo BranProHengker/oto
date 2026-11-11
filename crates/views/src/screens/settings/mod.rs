@@ -12,7 +12,7 @@ use music::SignInPrompt;
 use router::{Destination, SettingsPage, SettingsTab, navigate};
 use state::{
     AppSettings, Drm, Equalizer, Io, Outputs, Playback, Scan, Scrobbling, Session, SessionState,
-    Sleep, Sonora,
+    Sleep, Soloist, Sonora,
 };
 use ui::{
     ActiveTheme as _, Card, Deck, Dismiss, Input, Lazy, Popovers, Scrollbar, ScrubberState,
@@ -107,6 +107,7 @@ enum Slot {
     StreamFormat,
     StreamBitrate,
     Widevine,
+    Soloist,
     OutputDevice,
     OutputFailure,
     SampleRate,
@@ -257,6 +258,7 @@ pub struct SettingsView {
     /// tab is on screen, since tracks are kept and evicted as they play.
     _storage: Task<()>,
     drm: Entity<Drm>,
+    soloist: Entity<Soloist>,
     equalizer: Entity<Equalizer>,
     settings: Entity<AppSettings>,
     outputs: Entity<Outputs>,
@@ -339,9 +341,12 @@ impl SettingsView {
         let settings = Sonora::global(cx).settings.clone();
         let scrobbling = Sonora::global(cx).scrobbling.clone();
         let drm = Sonora::global(cx).drm.clone();
+        let soloist = Sonora::global(cx).soloist.clone();
         let equalizer = Sonora::global(cx).equalizer.clone();
         let outputs = Sonora::global(cx).outputs.clone();
         cx.observe(&drm, |this, _, cx| this.remeasure(cx)).detach();
+        cx.observe(&soloist, |this, _, cx| this.remeasure(cx))
+            .detach();
         cx.observe(&equalizer, |this, _, cx| this.remeasure(cx))
             .detach();
         cx.observe(&outputs, |this, _, cx| this.remeasure(cx))
@@ -448,6 +453,7 @@ impl SettingsView {
             _storage: storage,
             playback,
             drm,
+            soloist,
             equalizer,
             settings,
             outputs,
@@ -878,6 +884,7 @@ impl SettingsView {
             Slot::Sleep => (t!("settings-sleep"), t!("settings-sleep-detail")),
             Slot::StayAwake => (t!("settings-stay-awake"), t!("settings-stay-awake-detail")),
             Slot::Widevine => (t!("settings-widevine"), self.widevine_detail(cx)),
+            Slot::Soloist => (t!("settings-soloist"), t!("settings-soloist-detail")),
             Slot::OutputDevice => (
                 t!("settings-output-device"),
                 t!("settings-output-device-detail"),
@@ -1110,6 +1117,7 @@ impl SettingsView {
             Slot::Buffer => self.buffer_row(cx),
             Slot::MatchRate => self.match_rate_row(cx),
             Slot::Widevine => self.widevine_row(cx),
+            Slot::Soloist => self.soloist_row(cx),
             Slot::Equalizer => self.equalizer_row(cx),
             Slot::LyricsSources => self.lyrics_sources_row(cx),
             Slot::LyricsPriority => self.lyrics_priority(cx),

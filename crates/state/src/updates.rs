@@ -22,6 +22,43 @@ pub const VERSION: &str = match option_env!("OTO_VERSION") {
     None => env!("CARGO_PKG_VERSION"),
 };
 const RUNNING: &str = VERSION;
+
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum Channel {
+    Stable,
+    Nightly,
+}
+
+impl Channel {
+    pub const ALL: [Self; 2] = [Self::Stable, Self::Nightly];
+
+    pub fn running() -> Self {
+        Self::Stable
+    }
+
+    pub fn id(self) -> &'static str {
+        match self {
+            Self::Stable => "stable",
+            Self::Nightly => "nightly",
+        }
+    }
+
+    pub fn from_id(id: &str) -> Self {
+        match id {
+            "nightly" => Self::Nightly,
+            _ => Self::Stable,
+        }
+    }
+}
+
+pub fn updates_itself() -> bool {
+    false
+}
+
+pub fn version() -> &'static str {
+    VERSION
+}
 const INSTALLABLE: bool = cfg!(target_os = "windows");
 const AGENT: &str = concat!(
     "oto/",

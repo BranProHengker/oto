@@ -23,6 +23,8 @@ const FATAL: [LibraryPart; 3] = [
     LibraryPart::Albums,
 ];
 const FATAL_LOCAL: [LibraryPart; 2] = [LibraryPart::Tracks, LibraryPart::Albums];
+/// How often the pins are read again from a provider that does not say when they change.
+const PIN_POLL: Duration = Duration::from_secs(60);
 
 /// Lets a few playlists have their contents or mosaic covers read at a time. A library asks for
 /// all of its playlists at once. Each read holds every track of its playlist until it is cut down,
@@ -1120,6 +1122,9 @@ pub struct Library {
     session: Entity<Session>,
     io: Io,
     playlist_task: Option<Task<()>>,
+    /// Reads the streaming playlists again after one changed elsewhere, without the rest of
+    /// the shelf.
+    relisting: Option<Task<()>>,
     pin_targets_task: Option<Task<()>>,
     pin_task: Option<Task<()>>,
     pin_targets: Option<Vec<music::PinTarget>>,
@@ -1167,6 +1172,7 @@ impl Library {
                     return;
                 }
                 this.playlist_task = None;
+                this.relisting = None;
                 this.pending.clear();
                 this.pending_albums.clear();
                 this.pending_artists.clear();
@@ -1197,6 +1203,7 @@ impl Library {
                 this.reading.clear();
                 this.mosaics.clear();
                 this.playlist_task = None;
+                this.relisting = None;
                 this.pending.clear();
                 this.pending_albums.clear();
                 this.pending_artists.clear();
@@ -1206,11 +1213,7 @@ impl Library {
             }
             // What was loaded stays up, read through the downloads filter.
             SessionEvent::WentOffline => {}
-            SessionEvent::Reconnected => {
-                if matches!(this.held(Shelf::Streaming).state, LibraryState::Failed(_)) {
-                    this.load(Shelf::Streaming, cx);
-                }
-            }
+            SessionEvent::Reconnected => this.refresh(Shelf::Streaming, cx),
             SessionEvent::LocalChanged => {
                 this.epochs[Shelf::Local.slot()] += 1;
                 this.hidden_local_tracks.clear();
@@ -1239,6 +1242,7 @@ impl Library {
             session,
             io,
             playlist_task: None,
+            relisting: None,
             pin_targets_task: None,
             pin_task: None,
             pin_targets: None,
@@ -1426,7 +1430,7 @@ impl Library {
         let Some(client) = self.session.read(cx).client_of(Shelf::Streaming) else {
             return;
         };
-        // Keep a polling response from overwriting the result of this mutation.
+        // Keep an older refresh from overwriting the result of this mutation.
         self.pin_targets_task = None;
         let io = self.io.clone();
         self.pin_task = Some(cx.spawn(async move |this, cx| {
@@ -1468,6 +1472,7 @@ impl Library {
                         done(false, cx);
                     }
                 }
+                // the change stopped the pin reads, which pick up again from here
                 this.sync_pin_targets(cx);
                 cx.notify();
             })
@@ -1476,6 +1481,8 @@ impl Library {
         cx.notify();
     }
 
+    /// Reads the provider's pins. A provider that does not say when they change elsewhere is
+    /// asked again every `PIN_POLL` for as long as the task lives.
     fn sync_pin_targets(&mut self, cx: &mut Context<Self>) {
         if self.pin_pending() {
             return;
@@ -1484,6 +1491,7 @@ impl Library {
         let Some(client) = self.session.read(cx).client_of(Shelf::Streaming) else {
             return;
         };
+        let live = client.connect().is_some();
         let io = self.io.clone();
         self.pin_targets_task = Some(cx.spawn(async move |this, cx| {
             loop {
@@ -1502,12 +1510,11 @@ impl Library {
                         }
                     })
                     .is_err()
+                    || live
                 {
                     break;
                 }
-                cx.background_executor()
-                    .timer(Duration::from_secs(60))
-                    .await;
+                cx.background_executor().timer(PIN_POLL).await;
             }
         }));
     }
@@ -1700,10 +1707,16 @@ impl Library {
     ) {
         let gone = Gone::LibraryTrack(track.clone());
         track.stamp_added();
-        self.set_in_library(MediaKind::Track, present, gone, cx, move |ready| {
-            ready.tracks.retain(|known| known.id != track.id);
-            if present {
-                ready.tracks.insert(0, track);
+        self.set_in_library(MediaKind::Track, present, gone, cx, move |this, shelf| {
+            if let Some(ready) = this.held_mut(shelf).ready_mut() {
+                ready.tracks.retain(|known| known.id != track.id);
+                if present {
+                    ready.tracks.insert(0, track);
+                    return;
+                }
+            }
+            if !present {
+                this.set_saved(track, false);
             }
         });
     }
@@ -1716,25 +1729,33 @@ impl Library {
     ) {
         let gone = Gone::LibraryAlbum(album.clone());
         album.stamp_added();
-        self.set_in_library(MediaKind::Album, present, gone, cx, move |ready| {
-            ready.albums.retain(|known| known.id != album.id);
-            if present {
-                ready.albums.insert(0, album);
+        self.set_in_library(MediaKind::Album, present, gone, cx, move |this, shelf| {
+            if let Some(ready) = this.held_mut(shelf).ready_mut() {
+                ready.albums.retain(|known| known.id != album.id);
+                if present {
+                    ready.albums.insert(0, album);
+                    return;
+                }
+            }
+            if !present {
+                this.set_album_saved(album, false);
             }
         });
     }
 
     /// Asks the provider to put one item into its library or take it out, and applies
-    /// `place` to the shelf's pages once it agrees, so they follow without a reload. A second
-    /// ask about the same item while the first is out is dropped. A removal is reported with
-    /// an Undo that puts `gone` back, and removals in the same turn share one toast.
+    /// `place` once it agrees, so the shelf's pages follow without a reload. A favorite on a
+    /// `Catalog::Editable` provider is a mark on the library item, so `place` also drops the
+    /// favorite of an item that left. A second ask about the same item while the first is out
+    /// is dropped. A removal is reported with an Undo that puts `gone` back, and removals in the
+    /// same turn share one toast.
     fn set_in_library(
         &mut self,
         kind: MediaKind,
         present: bool,
         gone: Gone,
         cx: &mut Context<Self>,
-        place: impl FnOnce(&mut Ready) + 'static,
+        place: impl FnOnce(&mut Self, Shelf) + 'static,
     ) {
         let Some(id) = gone.id().map(str::to_owned) else {
             return;
@@ -1759,9 +1780,7 @@ impl Library {
                 this.pending_library.remove(&answered);
                 match result {
                     Ok(()) => {
-                        if let Some(ready) = this.held_mut(shelf).ready_mut() {
-                            place(ready);
-                        }
+                        place(this, shelf);
                         match sweep {
                             Some(sweep) => this.answer(sweep, Some(gone), cx),
                             None => Toasts::show(Outcome::Done, "toast-library-added", cx),
@@ -1891,15 +1910,8 @@ impl Library {
                     Playlist {
                         id,
                         name,
-                        owner: String::new(),
-                        owner_id: String::new(),
                         owned: true,
-                        collaborative: false,
-                        blend: false,
-                        public: false,
-                        cover: None,
-                        track_count: 0,
-                        modified_at: None,
+                        ..Default::default()
                     }
                 }))
             },
@@ -2261,8 +2273,8 @@ impl Library {
     }
 
     /// Reports a move in one toast. Its Undo takes the track back out of the playlist, unless
-    /// the playlist `held` it already, and puts it back where it came from. A track the
-    /// playlist held already was not added afresh, so the Undo leaves it alone.
+    /// the playlist `held` it already, and puts it back where it came from. A track that left
+    /// nothing was only added, and is reported that way.
     fn raise_move(
         &mut self,
         playlist_id: String,
@@ -2763,6 +2775,7 @@ impl Library {
             .then_some(playlist.track_count)
     }
 
+    /// Whether the listener may change the playlist `id`: one they own or collaborate on.
     pub fn is_editable(&self, id: &str) -> bool {
         self.playlist(id)
             .is_some_and(|playlist| playlist.owned || playlist.collaborative)
@@ -3046,6 +3059,65 @@ impl Library {
         }
     }
 
+    /// Drops what is cached for the playlists another client changed, so their pages read
+    /// again. A change to the library's own lists reloads the streaming shelf, while a change
+    /// inside a playlist only reads the playlist list again for its name, cover and count.
+    pub(crate) fn changed_elsewhere(
+        &mut self,
+        playlists: HashSet<String>,
+        listed: bool,
+        cx: &mut Context<Self>,
+    ) {
+        for id in playlists {
+            self.reading.remove(&id);
+            self.contents.remove(&id);
+            cx.emit(LibraryEvent::PlaylistChanged(id));
+        }
+        match listed {
+            true => self.refresh(Shelf::Streaming, cx),
+            false => {
+                // a change that only names a playlist may still have moved the pins
+                self.sync_pin_targets(cx);
+                self.relist(cx);
+            }
+        }
+    }
+
+    /// Reads the streaming shelf's playlists again and leaves its other parts as they are. A
+    /// shelf still loading brings its playlists anyway, so nothing more is asked of it.
+    fn relist(&mut self, cx: &mut Context<Self>) {
+        let Some(client) = self.session.read(cx).client_of(Shelf::Streaming) else {
+            return;
+        };
+        let held = self.held_mut(Shelf::Streaming);
+        if !matches!(held.state, LibraryState::Ready(_))
+            || held.awaited.contains(&LibraryPart::Playlists)
+        {
+            return;
+        }
+        held.stale.insert(LibraryPart::Playlists);
+        self.relisting = Some(self.io.load(
+            async move { client.playlists().await },
+            |this, loaded, cx| {
+                this.relisting = None;
+                // a failed read leaves the playlists on screen as they were, with no problem
+                // noted that only a full refresh would clear
+                match loaded {
+                    Ok(playlists) => {
+                        this.land(Shelf::Streaming, Landed::Playlists(Ok(playlists)), cx)
+                    }
+                    Err(error) => {
+                        log::warn!("library: cannot read the changed playlists: {error:#}");
+                        this.held_mut(Shelf::Streaming)
+                            .stale
+                            .remove(&LibraryPart::Playlists);
+                    }
+                }
+            },
+            cx,
+        ));
+    }
+
     /// Loads a shelf again from its provider. A shelf that is showing rows keeps them, each part
     /// until all of its new rows have arrived, and its old problems are dropped so the fresh rows
     /// can be snapshotted.
@@ -3063,7 +3135,8 @@ impl Library {
 
     /// Drops what a shelf shows and loads it again from its provider, so the page goes back to
     /// its loading state until the new rows land. This is the Refresh a user asks for, while
-    /// `refresh` is the quiet one that keeps rows on screen.
+    /// `refresh` is the quiet one that keeps rows on screen. The local shelf is only as fresh as
+    /// the last scan, so its folders are scanned again first and the shelf loads once that lands.
     pub fn reload(&mut self, shelf: Shelf, cx: &mut Context<Self>) {
         self.held_mut(shelf).stale.clear();
         match shelf {
@@ -3085,6 +3158,10 @@ impl Library {
     /// filter shows what it showed before rather than nothing. Edits in flight carry on through a
     /// load; only a new sign-in drops them.
     fn load(&mut self, shelf: Shelf, cx: &mut Context<Self>) {
+        // a full load lands the playlists too, and two of them would list each one twice
+        if shelf == Shelf::Streaming {
+            self.relisting = None;
+        }
         let session = self.session.read(cx);
         let Some(client) = session.client_of(shelf) else {
             return;
@@ -3127,7 +3204,7 @@ impl Library {
                 Landed::Tracks,
                 cx,
             ),
-            self.fetch(
+            self.io.load(
                 async move { playlists.playlists().await },
                 move |this, loaded, cx| this.land(shelf, Landed::Playlists(loaded), cx),
                 cx,
@@ -3161,17 +3238,17 @@ impl Library {
             let tracks = client.clone();
             let albums = client.clone();
             tasks.extend([
-                self.fetch(
+                self.io.load(
                     async move { tracks.saved_tracks().await },
                     move |this, loaded, cx| this.land_starred(shelf, Landed::Tracks(loaded), cx),
                     cx,
                 ),
-                self.fetch(
+                self.io.load(
                     async move { albums.saved_albums().await },
                     move |this, loaded, cx| this.land_starred(shelf, Landed::Albums(loaded), cx),
                     cx,
                 ),
-                self.fetch(
+                self.io.load(
                     async move { client.saved_artists().await },
                     move |this, loaded, cx| this.land_starred(shelf, Landed::Artists(loaded), cx),
                     cx,
@@ -3179,19 +3256,6 @@ impl Library {
             ]);
         }
         self.held_mut(shelf).tasks = tasks;
-    }
-
-    fn fetch<T, R, A>(&self, work: R, apply: A, cx: &mut Context<Self>) -> Task<()>
-    where
-        R: Future<Output = anyhow::Result<T>> + Send + 'static,
-        T: Send + 'static,
-        A: FnOnce(&mut Self, anyhow::Result<T>, &mut Context<Self>) + 'static,
-    {
-        let io = self.io.clone();
-        cx.spawn(async move |this, cx| {
-            let loaded = join(io.spawn(work)).await;
-            this.update(cx, |this, cx| apply(this, loaded, cx)).ok();
-        })
     }
 
     /// Loads one part a page at a time. A part with nothing primed shows each page as it lands

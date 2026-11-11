@@ -14,14 +14,17 @@ use i18n::t;
 use input::{ShowMembers, ToggleFullscreen, ToggleLyrics, ToggleQueue};
 use state::{AppSettings, Playback, PlayerBarLayout, Queue, SideTab, Sonora};
 use ui::{
-    Artwork, Button, ExplicitBadge, InlineLink, InlineLinks, Popup, Room, Scrollbar, Scrubber,
-    ScrubberState, clock, tabular,
+    Artwork, Button, ExplicitBadge, Flight, InlineLink, InlineLinks, Pinnable, Popup, Room,
+    Scrollbar, Scrubber, ScrubberState, clock, tabular,
 };
 
 use crate::chrome::sessions_button::SessionsButton;
 use crate::chrome::{Chrome, SidebarRight};
 use crate::shared::menus::ItemMenu;
-use crate::shared::transport::{NOTCH, fraction, like, moved, percent, transport, volume_icon};
+use crate::shared::pins::Pinned as _;
+use crate::shared::transport::{
+    COVER_FLIGHT, CoverAway, NOTCH, fraction, like, moved, percent, transport, volume_icon,
+};
 
 const SEEK_MAX: f32 = 560.;
 const VOLUME_WIDTH: f32 = 110.;
@@ -31,7 +34,6 @@ const CLOCK_LONG: f32 = 5.4;
 
 pub(crate) struct PlayerBar {
     playback: Entity<Playback>,
-    queue: Entity<Queue>,
     settings: Entity<AppSettings>,
     track_menu: ItemMenu,
     sessions: Entity<SessionsButton>,
@@ -62,7 +64,6 @@ impl PlayerBar {
 
         Self {
             playback,
-            queue,
             settings,
             track_menu: ItemMenu::new(playlist_scrollbar, cx),
             sessions,
@@ -206,9 +207,13 @@ impl PlayerBar {
 
     fn side_buttons(&mut self, cx: &mut Context<Self>) -> AnyElement {
         let theme = *cx.theme();
-        let (open, tab) = {
+        let (open, tab, lyrics) = {
             let settings = self.settings.read(cx);
-            (settings.sidebar_right_open(), settings.sidebar_right_tab())
+            (
+                settings.sidebar_right_open(),
+                settings.sidebar_right_tab(),
+                settings.lyrics_enabled(),
+            )
         };
 
         let button = move |id: &'static str, icon: &'static str, hint: &'static str, side| {
@@ -239,12 +244,14 @@ impl PlayerBar {
             .flex_none()
             .items_center()
             .gap_1()
-            .child(button(
-                "player-lyrics",
-                "icons/mic-vocal.svg",
-                "lyrics-title",
-                SideTab::Lyrics,
-            ))
+            .when(lyrics, |this| {
+                this.child(button(
+                    "player-lyrics",
+                    "icons/mic-vocal.svg",
+                    "lyrics-title",
+                    SideTab::Lyrics,
+                ))
+            })
             .child(button(
                 "player-queue",
                 "icons/list-music.svg",
@@ -297,6 +304,7 @@ impl PlayerBar {
             },
             window,
         );
+        let away = cx.try_global::<CoverAway>().is_some_and(|away| away.0);
         let shown = self.playback.read(cx).shown_track(cx);
         let track = shown.as_ref();
         let cover = track.and_then(|track| track.cover.clone());
@@ -306,6 +314,7 @@ impl PlayerBar {
         });
         div()
             .id("now-playing-artwork")
+            .when_some(track.and_then(|track| track.pin()), Pinnable::pin)
             .when_some(
                 track.and_then(|track| track.album_id.clone()),
                 |this, album| this.link(Destination::Album(album.into())),
@@ -320,7 +329,17 @@ impl PlayerBar {
                     }),
                 )
             })
-            .child(Artwork::new(cover).size(artwork))
+            .child(
+                // The fullscreen player's cover flies to and from this one, which stays undrawn
+                // while that one is in the air.
+                Flight::new(
+                    "now-playing-cover",
+                    div()
+                        .when(away, |this| this.invisible())
+                        .child(Artwork::new(cover).size(artwork)),
+                )
+                .seen_as(COVER_FLIGHT),
+            )
             .flex_none()
     }
 
@@ -336,6 +355,7 @@ impl PlayerBar {
         let title = match track {
             Some(track) => div()
                 .id("now-playing-track")
+                .when_some(track.pin(), Pinnable::pin)
                 .map(|this| match track.album_id.clone() {
                     Some(album_id) => this
                         .aria_label(SharedString::from(track.name.clone()))
@@ -609,7 +629,7 @@ impl Render for PlayerBar {
                         .gap_2()
                         .w_full()
                         .child(self.now_playing(show_track, window, cx))
-                        .child(transport(&self.playback, &self.queue, false, cx)),
+                        .child(transport(&self.playback, false, cx)),
                 )
                 .child(
                     div()
@@ -635,7 +655,7 @@ impl Render for PlayerBar {
                         .items_center()
                         .gap_3()
                         .child(self.artwork(window, cx))
-                        .child(transport(&self.playback, &self.queue, false, cx)),
+                        .child(transport(&self.playback, false, cx)),
                 )
                 .child(
                     div()
@@ -669,7 +689,7 @@ impl Render for PlayerBar {
                     self.now_playing(show_track, window, cx)
                         .max_w(theme.metrics.cover * 1.6),
                 )
-                .child(transport(&self.playback, &self.queue, false, cx))
+                .child(transport(&self.playback, false, cx))
                 .child(div().flex_1().min_w_0().child(seek))
                 .child(buttons)
                 .child(self.sound(px(VOLUME_WIDTH), cx))
@@ -687,7 +707,7 @@ impl Render for PlayerBar {
                         .flex_1()
                         .min_w_0()
                         .max_w(px(SEEK_MAX))
-                        .child(transport(&self.playback, &self.queue, false, cx))
+                        .child(transport(&self.playback, false, cx))
                         .child(seek),
                 )
                 .child(
