@@ -76,7 +76,8 @@ modules:
 
       # Collect info as suggested by: https://v2.tauri.app/distribute/flatpak/
       # Install binary to /app/bin
-      - install -Dm755 "target/release/sonora" /app/bin/sonora
+      - install -Dm755 "target/release/oto" /app/bin/sonora
+      - ln -sf sonora /app/bin/oto
 
       # Install desktop icons
       - for icon in assets/linux/icons/hicolor/*/apps/sonora.png; do install -Dm644 "$icon" "/app/share/icons/hicolor/$(basename "$(dirname "$(dirname "$icon")")")/apps/io.github.nolight132.sonora.png"; done
