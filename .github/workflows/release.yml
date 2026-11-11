@@ -56,13 +56,17 @@ jobs:
       - name: system dependencies
         if: runner.os == 'Linux'
         run: |
-          for i in 1 2 3; do sudo apt-get update && break || sleep 5; done
-          sudo apt-get install -y --no-install-recommends --fix-missing \
-            build-essential pkg-config cmake mold \
-            libasound2-dev libfontconfig1-dev libfreetype-dev libsqlite3-dev \
-            libx11-dev libxcb1-dev libxcursor-dev libxi-dev \
-            libxkbcommon-dev libxkbcommon-x11-dev libwayland-dev \
-            libvulkan-dev libdbus-1-dev
+          sudo sh -c 'printf "nameserver 8.8.8.8\nnameserver 1.1.1.1\n" > /tmp/resolv.conf && cat /etc/resolv.conf >> /tmp/resolv.conf && cp /tmp/resolv.conf /etc/resolv.conf' || true
+          sudo sed -i 's/azure\.archive\.ubuntu\.com/archive\.ubuntu\.com/g' /etc/apt/sources.list || true
+          for i in 1 2 3; do sudo DEBIAN_FRONTEND=noninteractive apt-get update && break || sleep 5; done
+          for i in 1 2 3; do
+            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends --fix-missing \
+              build-essential pkg-config cmake mold \
+              libasound2-dev libfontconfig1-dev libfreetype-dev libsqlite3-dev \
+              libx11-dev libxcb1-dev libxcursor-dev libxi-dev \
+              libxkbcommon-dev libxkbcommon-x11-dev libwayland-dev \
+              libvulkan-dev libdbus-1-dev && break || sleep 5
+          done
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -79,8 +83,11 @@ jobs:
 
       - name: sccache stats
         if: always()
-        continue-on-error: true
-        run: sccache --show-stats
+        shell: bash
+        run: |
+          if command -v sccache >/dev/null 2>&1; then
+            sccache --show-stats
+          fi
       - name: stage the executable
         shell: bash
         env:
@@ -321,13 +328,17 @@ jobs:
       # excludelist decides which of them stay behind and come from the host instead.
       - name: system dependencies
         run: |
-          for i in 1 2 3; do sudo apt-get update && break || sleep 5; done
-          sudo apt-get install -y --no-install-recommends --fix-missing \
-            patchelf file desktop-file-utils \
-            libasound2 libfontconfig1 libfreetype6 libsqlite3-0 \
-            libx11-6 libxcb1 libxcursor1 libxi6 \
-            libxkbcommon0 libxkbcommon-x11-0 libwayland-client0 \
-            libvulkan1 libdbus-1-3
+          sudo sh -c 'printf "nameserver 8.8.8.8\nnameserver 1.1.1.1\n" > /tmp/resolv.conf && cat /etc/resolv.conf >> /tmp/resolv.conf && cp /tmp/resolv.conf /etc/resolv.conf' || true
+          sudo sed -i 's/azure\.archive\.ubuntu\.com/archive\.ubuntu\.com/g' /etc/apt/sources.list || true
+          for i in 1 2 3; do sudo DEBIAN_FRONTEND=noninteractive apt-get update && break || sleep 5; done
+          for i in 1 2 3; do
+            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends --fix-missing \
+              patchelf file desktop-file-utils \
+              libasound2 libfontconfig1 libfreetype6 libsqlite3-0 \
+              libx11-6 libxcb1 libxcursor1 libxi6 \
+              libxkbcommon0 libxkbcommon-x11-0 libwayland-client0 \
+              libvulkan1 libdbus-1-3 && break || sleep 5
+          done
 
       - name: fetch the AppImage tools
         run: |
