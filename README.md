@@ -18,26 +18,58 @@
   <table>
     <tr>
       <td colspan="2">
+        <p align="center"><b>Fullscreen Karaoke & Furigana Sweep (Ruby Annotations + Ambient Glow)</b></p>
         <img alt="Oto Fullscreen Lyrics View" src="./.github/screenshots/fullscreen.jpg" />
       </td>
     </tr>
     <tr>
       <td width="50%">
-        <img alt="Oto Local Library - Catppuccin Mocha" src="./.github/screenshots/theme-mocha.jpg" />
+        <p align="center"><b>Local Albums Grid & Artwork</b></p>
+        <img alt="Oto Local Albums Grid" src="./.github/screenshots/albums.jpg" />
       </td>
       <td width="50%">
-        <img alt="Oto Local Library - Nord" src="./.github/screenshots/theme-nord.jpg" />
+        <p align="center"><b>High-Density Tracklist & Playback (Catppuccin Mocha)</b></p>
+        <img alt="Oto Local Library Tracklist" src="./.github/screenshots/playlist.jpg" />
       </td>
     </tr>
     <tr>
       <td width="50%">
-        <img alt="Oto Local Library - Rosé Pine Moon" src="./.github/screenshots/theme-rose-pine.jpg" />
+        <p align="center"><b>Audio Engine, Resampling & Output Chain</b></p>
+        <img alt="Oto Audio Engine Settings" src="./.github/screenshots/settings.jpg" />
       </td>
       <td width="50%">
-        <img alt="Oto Local Library - Gruvbox Dark" src="./.github/screenshots/theme-gruvbox.jpg" />
+        <p align="center"><b>Built-in LRC Studio & Romaji Synchronization</b></p>
+        <img alt="Oto Built-in LRC Studio" src="./.github/screenshots/lrc-studio.jpg" />
       </td>
     </tr>
   </table>
+
+  <details>
+    <summary><b>🎨 Theme Variants Showcase (Click to expand)</b></summary>
+    <br/>
+    <table>
+      <tr>
+        <td width="50%">
+          <p align="center"><b>Catppuccin Mocha</b></p>
+          <img alt="Theme - Catppuccin Mocha" src="./.github/screenshots/theme-mocha.jpg" />
+        </td>
+        <td width="50%">
+          <p align="center"><b>Nord</b></p>
+          <img alt="Theme - Nord" src="./.github/screenshots/theme-nord.jpg" />
+        </td>
+      </tr>
+      <tr>
+        <td width="50%">
+          <p align="center"><b>Rosé Pine Moon</b></p>
+          <img alt="Theme - Rosé Pine Moon" src="./.github/screenshots/theme-rose-pine.jpg" />
+        </td>
+        <td width="50%">
+          <p align="center"><b>Gruvbox Dark</b></p>
+          <img alt="Theme - Gruvbox Dark" src="./.github/screenshots/theme-gruvbox.jpg" />
+        </td>
+      </tr>
+    </table>
+  </details>
 </div>
 
 > [!NOTE]

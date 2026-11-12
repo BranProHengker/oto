@@ -79,6 +79,11 @@ pub enum Screen {
     Playlists,
     Artists,
     Imported,
+    LocalAlbums,
+    Fullscreen,
+    SettingsSound,
+    SettingsLrcStudio,
+    SettingsGeneral,
 }
 
 impl Screen {
@@ -103,6 +108,11 @@ impl Screen {
             Self::Playlists => "playlists",
             Self::Artists => "artists",
             Self::Imported => "imported",
+            Self::LocalAlbums => "local-albums",
+            Self::Fullscreen => "fullscreen",
+            Self::SettingsSound => "settings-sound",
+            Self::SettingsLrcStudio => "settings-lrc-studio",
+            Self::SettingsGeneral => "settings-general",
         }
     }
 
@@ -116,11 +126,31 @@ impl Screen {
             Self::Playlists => "nav-playlists",
             Self::Artists => "nav-artists",
             Self::Imported => "nav-local",
+            Self::LocalAlbums => "nav-albums",
+            Self::Fullscreen => "settings-page-now-playing",
+            Self::SettingsSound => "settings-page-sound",
+            Self::SettingsLrcStudio => "settings-page-lrc-studio",
+            Self::SettingsGeneral => "settings-page-general",
         }
     }
 
     pub fn from_id(id: &str) -> Option<Self> {
-        Self::ALL.into_iter().find(|screen| screen.id() == id)
+        match id {
+            "home" => Some(Self::Home),
+            "search" => Some(Self::Search),
+            "history" => Some(Self::History),
+            "songs" => Some(Self::Songs),
+            "albums" => Some(Self::Albums),
+            "playlists" => Some(Self::Playlists),
+            "artists" => Some(Self::Artists),
+            "imported" => Some(Self::Imported),
+            "local-albums" => Some(Self::LocalAlbums),
+            "fullscreen" => Some(Self::Fullscreen),
+            "settings-sound" => Some(Self::SettingsSound),
+            "settings-lrc-studio" => Some(Self::SettingsLrcStudio),
+            "settings-general" => Some(Self::SettingsGeneral),
+            _ => None,
+        }
     }
 
     /// Whether the screen shows account library data, and so stays empty in guest mode.
@@ -134,6 +164,11 @@ impl Screen {
             Self::Playlists => true,
             Self::Artists => true,
             Self::Imported => false,
+            Self::LocalAlbums => false,
+            Self::Fullscreen => false,
+            Self::SettingsSound => false,
+            Self::SettingsLrcStudio => false,
+            Self::SettingsGeneral => false,
         }
     }
 
@@ -147,6 +182,11 @@ impl Screen {
             Self::Playlists => Destination::Library(LibraryTab::Playlists),
             Self::Artists => Destination::Library(LibraryTab::Artists),
             Self::Imported => Destination::Local(LibraryTab::Songs),
+            Self::LocalAlbums => Destination::Local(LibraryTab::Albums),
+            Self::Fullscreen => Destination::Fullscreen,
+            Self::SettingsSound => Destination::Settings(SettingsPage::Sound),
+            Self::SettingsLrcStudio => Destination::Settings(SettingsPage::LrcStudio),
+            Self::SettingsGeneral => Destination::Settings(SettingsPage::General),
         }
     }
 }
