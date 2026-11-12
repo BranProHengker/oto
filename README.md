@@ -18,15 +18,23 @@
   <table>
     <tr>
       <td colspan="2">
-        <img alt="Oto Fullscreen View" src="./.github/screenshots/fullscreen.jpg" />
+        <img alt="Oto Fullscreen Lyrics View" src="./.github/screenshots/fullscreen.jpg" />
       </td>
     </tr>
     <tr>
       <td width="50%">
-        <img alt="Oto Playlist View" src="./.github/screenshots/playlist.jpg" />
+        <img alt="Oto Local Library - Catppuccin Mocha" src="./.github/screenshots/theme-mocha.jpg" />
       </td>
       <td width="50%">
-        <img alt="Oto Local Songs & Synced Lyrics" src="./.github/screenshots/lyrics.jpg" />
+        <img alt="Oto Local Library - Nord" src="./.github/screenshots/theme-nord.jpg" />
+      </td>
+    </tr>
+    <tr>
+      <td width="50%">
+        <img alt="Oto Local Library - Rosé Pine Moon" src="./.github/screenshots/theme-rose-pine.jpg" />
+      </td>
+      <td width="50%">
+        <img alt="Oto Local Library - Gruvbox Dark" src="./.github/screenshots/theme-gruvbox.jpg" />
       </td>
     </tr>
   </table>
@@ -58,6 +66,41 @@
 - **Audio Engine**: Automix crossfade with DJ bass dip, 5-second relative seek shortcuts (`Shift + Arrows`), gapless playback, audio loudness normalization, parametric equalizer, sleep timer, and unlimited cache option.
 - **Audio Scrobbler**: Built-in support for LastFM, ListenBrainz, LibreFM, and Maloja.
 - **Extensive Theming**: Dynamic adaptive palettes, blur/vibrancy, font adjustments, and interchangeable icon packs.
+
+---
+
+## Keyboard Shortcuts
+
+| Shortcut | Action |
+| :--- | :--- |
+| <kbd>Space</kbd> | Play / Pause |
+| <kbd>f</kbd> | Toggle Fullscreen Lyrics & Karaoke view |
+| <kbd>Shift</kbd> + <kbd>→</kbd> / <kbd>←</kbd> | Seek forward / backward by 5 seconds |
+| <kbd>Ctrl</kbd> + <kbd>→</kbd> / <kbd>←</kbd> | Next / Previous track |
+| <kbd>Ctrl</kbd> + <kbd>↑</kbd> / <kbd>↓</kbd> | Volume Up / Down |
+| <kbd>Ctrl</kbd> + <kbd>,</kbd> | Open Settings |
+| <kbd>Ctrl</kbd> + <kbd>k</kbd> | Focus Search bar |
+| <kbd>Escape</kbd> | Exit Fullscreen / Close modal dialog |
+
+---
+
+## CLI Control
+
+Oto can be controlled directly from scripts, keybinds, or terminal:
+
+```sh
+# Playback
+oto play "/path/to/song.flac"   # Play file immediately
+oto toggle                     # Play / Pause toggle
+oto next                       # Skip to next track
+oto prev                       # Previous track
+oto seek 1:30                  # Jump to timestamp (or +10 / -10)
+oto volume 75                  # Set volume percentage
+
+# Status inspection
+oto current                    # Output current track & state as JSON
+oto watch                      # Stream playback state changes live
+```
 
 ---
 
