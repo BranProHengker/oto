@@ -22,10 +22,10 @@ use state::{
     Sonora, Whence,
 };
 use ui::{
-    ActiveTheme as _, Avatar, Button, Card, DraggedPin, Edge, Initials, Motion, Motioned as _,
-    PREFETCH_REACH, Pin, Pinnable as _, Popup, Scrollbar, Scroller, Spot, Springs, Tails as _,
-    Text, Vacancy, drop_gap, drop_marker, ease_out_cubic, ease_out_expo, eyebrow, faint, mix,
-    prefetch, snapped, vacant,
+    ActiveTheme as _, Avatar, Button, Card, DraggedPin, Edge, Initials, Menu, MenuItem, Motion,
+    Motioned as _, PREFETCH_REACH, Pin, Pinnable as _, Popup, Scrollbar, Scroller, Spot, Springs,
+    Tails as _, Text, Vacancy, drop_gap, drop_marker, ease_out_cubic, ease_out_expo, eyebrow,
+    faint, mix, prefetch, snapped, vacant,
 };
 use unicode_bidi::{BidiClass, Direction};
 
@@ -223,6 +223,7 @@ pub(crate) struct Aside {
     /// When the verses were last followed, which tells a sheet that was off screen for a while.
     drawn: std::time::Instant,
     context_menu: Option<ContextMenuState>,
+    lyrics_menu: Option<Point<Pixels>>,
     track_menu: ItemMenu,
     drop_gap: Option<usize>,
     scroll: UniformListScrollHandle,
@@ -371,6 +372,7 @@ impl Aside {
             showed: false,
             resolving: false,
             credit: None,
+            lyrics_menu: None,
             laid: Rc::new(Cell::new(false)),
             sheet_layout: None,
             settled: Vec::new(),
@@ -663,6 +665,18 @@ impl Aside {
     fn dismiss_menu(&mut self, cx: &mut Context<Self>) {
         self.track_menu.reset(cx);
         self.context_menu = None;
+        self.lyrics_menu = None;
+        cx.notify();
+    }
+
+    fn open_lyrics_menu(&mut self, position: Point<Pixels>, cx: &mut Context<Self>) {
+        self.context_menu = None;
+        self.lyrics_menu = Some(position);
+        cx.notify();
+    }
+
+    fn dismiss_lyrics_menu(&mut self, cx: &mut Context<Self>) {
+        self.lyrics_menu = None;
         cx.notify();
     }
 
@@ -837,6 +851,200 @@ impl Aside {
         Some(
             Popup::new(position, self.track_menu.for_track(&track, cx))
                 .on_close(cx.listener(|this, _, _, cx| this.dismiss_menu(cx))),
+        )
+    }
+
+    fn lyrics_popup(&self, window: &Window, cx: &mut Context<Self>) -> Option<impl IntoElement> {
+        let position = self.lyrics_menu?;
+        let lyrics = self.lyrics.read(cx);
+        let hits = lyrics.hits();
+        let chosen = lyrics.chosen();
+
+        let theme = *cx.theme();
+        let mut menu = Menu::new("lyrics-provider-picker");
+        let header = eyebrow(t!("lyrics-providers-header"), cx).px_3().py_1();
+        menu = menu.header(header);
+
+        let lyrics_entity = self.lyrics.clone();
+        let mut seen_providers = std::collections::HashSet::new();
+
+        for (index, hit) in hits.iter().enumerate() {
+            seen_providers.insert(hit.source.to_string());
+            let is_current = index == chosen;
+            let status = match (hit.lyrics.worded(), hit.lyrics.synced(), is_current) {
+                (true, _, true) => t!("lyrics-provider-karaoke-in-use"),
+                (true, _, false) => t!("lyrics-provider-karaoke"),
+                (_, true, true) => t!("lyrics-provider-line-synced-in-use"),
+                (_, true, false) => t!("lyrics-provider-line-synced"),
+                (_, false, true) => t!("lyrics-provider-plain-text-in-use"),
+                (_, false, false) => t!("lyrics-provider-plain-text"),
+            };
+
+            let dot = div().size(px(6.)).rounded_full().bg(theme.primary);
+
+            let trailing = div()
+                .text_size(theme.text(Text::Small))
+                .text_color(theme.muted_foreground)
+                .child(status);
+
+            let lyrics_entity = lyrics_entity.clone();
+            let item = MenuItem::new(format!("lyrics-provider-{index}"), hit.source)
+                .leading(dot)
+                .trailing(trailing)
+                .checked(is_current)
+                .on_click(move |_, _, cx| {
+                    lyrics_entity.update(cx, |lyrics, cx| {
+                        lyrics.choose(index, cx);
+                    });
+                });
+            menu = menu.item(item);
+        }
+
+        let mut listed = seen_providers;
+        for provider in lyrics.priority().iter().chain(lyrics.enabled_providers()) {
+            if listed.insert(provider.clone()) {
+                let dot = div().size(px(6.)).rounded_full().bg(theme.danger);
+
+                let trailing = div()
+                    .text_size(theme.text(Text::Small))
+                    .text_color(theme.muted_foreground)
+                    .child(t!("lyrics-provider-not-found"));
+
+                let item = MenuItem::new(format!("lyrics-miss-{provider}"), provider.clone())
+                    .leading(dot)
+                    .trailing(trailing)
+                    .disabled();
+                menu = menu.item(item);
+            }
+        }
+
+        if lyrics.current().is_some() {
+            let sep = MenuItem::separator("lyrics-save-separator");
+            menu = menu.item(sep);
+
+            let aside_entity = cx.entity().clone();
+            let save_item = MenuItem::new("lyrics-save-beside-song", t!("lyrics-save-beside-song"))
+                .icon("icons/download.svg")
+                .on_click(move |_, _, cx| {
+                    aside_entity.update(cx, |aside, cx| {
+                        aside.save_current_lyrics_beside_song(cx);
+                    });
+                });
+            menu = menu.item(save_item);
+        }
+
+        let mut popup = Popup::new(position, menu);
+        if position.y > window.viewport_size().height / 2. {
+            popup = popup.above();
+        }
+
+        Some(popup.on_close(cx.listener(|this, _, _, cx| this.dismiss_lyrics_menu(cx))))
+    }
+
+    fn save_current_lyrics_beside_song(&self, cx: &mut App) {
+        let (hit, track) = {
+            let lyrics = self.lyrics.read(cx);
+            let playback = self.playback.read(cx);
+            (lyrics.current().cloned(), playback.track().cloned())
+        };
+
+        let Some(hit) = hit else {
+            return;
+        };
+        let Some(track) = track else {
+            return;
+        };
+        let track_id = track.id.as_deref();
+
+        let format = self.settings.read(cx).lyrics_save_format();
+        let (content, ext) = music::format_lyrics(&hit.lyrics, hit.source, format);
+
+        let target =
+            if let Some(local_path) = track_id.and_then(music::path_from_track_id) {
+                local_path.with_extension(ext)
+            } else {
+                let filename = format!("{} - {}.{}", track.artists, track.name, ext);
+                let safe_filename =
+                    filename.replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], "_");
+                let dest_dir = dirs::audio_dir()
+                    .or_else(dirs::download_dir)
+                    .unwrap_or_else(|| std::path::PathBuf::from("."));
+                dest_dir.join(&safe_filename)
+            };
+
+        match std::fs::write(&target, &content) {
+            Ok(_) => {
+                let filename = target
+                    .file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .to_string();
+                state::Toasts::post(
+                    state::Toast::new(state::Outcome::Done, "toast-lyrics-saved").name(filename),
+                    cx,
+                );
+            }
+            Err(err) => {
+                log::warn!("lyrics: cannot save {}: {err}", target.display());
+                state::Toasts::post(
+                    state::Toast::new(state::Outcome::Failed, "toast-lyrics-save-failed"),
+                    cx,
+                );
+            }
+        }
+    }
+
+    fn lyrics_floating_bar(&self, cx: &mut Context<Self>) -> Option<impl IntoElement> {
+        if self.tab != SideTab::Lyrics {
+            return None;
+        }
+        let lyrics = self.lyrics.read(cx);
+        let source_name = lyrics
+            .current()
+            .map(|h| h.source)
+            .or_else(|| self.credit.as_ref().map(|c| c.source))?;
+        let theme = *cx.theme();
+
+        let switch_btn = Button::new("lyrics-floating-switch")
+            .ghost()
+            .small()
+            .icon("icons/arrow-up-down.svg")
+            .label(source_name)
+            .on_click(cx.listener(|this, _, window, cx| {
+                let position = window.mouse_position();
+                this.open_lyrics_menu(position, cx);
+            }));
+
+        let save_btn = Button::new("lyrics-floating-save")
+            .ghost()
+            .small()
+            .icon("icons/download.svg")
+            .tooltip("lyrics-save-beside-song")
+            .on_click(cx.listener(|this, _, _, cx| {
+                this.save_current_lyrics_beside_song(cx);
+            }));
+
+        Some(
+            div()
+                .id("lyrics-floating-pill")
+                .absolute()
+                .top_3()
+                .right_4()
+                .flex()
+                .items_center()
+                .gap_1()
+                .px_1p5()
+                .py(px(2.))
+                .rounded_full()
+                .bg(theme.popover.opacity(0.85))
+                .border_1()
+                .border_color(theme.border.opacity(0.6))
+                .shadow_md()
+                .opacity(0.75)
+                .hover(|s| s.opacity(1.0).bg(theme.popover))
+                .child(switch_btn)
+                .child(div().h_3().w_px().bg(theme.border.opacity(0.5)))
+                .child(save_btn),
         )
     }
 
@@ -1680,6 +1888,33 @@ impl Aside {
                 true => presentation + drift.unwrap_or_default(),
                 false => px(0.),
             };
+            let switch_btn = Button::new("lyrics-switch-provider")
+                .secondary()
+                .small()
+                .icon("icons/arrow-up-down.svg")
+                .label(t!("lyrics-switch"))
+                .on_click(cx.listener(|this, _, window, cx| {
+                    let position = window.mouse_position();
+                    this.open_lyrics_menu(position, cx);
+                }));
+
+            let save_btn = Button::new("lyrics-save-button")
+                .ghost()
+                .small()
+                .icon("icons/download.svg")
+                .tooltip("lyrics-save-beside-song")
+                .on_click(cx.listener(|this, _, _, cx| {
+                    this.save_current_lyrics_beside_song(cx);
+                }));
+
+            let source_row = div()
+                .flex()
+                .items_center()
+                .gap_2()
+                .child(ui::spoken("lyrics-credit-source", from))
+                .child(switch_btn)
+                .child(save_btn);
+
             let note = div()
                 .w_full()
                 .px(verse_pad)
@@ -1688,7 +1923,7 @@ impl Aside {
                 .flex_col()
                 .text_size(theme.text(Text::Small))
                 .text_color(quiet(&theme))
-                .child(ui::spoken("lyrics-credit-source", from))
+                .child(source_row)
                 .children(by.map(|by| ui::spoken("lyrics-credit-writers", by)));
             body.push(adrift(note, translation, false, window));
         }
@@ -2104,6 +2339,7 @@ impl Render for Aside {
                     .when(self.tab == SideTab::Lyrics, |this| {
                         this.child(self.verses(window, cx)).child(self.witness())
                     })
+                    .children(self.lyrics_floating_bar(cx))
                     .when(self.tab == SideTab::Queue && empty, |this| {
                         this.child(
                             vacant(t!("queue-empty"), cx)
@@ -2139,6 +2375,7 @@ impl Render for Aside {
                     .children(self.recall(&sections, window, cx)),
             )
             .children(self.menu(cx))
+            .children(self.lyrics_popup(window, cx))
     }
 }
 

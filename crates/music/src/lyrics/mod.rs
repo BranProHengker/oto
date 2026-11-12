@@ -60,9 +60,22 @@ pub fn rank_with_priority(
     scored.sort_by(
         |(left_grade, left_place, left_score, left),
          (right_grade, right_place, right_score, right)| {
-            right_grade
-                .cmp(left_grade)
-                .then_with(|| left_place.cmp(right_place))
+            let left_local = left.source == LOCAL && *left_grade >= 2;
+            let right_local = right.source == LOCAL && *right_grade >= 2;
+            right_local
+                .cmp(&left_local)
+                .then_with(|| {
+                    let left_synced = *left_grade >= 2;
+                    let right_synced = *right_grade >= 2;
+                    match (left_synced, right_synced) {
+                        (true, true) => left_place
+                            .cmp(right_place)
+                            .then_with(|| right_grade.cmp(left_grade)),
+                        _ => right_grade
+                            .cmp(left_grade)
+                            .then_with(|| left_place.cmp(right_place)),
+                    }
+                })
                 .then_with(|| right_score.cmp(left_score))
                 .then_with(|| left.source.cmp(right.source))
                 .then_with(|| left.title.cmp(&right.title))
