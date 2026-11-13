@@ -699,6 +699,7 @@ settings-discord-name-provider = Layanan Musik
 settings-discord-name-music = Musik
 settings-discord-name-title = Judul Lagu
 settings-discord-name-artist = Artis
+settings-discord-name-album-artist = Artis Album
 settings-discord-name-artist-title = Artis - Judul
 settings-discord-show-paused = Tampilkan saat dijeda
 settings-discord-show-paused-detail = Tetap tampilkan status di profil Discord saat lagu sedang dijeda
