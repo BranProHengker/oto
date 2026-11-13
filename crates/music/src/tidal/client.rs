@@ -1127,7 +1127,7 @@ impl MusicApi for TidalClient {
         let detail = detail.context("cannot load the artist")?;
         Ok(Artist {
             name: wire::text(&detail, "name").unwrap_or_default().to_owned(),
-            cover_large: wire::image(wire::text(&detail, "picture"), wire::PORTRAIT_LARGE),
+            cover_large: wire::portrait(&detail, wire::PORTRAIT_LARGE),
             banner: None,
             biography,
             monthly_listeners: None,
@@ -1160,7 +1160,7 @@ impl MusicApi for TidalClient {
         let detail = detail.context("cannot load the artist")?;
         Ok(ArtistProfile {
             name: wire::text(&detail, "name").unwrap_or_default().to_owned(),
-            cover_large: wire::image(wire::text(&detail, "picture"), wire::PORTRAIT_LARGE),
+            cover_large: wire::portrait(&detail, wire::PORTRAIT_LARGE),
             biography,
         })
     }
@@ -1187,7 +1187,7 @@ impl MusicApi for TidalClient {
                     .get(&format!("/artists/{}", escape::component(&id)), &[])
                     .await
                     .ok()?;
-                let cover = wire::image(wire::text(&detail, "picture"), wire::PORTRAIT)?;
+                let cover = wire::portrait(&detail, wire::PORTRAIT)?;
                 Some((id, cover))
             })
             .buffer_unordered(LOOKUPS)
