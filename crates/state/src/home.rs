@@ -513,6 +513,7 @@ mod tests {
             artist_refs: vec![ArtistRef {
                 name: format!("Artist {artist}"),
                 id: Some(format!("artist-{artist}")),
+                channel: false,
             }],
             album: String::new(),
             album_id: None,

@@ -162,6 +162,7 @@ pub fn artist_ref(name: &str) -> ArtistRef {
     ArtistRef {
         id: Some(artist_id(name)),
         name: name.to_owned(),
+        channel: false,
     }
 }
 

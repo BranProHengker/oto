@@ -750,6 +750,7 @@ pub fn artist_refs(value: &Resource, attributes: &Attributes) -> Vec<ArtistRef> 
             Some(ArtistRef {
                 name: text(&artist.attributes.as_ref()?.name)?,
                 id: artist.id.as_str().map(str::to_owned),
+                channel: false,
             })
         })
         .collect();
@@ -757,6 +758,7 @@ pub fn artist_refs(value: &Resource, attributes: &Attributes) -> Vec<ArtistRef> 
         true => vec![ArtistRef {
             name: text(&attributes.artist_name).unwrap_or_default(),
             id: None,
+            channel: false,
         }],
         false => listed,
     }
