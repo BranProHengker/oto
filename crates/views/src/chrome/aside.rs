@@ -22,10 +22,10 @@ use state::{
     Sonora, Whence,
 };
 use ui::{
-    ActiveTheme as _, Avatar, Button, Card, DraggedPin, Edge, Initials, Menu, MenuItem, Motion,
-    Motioned as _, PREFETCH_REACH, Pin, Pinnable as _, Popup, Scrollbar, Scroller, Spot, Springs,
-    Tails as _, Text, Vacancy, drop_gap, drop_marker, ease_out_cubic, ease_out_expo, eyebrow,
-    faint, mix, prefetch, snapped, vacant,
+    ActiveTheme as _, Avatar, Button, Card, DraggedPin, Edge, Glowing as _, Initials, Menu,
+    MenuItem, Motion, Motioned as _, PREFETCH_REACH, Pin, Pinnable as _, Popup, Scrollbar,
+    Scroller, Spot, Springs, Tails as _, Text, Vacancy, drop_gap, drop_marker, ease_out_cubic,
+    ease_out_expo, eyebrow, faint, mix, prefetch, snapped, vacant,
 };
 use unicode_bidi::{BidiClass, Direction};
 
@@ -427,7 +427,7 @@ impl Aside {
         let settling = self.fading == Some(spot);
         Touch {
             warmth: match (waking, settling) {
-                (true, _) => sharpen,
+                (true, _) => 1.,
                 (_, true) => 1. - sharpen,
                 _ => 0.,
             },
@@ -511,7 +511,7 @@ impl Aside {
     }
 
     fn sharpen_progress(&self, window: &mut Window) -> f32 {
-        let span = Motion::Quick.span().as_secs_f32().max(f32::EPSILON);
+        let span = ui::dim_span().as_secs_f32().max(f32::EPSILON);
         let progress = (self.since.elapsed().as_secs_f32() / span).clamp(0., 1.);
         if progress < 1. {
             window.request_animation_frame();
@@ -598,6 +598,7 @@ impl Aside {
         Some(px(state.position))
     }
 
+    /// Lights the spot under the pointer at once, and lets the one the pointer left fade out.
     fn set_hovered(&mut self, spot: Warm, over: bool, cx: &mut Context<Self>) {
         if !over {
             if self.over == Some(spot) {
@@ -605,20 +606,7 @@ impl Aside {
             }
             if self.hovered == Some(spot) {
                 self.hovered = None;
-                self.fading = Some(spot);
-                self.since = std::time::Instant::now();
-                self.linger = Some(cx.spawn(async move |this, cx| {
-                    cx.background_executor().timer(Motion::Quick.span()).await;
-                    this.update(cx, |this, cx| {
-                        if this.fading != Some(spot) {
-                            return;
-                        }
-                        this.fading = None;
-                        cx.notify();
-                    })
-                    .ok();
-                }));
-                cx.notify();
+                self.settle(spot, cx);
             }
             return;
         }
@@ -627,17 +615,33 @@ impl Aside {
         if self.hovered == Some(spot) {
             return;
         }
-        self.fading = None;
+        if self.fading == Some(spot) {
+            self.fading = None;
+        }
+        // The spot the pointer came from may hear it leave only after this one hears it
+        // arrive, so its fade starts here.
+        if let Some(left) = self.hovered.replace(spot) {
+            self.settle(left, cx);
+        }
+        cx.notify();
+    }
+
+    /// Starts the fade of a spot the pointer has left, and forgets the spot once it is over.
+    fn settle(&mut self, spot: Warm, cx: &mut Context<Self>) {
+        self.fading = Some(spot);
+        self.since = std::time::Instant::now();
         self.linger = Some(cx.spawn(async move |this, cx| {
+            cx.background_executor().timer(ui::dim_span()).await;
             this.update(cx, |this, cx| {
-                if this.over != Some(spot) {
+                if this.fading != Some(spot) {
                     return;
                 }
-                this.hovered = Some(spot);
+                this.fading = None;
                 cx.notify();
             })
             .ok();
         }));
+        cx.notify();
     }
 
     fn enqueue(&mut self, pin: &Pin, gap: Option<usize>, cx: &mut Context<Self>) {
@@ -1419,7 +1423,7 @@ impl Aside {
                     let depth = verse_touch.depth;
                     // whatever the pointer rests on comes back into focus
                     let clearing = |touch: Touch, depth: f32| match (touch.waking, touch.settling) {
-                        (true, _) => depth * (1. - sharpen),
+                        (true, _) => 0.,
                         (false, true) => depth * sharpen,
                         (false, false) => depth,
                     };
@@ -2425,9 +2429,10 @@ fn source_link(name: SharedString, to: Destination, cx: &App) -> impl IntoElemen
         .text_color(theme.muted_foreground)
         .font_weight(FontWeight::SEMIBOLD)
         .cursor_pointer()
-        .hover(|style| style.text_color(theme.foreground).underline())
+        .hover(|style| style.underline())
         .link(to)
         .child(name)
+        .glowed_text(theme.muted_foreground, theme.foreground)
 }
 
 /// Rows that `lyrics_wrap_rows` already broke, one line each. They never wrap again, because at

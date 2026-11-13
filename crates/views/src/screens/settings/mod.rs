@@ -101,6 +101,7 @@ enum Slot {
     CacheUsage,
     DownloadsUsage,
     OfflineMode,
+    OpenDownloads,
     Sleep,
     StayAwake,
     StreamQuality,
@@ -124,11 +125,13 @@ enum Slot {
     DiscordName,
     DiscordShowPaused,
     DiscordBadge,
+    DiscordUploadCovers,
     DiscordAnonymous,
     DiscordHideOnConnect,
     DiscordButtons,
     ArtworkForLocal,
     Scrobble(usize),
+    ScrobbleProvider,
     Startup,
     Entries,
     Language,
@@ -378,6 +381,8 @@ impl SettingsView {
             .detach();
         let chrome = Chrome::entity(cx);
         cx.observe(&chrome, |_, _, cx| cx.notify()).detach();
+        cx.observe_global::<ui::WindowBlur>(|this, cx| this.remeasure(cx))
+            .detach();
         let me = cx.entity_id();
         let focus = cx.focus_handle();
         let languages = SearchPopup::new("settings-language-search", me, focus.clone(), cx);
@@ -581,7 +586,7 @@ impl SettingsView {
     fn groups(&self, page: SettingsPage, cx: &App) -> Vec<Group> {
         match page {
             SettingsPage::Providers => self.accounts_groups(),
-            SettingsPage::Appearance => self.appearance_groups(),
+            SettingsPage::Appearance => self.appearance_groups(cx),
             SettingsPage::PlayerBar => self.player_bar_groups(),
             SettingsPage::NowPlaying => self.now_playing_groups(cx),
             SettingsPage::Lyrics => self.lyrics_groups(),
@@ -869,6 +874,10 @@ impl SettingsView {
                 t!("settings-offline-mode"),
                 t!("settings-offline-mode-detail"),
             ),
+            Slot::OpenDownloads => (
+                t!("settings-downloads-open"),
+                t!("settings-downloads-open-detail"),
+            ),
             Slot::StreamQuality => (
                 t!("settings-stream-quality"),
                 t!("settings-stream-quality-detail"),
@@ -957,6 +966,10 @@ impl SettingsView {
                 t!("settings-discord-badge"),
                 t!("settings-discord-badge-detail"),
             ),
+            Slot::DiscordUploadCovers => (
+                t!("settings-discord-upload-covers"),
+                t!("settings-discord-upload-covers-detail"),
+            ),
             Slot::ArtworkForLocal => (
                 t!("settings-artwork-for-local-files"),
                 t!("settings-artwork-for-local-files-detail"),
@@ -974,6 +987,7 @@ impl SettingsView {
                 t!("settings-discord-buttons-detail"),
             ),
             Slot::Scrobble(index) => self.scrobble_meta(index, cx)?,
+            Slot::ScrobbleProvider => self.scrobble_provider_meta(cx)?,
             Slot::Version => (t!("settings-version"), t!("settings-version-detail")),
             Slot::Updates => (
                 t!("settings-check-updates"),
@@ -1106,6 +1120,7 @@ impl SettingsView {
             Slot::CacheUsage => self.cache_usage_row(cx),
             Slot::DownloadsUsage => self.downloads_usage_row(cx),
             Slot::OfflineMode => self.offline_mode_row(cx),
+            Slot::OpenDownloads => self.open_downloads_row(cx),
             Slot::StreamQuality => self.stream_quality_row(cx),
             Slot::StreamFormat => self.stream_format_row(cx),
             Slot::StreamBitrate => self.stream_bitrate_row(cx),
@@ -1135,6 +1150,7 @@ impl SettingsView {
             Slot::DiscordName => self.discord_name_row(cx),
             Slot::DiscordShowPaused => self.discord_show_paused_row(cx),
             Slot::DiscordBadge => self.discord_badge_row(cx),
+            Slot::DiscordUploadCovers => self.discord_upload_covers_row(cx),
             Slot::ArtworkForLocal => self.artwork_for_local_files_row(cx),
             Slot::DiscordAnonymous => self.discord_anonymous_row(cx),
             Slot::DiscordHideOnConnect => self.discord_hide_on_connect_row(cx),
@@ -1143,6 +1159,7 @@ impl SettingsView {
                 true => self.scrobble_row(index, cx),
                 false => div().into_any_element(),
             },
+            Slot::ScrobbleProvider => self.scrobble_provider_row(cx),
             Slot::Version => self.version_row(),
             Slot::Updates => self.updates_row(cx),
             Slot::Log => self.log_row(cx),

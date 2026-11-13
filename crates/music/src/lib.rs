@@ -504,7 +504,7 @@ pub struct Offer {
 
 /// What a stream or a file is encoded as: a lossless encoding with its bit depth, a lossy one
 /// with its bit rate in kilobits a second.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Encoding {
     /// FLAC at this bit depth and sample rate in hertz.
     Flac {
@@ -743,6 +743,13 @@ pub trait Player: Send + Sync {
 
     /// Removes the download of a track.
     fn discard(&self, _track_id: &str) {}
+
+    /// Rewrites the downloads `track_ids` that are still sealed as plain files, for a player
+    /// that keeps plain downloads. The future answers once every one is done. A track already
+    /// plain, or not downloaded, costs a lookup.
+    fn unseal(&self, _track_ids: Vec<String>) -> futures::future::BoxFuture<'static, ()> {
+        Box::pin(async {})
+    }
 }
 
 #[async_trait]
@@ -850,6 +857,9 @@ pub struct Capabilities {
     /// Tracks can be downloaded. Whether a download then plays with no network is up to the
     /// player, through [`Player::plays_offline`].
     pub downloads: bool,
+    /// Downloads are kept as plain audio files another player opens, in a folder the listener
+    /// can open. Only a service whose bytes carry no protection of their own does this.
+    pub plain_downloads: bool,
     /// The stream levels the service serves, best first. Empty when there is nothing to choose
     /// between, so the setting stays hidden.
     pub qualities: &'static [Offer],
@@ -872,6 +882,7 @@ impl Capabilities {
         playlist_covers: false,
         keeps: true,
         downloads: true,
+        plain_downloads: false,
         qualities: &[],
         download_gap: Duration::ZERO,
     };
@@ -886,6 +897,7 @@ impl Capabilities {
         playlist_covers: false,
         keeps: false,
         downloads: false,
+        plain_downloads: false,
         qualities: &[],
         download_gap: Duration::ZERO,
     };

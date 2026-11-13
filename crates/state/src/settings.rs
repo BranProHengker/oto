@@ -13,7 +13,7 @@ pub use self::themes::{ThemeFamily, ThemeOffer, ThemeVariant};
 pub(crate) use self::themes::{is_own_link, read_link as read_theme_link};
 
 use std::cell::RefCell;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fs;
 use std::io::Write as _;
 use std::path::{Path, PathBuf};
@@ -440,6 +440,7 @@ struct Values {
     discord_sonora_button: bool,
     discord_provider_button: bool,
     artwork_for_local_files: bool,
+    discord_upload_covers: bool,
     lyrics_for_local_files: bool,
     /// The output device to play on, as a cpal device id, or `None` to follow the system's
     /// default. Kept while the device is gone, so playback returns to it, and cleared once it is
@@ -507,6 +508,10 @@ struct Values {
     silenced_requirements: Vec<String>,
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     scrobbling: BTreeMap<String, Account>,
+    /// Providers, by slug, whose plays stay out of the linked scrobbling services. Some of them
+    /// scrobble to Last.fm on their own, and with both on every listen is counted twice.
+    #[serde(skip_serializing_if = "BTreeSet::is_empty")]
+    unscrobbled: BTreeSet<String>,
     appearance: Appearance,
 }
 
@@ -670,6 +675,7 @@ impl Default for Values {
             discord_sonora_button: true,
             discord_provider_button: true,
             artwork_for_local_files: true,
+            discord_upload_covers: true,
             lyrics_for_local_files: true,
             output_device: None,
             output_rate: None,
@@ -709,6 +715,7 @@ impl Default for Values {
             hidden_nav: Vec::new(),
             silenced_requirements: Vec::new(),
             scrobbling: BTreeMap::new(),
+            unscrobbled: BTreeSet::new(),
             appearance: Appearance::default(),
         }
     }
@@ -1129,6 +1136,12 @@ impl AppSettings {
         self.values.artwork_for_local_files
     }
 
+    /// Whether a cover no public catalogue has may be fetched from the provider and uploaded to
+    /// a temporary public host, so the Discord status can show it. On unless the user turns it off.
+    pub fn discord_upload_covers(&self) -> bool {
+        self.values.discord_upload_covers
+    }
+
     pub fn lyrics_for_local_files(&self) -> bool {
         self.values.lyrics_for_local_files
     }
@@ -1271,6 +1284,12 @@ impl AppSettings {
     /// Whether music keeps the system awake and, in fullscreen, the display.
     pub fn stay_awake(&self) -> bool {
         self.values.stay_awake
+    }
+
+    /// Whether plays from the provider with this slug are submitted to the linked scrobbling
+    /// services. The provider itself hears about them either way.
+    pub fn scrobbles(&self, provider: &str) -> bool {
+        !self.values.unscrobbled.contains(provider)
     }
 
     /// Every linked scrobbling account, keyed by its service slug.
@@ -1770,6 +1789,11 @@ impl AppSettings {
         self.schedule_save(cx);
     }
 
+    pub fn set_discord_upload_covers(&mut self, enabled: bool, cx: &mut Context<Self>) {
+        self.values.discord_upload_covers = enabled;
+        self.schedule_save(cx);
+    }
+
     pub fn set_lyrics_enabled(&mut self, enabled: bool, cx: &mut Context<Self>) {
         self.values.lyrics_enabled = enabled;
         self.schedule_save(cx);
@@ -1900,6 +1924,14 @@ impl AppSettings {
 
     pub fn set_stay_awake(&mut self, stay_awake: bool, cx: &mut Context<Self>) {
         self.values.stay_awake = stay_awake;
+        self.schedule_save(cx);
+    }
+
+    pub fn set_scrobbles(&mut self, provider: &str, enabled: bool, cx: &mut Context<Self>) {
+        match enabled {
+            true => self.values.unscrobbled.remove(provider),
+            false => self.values.unscrobbled.insert(provider.to_owned()),
+        };
         self.schedule_save(cx);
     }
 
