@@ -7,6 +7,30 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-11-13
+
+### Added
+
+- Upstream Sonora v0.49.0 & v0.49.1 synchronization:
+  - Wayland blur effect protocol (`ext-background-effect`) & dynamic window corner radius.
+  - Hover glow transitions and visual text polish across buttons, cards, menus, and controls.
+  - Plain downloads indexing and storage management with direct folder opener.
+  - Tidal audio resolution and encoding format indicators.
+  - Multi-source artwork cascade fallback (Deezer, iTunes, MusicBrainz, Uguu).
+  - Custom ListenBrainz server support and provider-specific scrobble toggles.
+  - macOS icon composer bundle generator and Assets.car packaging.
+
+### Preserved
+
+- All Oto core custom features intact:
+  - Floating Lyric Switcher & popup menu (`crates/views/src/chrome/aside.rs`).
+  - Beside-song `.lrc` / `.krc` save & local priority ranking.
+  - Japanese Furigana ruby annotations & word-by-word karaoke sweep.
+  - DJ Automix crossfade & silence trimming.
+  - Volume boost +35% (`MAX_GAIN = 1.35`).
+  - Discord RPC Oto application ID and button links.
+  - Built-in LRC Studio & Universal Playlist Importer.
+
 ## [1.3.0] - 2026-11-11
 
 ### Added
