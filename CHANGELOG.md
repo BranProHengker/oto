@@ -7,6 +7,23 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.3.2] - 2026-11-14
+
+### Added
+
+- Upstream Sonora synchronization:
+  - List YouTube music videos on artist pages and in search.
+  - Full track title tooltip on hover when the player bar text is cut off.
+  - Discord Rich Presence: option to name status after the album artist.
+  - Discord Rich Presence: upload local file's own artwork cover directly to temporary public host.
+  - Tidal: artist pages fallback to album cover when the artist has no portrait.
+
+### Fixed
+
+- Audio: prevented PulseAudio memory leak on unsupported audio format detection.
+- UI: omitted copyright notice on releases marked with `[no label]`.
+- Webview: resolved runaway WebKit allocations and logged WebKit runtime version.
+
 ## [1.3.1] - 2026-11-13
 
 ### Added
