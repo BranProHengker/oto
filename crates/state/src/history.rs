@@ -195,6 +195,7 @@ impl Store {
                     artists: row.get(4)?,
                     artist_refs,
                     album: row.get(6)?,
+                    album_artist: String::new(),
                     album_id: row.get(7)?,
                     cover: row.get(8)?,
                     duration: std::time::Duration::from_millis(duration.max(0) as u64),

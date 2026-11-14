@@ -4,7 +4,7 @@ use std::time::Duration;
 use anyhow::{Context as _, Result};
 use roxmltree::{Document, Node};
 
-use crate::{Lyrics, LyricsLane, LyricsLine, LyricsWord, Voice};
+use crate::{Lyrics, LyricsLane, LyricsLine, LyricsWord, RomanizedText, Voice, WritingSystem};
 
 const META: &str = "http://www.w3.org/ns/ttml#metadata";
 const XML: &str = "http://www.w3.org/XML/1998/namespace";
@@ -20,8 +20,10 @@ pub(crate) fn parse(xml: &str) -> Result<Sheet> {
     let document = Document::parse(xml).context("cannot read the ttml")?;
     let singers = singers(&document);
     let lead = lead(&document, &singers);
+    let trans = transliterations(&document);
     let mut lines: Vec<LyricsLine> = paragraphs(&document)
-        .filter_map(|paragraph| line(paragraph, lead, &singers))
+        .enumerate()
+        .filter_map(|(idx, paragraph)| line(paragraph, lead, &singers, &trans, idx))
         .collect();
 
     let timed = lines
@@ -80,7 +82,13 @@ fn lead<'a>(document: &'a Document<'a>, singers: &HashMap<&str, bool>) -> Option
         .find(|agent| sings(singers, agent))
 }
 
-fn line(paragraph: Node, lead: Option<&str>, singers: &HashMap<&str, bool>) -> Option<LyricsLine> {
+fn line(
+    paragraph: Node,
+    lead: Option<&str>,
+    singers: &HashMap<&str, bool>,
+    trans: &HashMap<String, String>,
+    index: usize,
+) -> Option<LyricsLine> {
     let (words, secondary) = sung(paragraph);
     let text = match words.is_empty() {
         true => spoken(paragraph),
@@ -96,15 +104,55 @@ fn line(paragraph: Node, lead: Option<&str>, singers: &HashMap<&str, bool>) -> O
         .unwrap_or(Duration::ZERO);
     let end = stamp(paragraph, "end").or_else(|| words.last().map(|word| word.end));
 
+    let key = paragraph
+        .attributes()
+        .find(|a| a.name() == "key")
+        .map(|a| a.value())
+        .map(str::to_owned)
+        .or_else(|| Some(format!("L{}", index + 1)));
+
+    let romanized = key
+        .as_deref()
+        .and_then(|k| trans.get(k))
+        .map(|romaji| RomanizedText {
+            text: romaji.clone(),
+            writing_system: WritingSystem::Japanese,
+            tokens: Vec::new(),
+        });
+
     Some(LyricsLine {
         start,
         end: end.map(|end| end.max(start)),
         text,
-        romanized: None,
+        romanized,
         words: (!words.is_empty()).then_some(words),
         secondary,
         voice: voice(paragraph, lead, singers),
     })
+}
+
+fn transliterations(document: &Document) -> HashMap<String, String> {
+    let mut map = HashMap::new();
+    for node in document
+        .descendants()
+        .filter(|node| named(*node, "transliteration"))
+    {
+        for text in node.children().filter(|child| named(*child, "text")) {
+            if let Some(key) = text.attribute("for") {
+                let content: String = text
+                    .descendants()
+                    .filter(Node::is_text)
+                    .filter_map(|n| n.text())
+                    .collect::<Vec<_>>()
+                    .join(" ");
+                let cleaned = content.split_whitespace().collect::<Vec<_>>().join(" ");
+                if !cleaned.is_empty() {
+                    map.insert(key.to_owned(), cleaned);
+                }
+            }
+        }
+    }
+    map
 }
 
 fn voice(paragraph: Node, lead: Option<&str>, singers: &HashMap<&str, bool>) -> Voice {

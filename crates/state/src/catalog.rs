@@ -460,6 +460,7 @@ mod tests {
                     channel: false,
                 }],
                 album: "Album".to_owned(),
+                album_artist: String::new(),
                 album_id: Some("album".to_owned()),
                 cover: None,
                 duration: Duration::ZERO,
