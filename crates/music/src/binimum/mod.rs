@@ -8,7 +8,8 @@ use crate::lyrics::ttml;
 use crate::{LyricsHit, LyricsProvider, LyricsQuery};
 
 const SOURCE: &str = "Apple Music";
-const SEARCH_LRCRED: &str = "https://lrc.red/api/v1";
+const SEARCH_LRCRED_SEARCH: &str = "https://lrc.red/search.json";
+const SEARCH_LRCRED_API: &str = "https://lrc.red/api/v1";
 const SEARCH_BINIMUM: &str = "https://lyrics-api.binimum.org/";
 const TRUST: u32 = 180;
 const AGENT: &str = concat!(
@@ -29,20 +30,77 @@ impl Binimum {
     }
 
     async fn find(&self, query: &LyricsQuery) -> Result<Vec<Match>> {
-        // 1. Try lrc.red first (primary, fast, unblocked)
-        if let Ok(results) = self.find_endpoint(SEARCH_LRCRED, query, false).await {
+        // 1. Try lrc.red search.json first (direct ISRC matching)
+        if let Ok(results) = self.find_lrcred_search(query).await {
             if !results.is_empty() {
                 return Ok(results);
             }
         }
-        // 2. Try lrc.red full-text query
-        if let Ok(results) = self.find_endpoint(SEARCH_LRCRED, query, true).await {
+        // 2. Try lrc.red api/v1 structured query (track & artist)
+        if let Ok(results) = self.find_endpoint(SEARCH_LRCRED_API, query, false).await {
             if !results.is_empty() {
                 return Ok(results);
             }
         }
-        // 3. Fallback to binimum if lrc.red didn't match
+        // 3. Try lrc.red api/v1 full-text query
+        if let Ok(results) = self.find_endpoint(SEARCH_LRCRED_API, query, true).await {
+            if !results.is_empty() {
+                return Ok(results);
+            }
+        }
+        // 4. Fallback to binimum if lrc.red didn't match
         self.find_endpoint(SEARCH_BINIMUM, query, false).await
+    }
+
+    async fn find_lrcred_search(&self, query: &LyricsQuery) -> Result<Vec<Match>> {
+        let q = format!("{} {}", query.title, query.artist);
+        let response = self
+            .http
+            .get(SEARCH_LRCRED_SEARCH)
+            .query(&[("q", q.as_str())])
+            .header("User-Agent", AGENT)
+            .send()
+            .await
+            .context("cannot reach lrc.red search")?;
+        let status = response.status();
+        if status == reqwest::StatusCode::NOT_FOUND {
+            return Ok(Vec::new());
+        }
+        if !status.is_success() {
+            anyhow::bail!("lrc.red search answered with status {status}");
+        }
+        let found: SearchJson = response
+            .json()
+            .await
+            .context("cannot read lrc.red search response")?;
+        if found.hits.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let query_secs = query.duration.as_secs_f64();
+        let mut hits = found.hits;
+        if query_secs > 0.0 {
+            hits.sort_by(|a, b| {
+                let diff_a = (a.duration - query_secs).abs();
+                let diff_b = (b.duration - query_secs).abs();
+                diff_a
+                    .partial_cmp(&diff_b)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            });
+        }
+
+        let matches = hits
+            .into_iter()
+            .map(|hit| Match {
+                track_name: hit.title,
+                artist_name: hit.artist,
+                album_name: hit.album,
+                duration: hit.duration.round() as u64,
+                timing_type: "word".to_owned(),
+                lyrics_url: Some(format!("https://lrc.red/s/{}.ttml", hit.isrc)),
+            })
+            .collect();
+        Ok(matches)
     }
 
     async fn find_endpoint(
@@ -116,6 +174,25 @@ impl Default for Binimum {
     fn default() -> Self {
         Self::new()
     }
+}
+
+#[derive(Deserialize)]
+struct SearchJson {
+    #[serde(default)]
+    hits: Vec<SearchHit>,
+}
+
+#[derive(Deserialize)]
+struct SearchHit {
+    isrc: String,
+    #[serde(default)]
+    title: String,
+    #[serde(default)]
+    artist: String,
+    #[serde(default)]
+    album: String,
+    #[serde(default)]
+    duration: f64,
 }
 
 #[derive(Deserialize)]

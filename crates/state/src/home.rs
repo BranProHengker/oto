@@ -516,6 +516,7 @@ mod tests {
                 channel: false,
             }],
             album: String::new(),
+            album_artist: String::new(),
             album_id: None,
             cover: None,
             duration: Duration::from_secs(180),

@@ -845,6 +845,7 @@ mod fixture {
             artists: String::new(),
             artist_refs: Vec::new(),
             album: String::new(),
+            album_artist: String::new(),
             album_id: None,
             cover: None,
             duration: Duration::from_secs(seconds),
