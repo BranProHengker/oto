@@ -74,29 +74,32 @@
 
 > [!NOTE]
 > **Oto** is an independent fork of [Sonora](https://github.com/sonorahq/sonora). It retains full compatibility with Sonora's native playback engine while adding tailored improvements:
+> - **Wayland Native Background Blur & Dynamic Corner Radius**: Native backdrop blur via Wayland `ext-background-effect` protocol, visual glow hover transitions, and adaptive corner radius on modern Linux compositors (Hyprland, KDE, GNOME, Caelestia).
+> - **YouTube Music Videos**: Browse and stream official YouTube Music videos directly from artist discographies and global search.
 > - **Universal Playlist Importer**: Import public playlist links (Spotify, YouTube Music, Apple Music, Deezer) into native hybrid playlists, prioritizing local lossless audio files over streaming.
 > - **Soloist Headless Daemon Integration**: Native support for pairing with `soloistd`, upstream's headless playback daemon. Offload Spotify and audio decoding to a lightweight background daemon and control playback seamlessly without GUI overhead.
 > - **Automix Crossfade**: Smart transition blending with dynamic DJ bass dip (high-pass filter sweep) and leading silence trimming.
 > - **KuGou, NetEase & Word-by-Word Furigana Karaoke**: Native out-of-the-box support for KuGou & NetEase karaoke lyrics, word-by-word karaoke sweep sync on furigana (Japanese Kanji + Ruby annotation sublane), smart twin-timestamp `.lrc` pairing, and GPU-optimized silky 60+ FPS fullscreen lyrics.
 > - **Lyrics Provider Switcher & Local Precedence**: Live lyrics source switcher (`[ ⇅ Switch ]`) with hit indicators (Karaoke, Line synced, In use) and strict local synced lyrics precedence over scrapers.
 > - **Flexible Lyrics Save & Export**: One-click lyrics download directly beside local audio files, with configurable export formats in Settings (Standard `.lrc`, Enhanced Karaoke `.lrc` with word timestamps, or Provider Native decoded `.krc`).
+> - **Plain Audio Downloads Manager**: Direct DRM-free offline song saving from Subsonic/local shelves with instant "Open downloads" folder access in Settings Storage.
 > - **Sonora Sessions & Social Listening**: Listen together in sync across any streaming service using lightweight 6-digit room codes and member queue control.
 > - **Built-in LRC Studio**: Integrated synced lyrics editor with auto-import from active playback, real-time timestamp tagging, and direct local saving.
+> - **Multi-Source Artwork Cascade & Discord Rich Presence**: Automatic cover art resolver (Deezer → iTunes Global/JP → MusicBrainz → temporary host upload) with album artist display and embedded local artwork uploads for Discord RPC.
 > - **Unlimited Audio Cache**: Option to set disk cache to Unlimited (`∞`), preventing premature cache invalidation for large libraries.
 > - **Clean UI & Settings**: Streamlined interface without upstream updater clutter or redundant links.
 > - **Linux Tray & Desktop Integration**: Native StatusNotifierItem (SNI) tray support optimized for Hyprland, Caelestia shell, and Waybar.
-> - **Custom Discord Rich Presence**: Real-time status reporting with direct asset fallbacks for local and streaming playback.
 
 ---
 
 ## Features
 
-- **Streaming, Local & Headless**: Apple Music, Spotify, YouTube Music, Deezer, Tidal, Subsonic/Navidrome, offline local files, and pairing with headless `soloistd` daemon.
-- **Pure Native UI**: Rendered with GPUI (Zed's GPU-accelerated UI framework) — zero Electron, zero WebKit, ultra-low memory usage (~170 MB RSS).
+- **Streaming, Local & Headless**: Apple Music, Spotify, YouTube Music (including music videos), Deezer, Tidal (Hi-Res resolution & format tags), Subsonic/Navidrome plain downloads, offline local files, and pairing with headless `soloistd` daemon.
+- **Pure Native UI**: Rendered with GPUI (Zed's GPU-accelerated UI framework) — Wayland `ext-background-effect` blur, adaptive corner radius, hover glow transitions, player bar cut-off title tooltips, zero Electron, zero WebKit, ultra-low memory usage (~170 MB RSS).
 - **Karaoke & Synced Lyrics**: KuGou and NetEase enabled by default, on-the-fly lyrics provider switcher, millisecond-accurate local `.lrc` synchronization, configurable export (Standard/Enhanced/Native KRC), built-in LRC Studio editor, time-synced scrolling lyrics, background vocals, and word-by-word furigana/ruby annotations.
 - **Social Listening**: Real-time synchronized playback via Sonora Sessions (cross-service 6-digit room codes) and Spotify Jams with members sidebar.
-- **Audio Engine**: Automix crossfade with DJ bass dip, 5-second relative seek shortcuts (`Shift + Arrows`), gapless playback, audio loudness normalization, parametric equalizer, sleep timer, and unlimited cache option.
-- **Audio Scrobbler**: Built-in support for LastFM, ListenBrainz, LibreFM, and Maloja.
+- **Audio Engine**: Automix crossfade with DJ bass dip, 5-second relative seek shortcuts (`Shift + Arrows`), gapless playback, PulseAudio leak prevention, audio loudness normalization, parametric equalizer, sleep timer, and unlimited cache option.
+- **Audio Scrobbler**: Built-in support for LastFM, LibreFM, Maloja, and ListenBrainz with custom server URL support and per-provider toggles.
 - **Extensive Theming**: Dynamic adaptive palettes, blur/vibrancy, font adjustments, and interchangeable icon packs.
 
 ---
