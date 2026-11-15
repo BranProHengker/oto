@@ -7,6 +7,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-11-15
+
+### Added
+
+- Custom lyric preview animation presets: 5 visual and motion styles (`Fluid Glow`, `Kinetic Pop`, `Parallax Drift`, `Neon Pulse`, `Terminal`) selectable under Settings > Lyrics.
+- Connected provider badges on streaming playlists across library grid cards and table lists (Spotify, Subsonic, YouTube Music, etc.).
+- Additional keyboard shortcut <kbd>Ctrl</kbd> + <kbd>S</kbd> / <kbd>Cmd</kbd> + <kbd>S</kbd> to open Settings.
+
+### Changed
+
+- Restored keyboard shortcuts: <kbd>L</kbd> toggles Lyrics panel, while <kbd>Ctrl</kbd> + <kbd>L</kbd> / <kbd>Cmd</kbd> + <kbd>L</kbd> toggles Repeat / Loop.
+- Replaced library showcase screenshot in README with Dual Preview and albums view.
+
 ## [1.3.3] - 2026-11-15
 
 ### Added

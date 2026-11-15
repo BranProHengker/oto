@@ -18,7 +18,7 @@ use router::{Destination, LibraryTab, Link as _};
 use state::{
     AppSettings, Lyrics, LyricsState, Network, Playback, PlaybackState, Queue, QueuePosition,
     QueueSections as Sections, QueueSlot as Slot, QueueView, RomanizationScripts,
-    RomanizationStyle, Shelf, SideTab,
+    RomanizationStyle, LyricsPreset, Shelf, SideTab,
     Sonora, Whence,
 };
 use ui::{
@@ -1391,8 +1391,16 @@ impl Aside {
                     self.departing_line = None;
                 }
                 let instrumental_line = active_instrumental(lines, position);
-                let hazing = effects() && self.settings.read(cx).blur_lyrics() && self.pinned;
-                let blur = verse * BLUR;
+                let lyrics_preset = self.settings.read(cx).lyrics_preset();
+                let hazing = match lyrics_preset {
+                    LyricsPreset::Kinetic | LyricsPreset::Terminal => false,
+                    LyricsPreset::Parallax => effects() && self.pinned,
+                    _ => effects() && self.settings.read(cx).blur_lyrics() && self.pinned,
+                };
+                let blur = match lyrics_preset {
+                    LyricsPreset::Parallax => verse * (BLUR * 1.5),
+                    _ => verse * BLUR,
+                };
                 let sharpen = self.sharpen_progress(window);
                 // with motion turned down a press is simply on or off
                 let sink = match animations {
@@ -1538,11 +1546,21 @@ impl Aside {
                     let line_has_ended = active_line.is_some_and(|active| index < active)
                         || line_has_passed(line, position);
                     let worded = karaoke_effects && line.worded() && line.words.is_some();
+                    let (past_opacity, ahead_opacity) = match lyrics_preset {
+                        LyricsPreset::Kinetic => (0.25, 0.45),
+                        LyricsPreset::Parallax => (0.18, 0.45),
+                        LyricsPreset::Terminal => (0.28, 0.38),
+                        LyricsPreset::Neon => (0.35, 0.55),
+                        LyricsPreset::Fluid => (PAST, AHEAD),
+                    };
                     let shade = |singing: bool| match (singing, line_has_ended) {
                         (true, _) if worded => quiet(&theme),
-                        (true, _) => theme.foreground,
-                        (false, true) => quiet(&theme).opacity(PAST),
-                        (false, false) => quiet(&theme).opacity(AHEAD),
+                        (true, _) => match lyrics_preset {
+                            LyricsPreset::Neon => theme.primary,
+                            _ => theme.foreground,
+                        },
+                        (false, true) => quiet(&theme).opacity(past_opacity),
+                        (false, false) => quiet(&theme).opacity(ahead_opacity),
                     };
                     let tint = shade(Some(index) == active_line);
 
@@ -1550,7 +1568,12 @@ impl Aside {
                     let growing =
                         animations && active && self.arrived.elapsed() < Motion::Base.span();
                     let shrinking = dimming.is_some();
-                    let active_size = active_verse_size(verse);
+                    let active_size = match lyrics_preset {
+                        LyricsPreset::Kinetic => verse * 1.09,
+                        LyricsPreset::Fluid | LyricsPreset::Neon => active_verse_size(verse),
+                        LyricsPreset::Parallax => verse * 1.03,
+                        LyricsPreset::Terminal => verse,
+                    };
                     let small = verse / active_size;
                     let big = active_size / verse;
                     // both ways land on 1
@@ -1564,9 +1587,13 @@ impl Aside {
                         (_, true) => mix(shade(true), tint, ramp(self.departed, window)),
                         _ => tint,
                     };
+                    let karaoke_highlight = match lyrics_preset {
+                        LyricsPreset::Neon => theme.primary,
+                        _ => theme.foreground,
+                    };
                     let sung = Sung {
                         karaoke_tint: mix(
-                            theme.foreground,
+                            karaoke_highlight,
                             tint,
                             primary_karaoke_fade(line, active, position),
                         ),
@@ -1758,7 +1785,12 @@ impl Aside {
                         .text_size(verse)
                         .line_height(line_height)
                         .text_color(tint)
-                        .font_weight(FontWeight::SEMIBOLD)
+                        .font_weight(match (active, lyrics_preset) {
+                            (true, LyricsPreset::Kinetic) => FontWeight::BOLD,
+                            (false, LyricsPreset::Kinetic) => FontWeight::NORMAL,
+                            (true, LyricsPreset::Terminal) => FontWeight::MEDIUM,
+                            _ => FontWeight::SEMIBOLD,
+                        })
                         .on_hover(cx.listener(move |this, over: &bool, _, cx| {
                             this.set_hovered(Warm::Verse(index), *over, cx)
                         }))
@@ -1768,6 +1800,9 @@ impl Aside {
                         .child(content);
 
                     let verse_line = verse_line
+                        .when(active && lyrics_preset == LyricsPreset::Terminal, |this| {
+                            this.border_l_2().border_color(theme.primary).pl_2()
+                        })
                         .when(softness > 0., |this| this.opacity(1. - VEIL * softness))
                         .map(|this| match stepped(row_blur * softness) {
                             soft if soft > HAZE_LEAST => this.blur(soft),

@@ -24,8 +24,8 @@
     </tr>
     <tr>
       <td width="50%">
-        <p align="center"><b>Local Albums Grid & Artwork</b></p>
-        <img alt="Oto Local Albums Grid" src="./.github/screenshots/albums.jpg" />
+        <p align="center"><b>Local Albums Grid & Dual Preview (Queue + Lyrics)</b></p>
+        <img alt="Oto Local Albums Grid & Dual Preview" src="./.github/screenshots/albums.jpg" />
       </td>
       <td width="50%">
         <p align="center"><b>High-Density Tracklist & Playback (Catppuccin Mocha)</b></p>
@@ -75,13 +75,16 @@
 > [!NOTE]
 > **Oto** is an independent fork of [Sonora](https://github.com/sonorahq/sonora). It retains full compatibility with Sonora's native playback engine while adding tailored improvements:
 > - **Wayland Native Background Blur & Dynamic Corner Radius**: Native backdrop blur via Wayland `ext-background-effect` protocol, visual glow hover transitions, and adaptive corner radius on modern Linux compositors (Hyprland, KDE, GNOME, Caelestia).
+> - **Dual Preview Panel (Queue & Lyrics)**: Side-by-side simultaneous Queue and live time-synced / karaoke Lyrics panels with dynamic ordering, 1px divider, and responsive width scaling.
+> - **Hybrid Playlist Caching & Provider Badges**: Seamlessly manage playlists combining local files and streaming tracks with automatic metadata caching in SQLite, provider badge indicators (Spotify, Subsonic, etc.), and organized context menus.
 > - **YouTube Music Videos**: Browse and stream official YouTube Music videos directly from artist discographies and global search.
 > - **Universal Playlist Importer**: Import public playlist links (Spotify, YouTube Music, Apple Music, Deezer) into native hybrid playlists, prioritizing local lossless audio files over streaming.
 > - **Soloist Headless Daemon Integration**: Native support for pairing with `soloistd`, upstream's headless playback daemon. Offload Spotify and audio decoding to a lightweight background daemon and control playback seamlessly without GUI overhead.
 > - **Automix Crossfade**: Smart transition blending with dynamic DJ bass dip (high-pass filter sweep) and leading silence trimming.
 > - **KuGou, NetEase & Word-by-Word Furigana Karaoke**: Native out-of-the-box support for KuGou & NetEase karaoke lyrics, word-by-word karaoke sweep sync on furigana (Japanese Kanji + Ruby annotation sublane), smart twin-timestamp `.lrc` pairing, and GPU-optimized silky 60+ FPS fullscreen lyrics.
 > - **Lyrics Provider Switcher & Local Precedence**: Live lyrics source switcher (`[ ⇅ Switch ]`) with hit indicators (Karaoke, Line synced, In use) and strict local synced lyrics precedence over scrapers.
-> - **Flexible Lyrics Save & Export**: One-click lyrics download directly beside local audio files, with configurable export formats in Settings (Standard `.lrc`, Enhanced Karaoke `.lrc` with word timestamps, or Provider Native decoded `.krc`).
+> - **Flexible Lyrics Save & Export**: One-click minimalist floating lyrics download directly beside local audio files, with configurable export formats in Settings (Standard `.lrc`, Enhanced Karaoke `.lrc` with word timestamps, or Provider Native decoded `.krc`).
+> - **Local Song Details & Lyrics Overview**: Quick overview of local song directory paths and `.lrc` sidecar file existence right on the song details screen.
 > - **Plain Audio Downloads Manager**: Direct DRM-free offline song saving from Subsonic/local shelves with instant "Open downloads" folder access in Settings Storage.
 > - **Sonora Sessions & Social Listening**: Listen together in sync across any streaming service using lightweight 6-digit room codes and member queue control.
 > - **Built-in LRC Studio**: Integrated synced lyrics editor with auto-import from active playback, real-time timestamp tagging, and direct local saving.
@@ -109,11 +112,14 @@
 | Shortcut | Action |
 | :--- | :--- |
 | <kbd>Space</kbd> | Play / Pause |
+| <kbd>l</kbd> | Toggle Lyrics panel |
+| <kbd>Ctrl</kbd> + <kbd>l</kbd> | Toggle Repeat / Loop |
+| <kbd>q</kbd> | Toggle Queue panel |
 | <kbd>f</kbd> | Toggle Fullscreen Lyrics & Karaoke view |
 | <kbd>Shift</kbd> + <kbd>→</kbd> / <kbd>←</kbd> | Seek forward / backward by 5 seconds |
 | <kbd>Ctrl</kbd> + <kbd>→</kbd> / <kbd>←</kbd> | Next / Previous track |
 | <kbd>Ctrl</kbd> + <kbd>↑</kbd> / <kbd>↓</kbd> | Volume Up / Down |
-| <kbd>Ctrl</kbd> + <kbd>,</kbd> | Open Settings |
+| <kbd>Ctrl</kbd> + <kbd>s</kbd> / <kbd>Ctrl</kbd> + <kbd>,</kbd> | Open Settings |
 | <kbd>Ctrl</kbd> + <kbd>k</kbd> | Focus Search bar |
 | <kbd>Escape</kbd> | Exit Fullscreen / Close modal dialog |
 

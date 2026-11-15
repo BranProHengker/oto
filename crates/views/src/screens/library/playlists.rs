@@ -239,12 +239,37 @@ impl TableSource for PlaylistSource {
 
         match cell.field {
             PlaylistField::Cover => cells::artwork(&cell, playlist.cover.clone()),
-            PlaylistField::Name => cells::name(
-                &cell,
-                playlist.name.clone(),
-                theme.foreground,
-                self.marks_local(cx) && Shelf::of(&playlist.id).local(),
-            ),
+            PlaylistField::Name => {
+                let is_local = Shelf::of(&playlist.id).local();
+                let local = self.marks_local(cx) && is_local;
+                if local {
+                    cells::name(&cell, playlist.name.clone(), theme.foreground, true)
+                } else if !is_local {
+                    let session = Sonora::global(cx).session.read(cx);
+                    let slug = session
+                        .provider_for(&playlist.id)
+                        .map(|p| p.slug())
+                        .or_else(|| session.provider_slug());
+                    let name = session
+                        .provider_for(&playlist.id)
+                        .map(|p| p.name())
+                        .or_else(|| session.provider_name())
+                        .unwrap_or("Streaming");
+                    if let Some(slug) = slug {
+                        cells::name_with_mark(
+                            &cell,
+                            playlist.name.clone(),
+                            theme.foreground,
+                            crate::shared::provider_logo(slug),
+                            name,
+                        )
+                    } else {
+                        cells::name(&cell, playlist.name.clone(), theme.foreground, false)
+                    }
+                } else {
+                    cells::name(&cell, playlist.name.clone(), theme.foreground, false)
+                }
+            }
             PlaylistField::Owner => match playlist.owner_id.is_empty() {
                 true => cells::dim(&cell, playlist.owner.clone(), muted),
                 false => cells::link(
