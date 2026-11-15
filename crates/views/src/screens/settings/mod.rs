@@ -90,6 +90,7 @@ enum Slot {
     PlayerBarTimeLeft,
     FullscreenControlsAutohide,
     OsFullscreen,
+    DualPreview,
     Lyrics,
     Karaoke,
     BlurLyrics,
@@ -814,6 +815,10 @@ impl SettingsView {
                 t!("settings-os-fullscreen"),
                 t!("settings-os-fullscreen-detail"),
             ),
+            Slot::DualPreview => (
+                t!("settings-dual-preview"),
+                t!("settings-dual-preview-detail"),
+            ),
             Slot::PanelLyricsSize => (
                 t!("settings-panel-lyrics-size"),
                 t!("settings-panel-lyrics-size-detail"),
@@ -1049,6 +1054,7 @@ impl SettingsView {
             Slot::Blur => self.blur_row(cx),
             Slot::FullscreenControlsAutohide => self.fullscreen_controls_autohide_row(cx),
             Slot::OsFullscreen => self.os_fullscreen_row(cx),
+            Slot::DualPreview => self.dual_preview_row(cx),
             Slot::PanelLyricsSize => self.panel_lyrics_size_row(cx),
             Slot::FullscreenLyricsSize => self.fullscreen_lyrics_size_row(cx),
             Slot::BlurLyrics => self.blur_lyrics_row(cx),

@@ -54,7 +54,11 @@ impl SettingsView {
                         .flatten(),
                 ),
             Group::new("settings-group-controls", "icons/sliders-horizontal.svg")
-                .rows([Slot::FullscreenControlsAutohide, Slot::OsFullscreen]),
+                .rows([
+                    Slot::DualPreview,
+                    Slot::FullscreenControlsAutohide,
+                    Slot::OsFullscreen,
+                ]),
         ]
     }
 
@@ -251,6 +255,21 @@ impl SettingsView {
                 .on_click(cx.listener(move |this, _, _, cx| {
                     this.settings
                         .update(cx, |settings, cx| settings.set_os_fullscreen(!on, cx));
+                }))
+                .into_any_element(),
+        )
+    }
+
+    pub(super) fn dual_preview_row(&self, cx: &mut Context<Self>) -> AnyElement {
+        let on = self.settings.read(cx).dual_preview();
+
+        self.row(
+            t!("settings-dual-preview"),
+            Switch::new("dual-preview", on)
+                .name(t!("settings-dual-preview"))
+                .on_click(cx.listener(move |this, _, _, cx| {
+                    this.settings
+                        .update(cx, |settings, cx| settings.set_dual_preview(!on, cx));
                 }))
                 .into_any_element(),
         )

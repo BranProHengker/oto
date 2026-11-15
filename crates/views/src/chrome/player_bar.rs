@@ -242,17 +242,11 @@ impl PlayerBar {
 
     fn side_buttons(&mut self, cx: &mut Context<Self>) -> AnyElement {
         let theme = *cx.theme();
-        let (open, tab, lyrics) = {
-            let settings = self.settings.read(cx);
-            (
-                settings.sidebar_right_open(),
-                settings.sidebar_right_tab(),
-                settings.lyrics_enabled(),
-            )
-        };
+        let settings = self.settings.read(cx);
+        let lyrics = settings.lyrics_enabled();
 
-        let button = move |id: &'static str, icon: &'static str, hint: &'static str, side| {
-            let showing = open && tab == side;
+        let button = |id: &'static str, icon: &'static str, hint: &'static str, side| {
+            let showing = settings.is_sidebar_right_showing(side);
 
             Button::new(id)
                 .ghost()

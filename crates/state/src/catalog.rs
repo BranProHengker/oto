@@ -530,6 +530,7 @@ mod tests {
                 banner: None,
                 biography: None,
                 monthly_listeners: None,
+                followers: None,
                 top_tracks: Vec::new(),
                 albums: Vec::new(),
             })

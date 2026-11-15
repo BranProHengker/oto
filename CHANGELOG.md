@@ -7,6 +7,20 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.3.3] - 2026-11-15
+
+### Added
+
+- Dual preview mode: display Queue and Lyrics simultaneously side-by-side with dynamic left/right ordering based on activation sequence.
+- Dual preview settings toggle under Now Playing settings (enabled by default).
+- Dynamic hybrid playlist context menu: partitioned streaming vs local playlists with divider line, dynamically sorted based on the active song's source provider.
+- Local song detail overview: audio file path location and sidecar `.lrc` presence / file path info.
+
+### Changed
+
+- Minimalist floating lyric download button: consolidated lyric downloading to floating pill bar at top right and removed duplicate download button at bottom of lyrics view.
+- Upstream Sonora synchronization (~40 commits, modern dependencies, icon sets, GPUI bump).
+
 ## [1.3.2] - 2026-11-14
 
 ### Added

@@ -1,4 +1,5 @@
 # common
+common-none = None
 common-on = On
 common-off = Off
 common-left = Left
@@ -546,6 +547,8 @@ song-content = Content
 song-explicit = Explicit
 song-local = Local file
 song-clean = Clean
+song-file-path = File location
+song-lyrics-file = Lyrics file
 song-audio-format = Audio format
 artist-about = About the artist
 artist-about-fallback = Explore the artist's popular songs and releases.
@@ -732,6 +735,8 @@ settings-fullscreen-controls-autohide = Hide controls
 settings-fullscreen-controls-autohide-detail = Fade out the playback controls in Now playing while the pointer rests
 settings-os-fullscreen = Use OS fullscreen
 settings-os-fullscreen-detail = Make Now playing fill the whole screen, the way F11 does
+settings-dual-preview = Dual panel preview
+settings-dual-preview-detail = Show queue and lyrics side-by-side when both are open
 settings-icons = Icon pack
 settings-icons-detail = Choose the icon set the interface draws from
 settings-motion = Reduce motion

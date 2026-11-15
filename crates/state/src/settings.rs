@@ -498,6 +498,7 @@ struct Values {
     romanization_scripts: RomanizationScripts,
     #[serde(default)]
     romanization_style: RomanizationStyle,
+    dual_preview: bool,
     adaptive_menu: bool,
     check_updates: bool,
     /// The release channel chosen in settings, by its id. Empty follows the running build's own
@@ -727,6 +728,7 @@ impl Default for Values {
             romanization_scripts: RomanizationScripts::default(),
             romanization_style: RomanizationStyle::default(),
             adaptive_menu: false,
+            dual_preview: true,
             check_updates: cfg!(target_os = "windows") || updates_itself(),
             update_channel: String::new(),
             close_to_tray: true,
@@ -775,6 +777,7 @@ struct StateValues {
     sidebar_right_width: f32,
     sidebar_right_open: bool,
     sidebar_right_tab: SideTab,
+    sidebar_right_secondary: Option<SideTab>,
     fullscreen_tab: Option<SideTab>,
     shuffle: bool,
     repeat: Repeat,
@@ -808,6 +811,7 @@ impl Default for StateValues {
             sidebar_right_width: DEFAULT_SIDEBAR_RIGHT_WIDTH,
             sidebar_right_open: false,
             sidebar_right_tab: SideTab::Queue,
+            sidebar_right_secondary: None,
             fullscreen_tab: Some(SideTab::Lyrics),
             shuffle: false,
             repeat: Repeat::Off,
@@ -1359,6 +1363,22 @@ impl AppSettings {
             SideTab::Lyrics if !self.lyrics_enabled() => SideTab::Queue,
             tab => tab,
         }
+    }
+
+    pub fn dual_preview(&self) -> bool {
+        self.values.dual_preview
+    }
+
+    pub fn sidebar_right_secondary(&self) -> Option<SideTab> {
+        self.state.sidebar_right_secondary
+    }
+
+    pub fn is_sidebar_right_showing(&self, tab: SideTab) -> bool {
+        if !self.state.sidebar_right_open {
+            return false;
+        }
+        self.state.sidebar_right_tab == tab
+            || (self.values.dual_preview && self.state.sidebar_right_secondary == Some(tab))
     }
 
     /// The panel the fullscreen view last showed beside the cover, or `None` when it showed the
@@ -2146,6 +2166,21 @@ impl AppSettings {
         }
         self.state.sidebar_right_tab = tab;
         self.schedule_state_save(cx);
+    }
+
+    pub fn set_dual_preview(&mut self, enabled: bool, cx: &mut Context<Self>) {
+        if self.values.dual_preview != enabled {
+            self.values.dual_preview = enabled;
+            self.schedule_save(cx);
+            cx.notify();
+        }
+    }
+
+    pub fn set_sidebar_right_secondary(&mut self, tab: Option<SideTab>, cx: &mut Context<Self>) {
+        if self.state.sidebar_right_secondary != tab {
+            self.state.sidebar_right_secondary = tab;
+            self.schedule_state_save(cx);
+        }
     }
 
     pub fn set_fullscreen_tab(&mut self, tab: Option<SideTab>, cx: &mut Context<Self>) {

@@ -1902,22 +1902,12 @@ impl Aside {
                     this.open_lyrics_menu(position, cx);
                 }));
 
-            let save_btn = Button::new("lyrics-save-button")
-                .ghost()
-                .small()
-                .icon("icons/download.svg")
-                .tooltip("lyrics-save-beside-song")
-                .on_click(cx.listener(|this, _, _, cx| {
-                    this.save_current_lyrics_beside_song(cx);
-                }));
-
             let source_row = div()
                 .flex()
                 .items_center()
                 .gap_2()
                 .child(ui::spoken("lyrics-credit-source", from))
-                .child(switch_btn)
-                .child(save_btn);
+                .child(switch_btn);
 
             let note = div()
                 .w_full()

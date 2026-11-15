@@ -192,17 +192,27 @@ impl ItemMenu {
         addition: Addition,
         shelf: Shelf,
         lead: Vec<MenuItem>,
+        cached_tracks: Option<Vec<Track>>,
         cx: &App,
     ) -> Menu {
         let library = Sonora::global(cx).library.clone();
-        let playlists: Vec<Playlist> = library
+        let streaming_playlists: Vec<Playlist> = library
             .read(cx)
-            .state(shelf)
+            .state(Shelf::Streaming)
             .playlists()
             .iter()
             .filter(|playlist| playlist.owned || playlist.collaborative)
             .cloned()
             .collect();
+        let local_playlists: Vec<Playlist> = library
+            .read(cx)
+            .state(Shelf::Local)
+            .playlists()
+            .iter()
+            .filter(|playlist| playlist.owned || playlist.collaborative)
+            .cloned()
+            .collect();
+
         let ids = match &addition {
             Addition::Tracks(ids) => ids.clone(),
             Addition::Album(_) => Vec::new(),
@@ -221,21 +231,132 @@ impl ItemMenu {
                     cx,
                 );
             });
-        if playlists.is_empty() {
+
+        let query = self.playlist_search.query(cx);
+        let searching = !query.is_empty();
+        let filter_matches = |list: Vec<Playlist>| -> Vec<Playlist> {
+            if !searching {
+                list
+            } else {
+                list.into_iter()
+                    .filter(|p| p.name.to_lowercase().contains(&query))
+                    .collect()
+            }
+        };
+
+        let (group1, group2) = match shelf {
+            Shelf::Streaming => (
+                filter_matches(streaming_playlists),
+                filter_matches(local_playlists),
+            ),
+            _ => (
+                filter_matches(local_playlists),
+                filter_matches(streaming_playlists),
+            ),
+        };
+
+        if group1.is_empty() && group2.is_empty() {
+            let msg = if searching {
+                t!("search-no-matches")
+            } else {
+                t!("menu-no-playlists")
+            };
             Menu::new("playlist-submenu")
                 .w(gpui::px(220.))
+                .scrollbar(self.playlist_scrollbar.clone())
+                .search(self.playlist_search.clone())
                 .items(lead)
-                .item(new_playlist)
-                .item(MenuItem::separator("playlist-separator"))
-                .item(MenuItem::new("no-playlists", t!("menu-no-playlists")).disabled())
+                .when(!searching, |menu| {
+                    menu.item(new_playlist)
+                        .item(MenuItem::separator("playlist-separator"))
+                })
+                .item(MenuItem::new("no-playlists-msg", msg).disabled())
         } else {
-            let query = self.playlist_search.query(cx);
-            let searching = !query.is_empty();
-            let found: Vec<Playlist> = playlists
-                .into_iter()
-                .filter(|playlist| playlist.name.to_lowercase().contains(&query))
-                .collect();
-            let unmatched = found.is_empty();
+            let make_item = |playlist: Playlist| -> MenuItem {
+                let held = !ids.is_empty()
+                    && ids
+                        .iter()
+                        .all(|id| library.read(cx).holds(&playlist.id, id).unwrap_or(false));
+                let item =
+                    MenuItem::new(format!("playlist-{}", playlist.id), playlist.name.clone())
+                        .artwork(playlist.cover.clone())
+                        .checked(held)
+                        .when(!album, MenuItem::stays_open);
+                if album {
+                    let library = library.clone();
+                    let addition = addition.clone();
+                    return item.on_click(move |_, _, cx| {
+                        library.update(cx, |library, cx| {
+                            library.add_tracks_to_playlist(
+                                playlist.id.clone(),
+                                addition.clone(),
+                                cx,
+                            )
+                        });
+                    });
+                }
+                match ids.is_empty() {
+                    true => item.disabled(),
+                    false => {
+                        let library = library.clone();
+                        let track_ids = ids.clone();
+                        let cached_tracks = cached_tracks.clone();
+                        item.on_click(move |_, _, cx| {
+                            if held {
+                                library.update(cx, |library, cx| {
+                                    library.remove_tracks_from_playlist(
+                                        playlist.id.clone(),
+                                        track_ids.clone(),
+                                        cx,
+                                    )
+                                });
+                                return;
+                            }
+                            if music::is_local_id(&playlist.id)
+                                && let Some(tracks) = &cached_tracks
+                                && let Some(local_client) =
+                                    Sonora::global(cx).session.read(cx).local_client()
+                            {
+                                let _ = local_client.cache_track_details(tracks);
+                            }
+                            let missing: Vec<String> = track_ids
+                                .iter()
+                                .filter(|id| {
+                                    !library.read(cx).holds(&playlist.id, id).unwrap_or(false)
+                                })
+                                .cloned()
+                                .collect();
+                            if missing.is_empty() {
+                                return;
+                            }
+                            library.update(cx, |library, cx| {
+                                library.add_tracks_to_playlist(
+                                    playlist.id.clone(),
+                                    Addition::Tracks(missing),
+                                    cx,
+                                )
+                            });
+                        })
+                    }
+                }
+            };
+
+            let mut all_items: Vec<MenuItem> = Vec::new();
+            let has_group1 = !group1.is_empty();
+            let has_group2 = !group2.is_empty();
+
+            for p in group1 {
+                all_items.push(make_item(p));
+            }
+
+            if has_group1 && has_group2 {
+                all_items.push(MenuItem::separator("playlist-group-divider"));
+            }
+
+            for p in group2 {
+                all_items.push(make_item(p));
+            }
+
             Menu::new("playlist-submenu")
                 .w(gpui::px(220.))
                 .max_h(gpui::px(360.))
@@ -246,71 +367,7 @@ impl ItemMenu {
                         .item(new_playlist)
                         .item(MenuItem::separator("playlist-separator"))
                 })
-                .when(unmatched, |menu| {
-                    menu.item(
-                        MenuItem::new("no-matching-playlists", t!("search-no-matches")).disabled(),
-                    )
-                })
-                .items(found.into_iter().map(|playlist| {
-                    let held = !ids.is_empty()
-                        && ids
-                            .iter()
-                            .all(|id| library.read(cx).holds(&playlist.id, id).unwrap_or(false));
-                    let item =
-                        MenuItem::new(format!("playlist-{}", playlist.id), playlist.name.clone())
-                            .artwork(playlist.cover.clone())
-                            .checked(held)
-                            .when(!album, MenuItem::stays_open);
-                    if album {
-                        let library = library.clone();
-                        let addition = addition.clone();
-                        return item.on_click(move |_, _, cx| {
-                            library.update(cx, |library, cx| {
-                                library.add_tracks_to_playlist(
-                                    playlist.id.clone(),
-                                    addition.clone(),
-                                    cx,
-                                )
-                            });
-                        });
-                    }
-                    match ids.is_empty() {
-                        true => item.disabled(),
-                        false => {
-                            let library = library.clone();
-                            let track_ids = ids.clone();
-                            item.on_click(move |_, _, cx| {
-                                if held {
-                                    library.update(cx, |library, cx| {
-                                        library.remove_tracks_from_playlist(
-                                            playlist.id.clone(),
-                                            track_ids.clone(),
-                                            cx,
-                                        )
-                                    });
-                                    return;
-                                }
-                                let missing: Vec<String> = track_ids
-                                    .iter()
-                                    .filter(|id| {
-                                        !library.read(cx).holds(&playlist.id, id).unwrap_or(false)
-                                    })
-                                    .cloned()
-                                    .collect();
-                                if missing.is_empty() {
-                                    return;
-                                }
-                                library.update(cx, |library, cx| {
-                                    library.add_tracks_to_playlist(
-                                        playlist.id.clone(),
-                                        Addition::Tracks(missing),
-                                        cx,
-                                    )
-                                });
-                            })
-                        }
-                    }
-                }))
+                .items(all_items)
         }
     }
 
@@ -489,7 +546,13 @@ impl ItemMenu {
                 )
                 .icon("icons/square-plus.svg")
                 .submenu(
-                    self.playlist_rows(Addition::Tracks(ids.clone()), shelf, Vec::new(), cx),
+                    self.playlist_rows(
+                        Addition::Tracks(ids.clone()),
+                        shelf,
+                        Vec::new(),
+                        Some(tracks.to_vec()),
+                        cx,
+                    ),
                     self.playlist_submenu.clone(),
                 ),
             ),
@@ -1019,6 +1082,7 @@ pub(crate) fn album_menu(
                 Addition::Album(album_id.clone()),
                 Shelf::of(&album_id),
                 Vec::new(),
+                None,
                 cx,
             ),
             menus.playlist_submenu.clone(),

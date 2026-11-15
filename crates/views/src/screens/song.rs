@@ -202,7 +202,7 @@ impl SongView {
             .playcount()
             .map(cells::count)
             .unwrap_or_else(|| t!("common-not-available"));
-        let facts = [
+        let mut facts = vec![
             (
                 "song-fact-album",
                 t!("song-album"),
@@ -218,6 +218,28 @@ impl SongView {
                 t!("song-popularity-value", value = track.popularity),
             ),
         ];
+
+        if let Some(id) = &track.id
+            && music::is_local_id(id)
+            && let Some(path) = music::path_from_track_id(id)
+        {
+            facts.push((
+                "song-fact-path",
+                t!("song-file-path"),
+                SharedString::from(path.to_string_lossy().to_string()),
+            ));
+            let lrc = path.with_extension("lrc");
+            let lrc_val = if lrc.exists() {
+                SharedString::from(lrc.to_string_lossy().to_string())
+            } else {
+                t!("common-none")
+            };
+            facts.push((
+                "song-fact-lyrics-file",
+                t!("song-lyrics-file"),
+                lrc_val,
+            ));
+        }
         InfoCard::new(t!("song-about"))
             .spoken("song-about-card")
             .stretch()
