@@ -1149,17 +1149,39 @@ impl LibraryView {
     ) -> Option<AnyElement> {
         let playlist = self.playlists.read(cx).delegate().source().at(row, cx)?;
         let total = self.playlists.read(cx).delegate().row_count();
-        let local = self.playlists.read(cx).delegate().source().marks_local(cx)
-            && Shelf::of(&playlist.id).local();
-        let build = match Shelf::of(&playlist.id).local() {
+        let is_local = Shelf::of(&playlist.id).local();
+        let local = self.playlists.read(cx).delegate().source().marks_local(cx) && is_local;
+        let build = match is_local {
             true => cards::imported_playlist_card,
             false => cards::playlist_card,
         };
         let id = SharedString::from(format!("library-playlist-{}", playlist.id));
 
+        let card_el = build(id, &playlist, &self.playback, cx);
+        let card_el = if local {
+            cards::marked_local(card_el, true)
+        } else if !is_local {
+            let session = Sonora::global(cx).session.read(cx);
+            let slug = session
+                .provider_for(&playlist.id)
+                .map(|p| p.slug())
+                .or_else(|| session.provider_slug());
+            let name = session
+                .provider_for(&playlist.id)
+                .map(|p| p.name())
+                .or_else(|| session.provider_name())
+                .unwrap_or("Streaming");
+            if let Some(slug) = slug {
+                card_el.mark(crate::shared::provider_logo(slug), name)
+            } else {
+                card_el
+            }
+        } else {
+            card_el
+        };
+
         Some(
-            build(id, &playlist, &self.playback, cx)
-                .map(|card| cards::marked_local(card, local))
+            card_el
                 .tile(card)
                 .flat()
                 .aria_position_in_set(display + 1)

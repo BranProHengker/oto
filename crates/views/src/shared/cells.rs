@@ -346,6 +346,32 @@ pub(crate) fn name<F>(
         .into_any_element()
 }
 
+/// The name of a library row in `color`, followed by a mark badge `icon` and `label`.
+#[track_caller]
+pub(crate) fn name_with_mark<F>(
+    cell: &Cell<F>,
+    value: impl Into<SharedString>,
+    color: Hsla,
+    icon: &'static str,
+    label: impl Into<SharedString>,
+) -> AnyElement {
+    let caller = Location::caller();
+    line(cell, Some(color))
+        .flex()
+        .items_center()
+        .gap_1p5()
+        .child(said(div().min_w_0().truncate(), caller, value.into()))
+        .child(
+            div()
+                .id(("provider-badge", cell.row))
+                .role(Role::Image)
+                .aria_label(label.into())
+                .flex_none()
+                .child(Badge::icon(icon)),
+        )
+        .into_any_element()
+}
+
 /// The badge a local file carries beside its name on a library page that mixes both shelves,
 /// announced as a local file.
 pub(crate) fn local_badge(row: usize) -> AnyElement {

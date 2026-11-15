@@ -192,6 +192,48 @@ pub enum RomanizationStyle {
     Line,
 }
 
+/// The animation and visual presentation preset for synced and karaoke lyrics.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "kebab-case")]
+pub enum LyricsPreset {
+    #[default]
+    Fluid,
+    Kinetic,
+    Parallax,
+    Neon,
+    Terminal,
+}
+
+impl LyricsPreset {
+    pub const ALL: [Self; 5] = [
+        Self::Fluid,
+        Self::Kinetic,
+        Self::Parallax,
+        Self::Neon,
+        Self::Terminal,
+    ];
+
+    pub fn id(self) -> &'static str {
+        match self {
+            Self::Fluid => "fluid",
+            Self::Kinetic => "kinetic",
+            Self::Parallax => "parallax",
+            Self::Neon => "neon",
+            Self::Terminal => "terminal",
+        }
+    }
+
+    pub fn key(self) -> &'static str {
+        match self {
+            Self::Fluid => "settings-lyrics-preset-fluid",
+            Self::Kinetic => "settings-lyrics-preset-kinetic",
+            Self::Parallax => "settings-lyrics-preset-parallax",
+            Self::Neon => "settings-lyrics-preset-neon",
+            Self::Terminal => "settings-lyrics-preset-terminal",
+        }
+    }
+}
+
 /// The writing systems lyrics romanization applies to. Only CJK are enabled by default.
 /// A partial object in `settings.json` keeps the defaults for the scripts it leaves out.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -498,6 +540,8 @@ struct Values {
     romanization_scripts: RomanizationScripts,
     #[serde(default)]
     romanization_style: RomanizationStyle,
+    #[serde(default)]
+    lyrics_preset: LyricsPreset,
     dual_preview: bool,
     adaptive_menu: bool,
     check_updates: bool,
@@ -727,6 +771,7 @@ impl Default for Values {
             fullscreen_lyrics_scale: DEFAULT_LYRICS_SCALE,
             romanization_scripts: RomanizationScripts::default(),
             romanization_style: RomanizationStyle::default(),
+            lyrics_preset: LyricsPreset::default(),
             adaptive_menu: false,
             dual_preview: true,
             check_updates: cfg!(target_os = "windows") || updates_itself(),
@@ -1290,6 +1335,10 @@ impl AppSettings {
 
     pub fn romanization_style(&self) -> RomanizationStyle {
         self.values.romanization_style
+    }
+
+    pub fn lyrics_preset(&self) -> LyricsPreset {
+        self.values.lyrics_preset
     }
 
     pub fn adaptive_menu(&self) -> bool {
@@ -1924,6 +1973,14 @@ impl AppSettings {
     pub fn set_romanization_style(&mut self, style: RomanizationStyle, cx: &mut Context<Self>) {
         self.values.romanization_style = style;
         self.schedule_save(cx);
+    }
+
+    pub fn set_lyrics_preset(&mut self, preset: LyricsPreset, cx: &mut Context<Self>) {
+        if self.values.lyrics_preset != preset {
+            self.values.lyrics_preset = preset;
+            self.schedule_save(cx);
+            cx.notify();
+        }
     }
 
     pub fn set_panel_lyrics_scale(&mut self, scale: f32, cx: &mut Context<Self>) {

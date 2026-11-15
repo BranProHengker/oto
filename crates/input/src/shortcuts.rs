@@ -172,8 +172,8 @@ const SHORTCUTS: &[Shortcut] = &[
         section: Section::Playback,
         scope: Scope::Anywhere,
         bind: bind::<ToggleRepeat>,
-        defaults: &[],
-        mac: &[],
+        defaults: &["ctrl-l"],
+        mac: &["cmd-l"],
     },
     Shortcut {
         id: "navigate-back",
@@ -226,7 +226,7 @@ const SHORTCUTS: &[Shortcut] = &[
         section: Section::Navigation,
         scope: Scope::Anywhere,
         bind: bind::<OpenSettings>,
-        defaults: &["ctrl-,", "cmd-,"],
+        defaults: &["ctrl-,", "cmd-,", "ctrl-s", "cmd-s"],
         mac: &[],
     },
     Shortcut {
