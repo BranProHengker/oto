@@ -5,6 +5,9 @@ use crate::models::{
     Track, UserProfile,
 };
 
+/// The longer edge of a large cover, wide enough for the fullscreen player on a 2x display.
+const COVER_LARGE: u32 = 1200;
+
 pub fn track(source: ytmusic::Track, index: u32) -> Track {
     let artists = source
         .artists
@@ -159,6 +162,7 @@ pub fn artist(source: ytmusic::Artist) -> Artist {
         banner: None,
         biography: source.description,
         monthly_listeners: None,
+        followers: None,
         top_tracks,
         albums,
     }
@@ -196,9 +200,9 @@ pub fn cover(thumbnails: &[ytmusic::Thumbnail]) -> Option<String> {
     thumbnails.last().map(|thumb| thumb.url.clone())
 }
 
-/// The longer edge of a large cover, wide enough for the fullscreen player on a 2x display.
-const COVER_LARGE: u32 = 1200;
-
+/// The largest thumbnail, asked of Google's image server at `COVER_LARGE` on its longer edge
+/// when the api offers less. YouTube Music hands out 544 pixels at most, though the server
+/// scales the same picture to any size.
 pub fn cover_large(thumbnails: &[ytmusic::Thumbnail]) -> Option<String> {
     thumbnails
         .last()

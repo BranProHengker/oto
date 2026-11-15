@@ -10,6 +10,7 @@ mod sessions_button;
 mod sidebar_left;
 mod sidebar_right;
 mod swipe_cue;
+mod theme_invite;
 mod title_bar;
 mod toasts;
 mod toolbar;
@@ -25,14 +26,16 @@ pub(crate) use session::{SessionCode, SessionJoin};
 pub(crate) use sidebar_left::SidebarLeft;
 pub(crate) use sidebar_right::SidebarRight;
 pub(crate) use swipe_cue::SwipeCue;
+pub(crate) use theme_invite::ThemeInvite;
 #[cfg(target_os = "macos")]
 pub use title_bar::traffic_lights;
 pub(crate) use title_bar::{Busy, TitleBar, TitleBarEvent, TitleBarOptions};
 pub use toasts::ToastStack;
 pub(crate) use toolbar::{Searchable, Toolbar, Tooled};
 
+use gpui::accesskit::Role;
 use gpui::prelude::*;
-use gpui::{App, Div, Entity, Global, Pixels, Window, div};
+use gpui::{App, Div, Entity, Global, Pixels, SharedString, Window, div};
 #[cfg(any(target_os = "linux", target_os = "freebsd"))]
 use state::AppSettings;
 use ui::{ActiveTheme as _, MIN_CONTENT, Room, eyebrow};
@@ -52,8 +55,11 @@ pub(crate) fn window_radius(settings: &AppSettings, cx: &App, window: &Window) -
     }
 }
 
-pub(crate) fn section_label(key: &'static str, cx: &App) -> Div {
+pub(crate) fn section_label(key: &'static str, cx: &App) -> gpui::Stateful<Div> {
     div()
+        .id(SharedString::from(format!("queue-section-{key}")))
+        .role(Role::Heading)
+        .aria_label(i18n::lookup(key, None))
         .flex()
         .flex_none()
         .items_end()
@@ -141,6 +147,18 @@ impl Chrome {
 
     pub fn room(window: &Window, cx: &App) -> Room {
         Room::of(Self::content(window, cx))
+    }
+
+    /// The width a page lays itself out in, which is the content area up to `metrics.page`.
+    pub fn page(window: &Window, cx: &App) -> Pixels {
+        Self::content(window, cx).min(cx.theme().metrics.page)
+    }
+
+    /// How much wider than its page the content area is on each side. A page adds it to its
+    /// side padding, so on a wide window it stands centred while its scrollbar and any
+    /// background it bleeds still reach the edges.
+    pub fn margin(window: &Window, cx: &App) -> Pixels {
+        ((Self::content(window, cx) - Self::page(window, cx)) / 2.).max(Pixels::ZERO)
     }
 
     /// Classifies chrome that spans the whole window, including the space under sidebars.

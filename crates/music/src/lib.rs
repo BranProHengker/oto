@@ -41,16 +41,13 @@ pub mod vault;
 pub mod youtube;
 
 use std::collections::{HashMap, HashSet};
-use std::num::NonZero;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
 use anyhow::Result;
 use async_trait::async_trait;
-use time::format_description::well_known::Iso8601;
-use time::parsing::Parsed;
-use time::{Month, OffsetDateTime};
+use jiff::fmt::temporal::DateTimeParser;
 
 pub use audio::Meter;
 pub use equalizer::Equalizer;
@@ -59,7 +56,7 @@ pub use lyrics::{
 };
 pub use models::{
     Album, AlbumCatalogue, AlbumDetail, Artist, ArtistCatalogue, ArtistProfile, ArtistRef,
-    Contributor, CoverSize, Credit, Genre, GenreDetail, GenreItem, GenreSection, HomeFeed,
+    Contributor, CoverSize, Credit, Found, Genre, GenreDetail, GenreItem, GenreSection, HomeFeed,
     ImportedPlaylist, Lyrics, LyricsHit, LyricsLane, LyricsLine, LyricsQuery, LyricsWord,
     PinOutcome, PinTarget, PinTargetKind, Playlist, PlaylistDetail, ReleaseType, RomanizedText,
     SavedArtist, Track, TrackKey, TrackTags, UserDetail, UserProfile, Voice, WritingSystem,
@@ -76,6 +73,9 @@ pub const LOCAL_PLAYLIST_PREFIX: &str = "local-playlist:";
 /// The most recommendations a provider hands one list of an album or artist page, so a
 /// rail never asks for or draws more than this many releases or artists.
 pub const SUGGESTIONS: usize = 10;
+
+/// The duration tolerance for recognizing the same recording across releases.
+const SAME_SONG: Duration = Duration::from_secs(5);
 
 pub fn is_local_id(id: &str) -> bool {
     id.starts_with(LOCAL_TRACK_PREFIX)
@@ -134,6 +134,13 @@ pub trait MusicApi: Send + Sync {
     /// A cover url this provider handed out, at `size`. It is worked out from the url alone,
     /// so `None` means the provider cannot tell and the caller loads the album instead.
     fn cover_at(&self, _cover: &str, _size: CoverSize) -> Option<String> {
+        None
+    }
+
+    /// The provider's original-resolution url for a cover it handed out, when the url alone
+    /// names one. Only the explicit full-size cover view asks for this, so a provider that
+    /// cannot name an original keeps showing the large cover.
+    fn cover_original(&self, _cover: &str) -> Option<String> {
         None
     }
 
@@ -382,6 +389,24 @@ pub trait MusicApi: Send + Sync {
         Ok(Vec::new())
     }
 
+    /// Songs, albums, playlists and artists for `query`, which is what the search page and the
+    /// command line show. The default runs the four searches at once. A provider that can
+    /// answer every kind in one request overrides it, so a query costs one round trip.
+    async fn search_all(&self, query: &str) -> Found {
+        let (tracks, albums, playlists, artists) = futures::join!(
+            self.search(query),
+            self.search_albums(query),
+            self.search_playlists(query),
+            self.search_artists(query),
+        );
+        Found {
+            tracks,
+            albums,
+            playlists,
+            artists,
+        }
+    }
+
     async fn home(&self) -> Result<HomeFeed> {
         Ok(HomeFeed::default())
     }
@@ -556,8 +581,8 @@ pub enum Normalisation {
     Off,
     /// A fixed gain in decibels, zero when nothing says how loud the track is.
     Gain(f32),
-    /// librespot normalises inside its own player with a limiter, so the gain is not known
-    /// and changes with the music.
+    /// Spotify's players, librespot and Soloist, normalise inside themselves with a limiter, so
+    /// the gain is not known and changes with the music.
     Limited,
 }
 
@@ -825,7 +850,8 @@ pub enum Catalog {
     /// files and a self-hosted server.
     Fixed,
     /// A set the listener picked out of a bigger catalog, which tracks and albums are put into
-    /// and taken out of through `set_in_library`, as on Apple Music.
+    /// and taken out of through `set_in_library`, as on Apple Music. A favorite is a mark on a
+    /// library item, so taking an item out of the library takes its favorite with it.
     Editable,
 }
 
@@ -928,6 +954,8 @@ pub enum SignIn {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SignInProblem {
     Premium,
+    /// Apple Music says the signed-in Apple ID has no active subscription.
+    Subscription,
     Region,
     Credentials,
     Network,
@@ -955,6 +983,7 @@ impl std::fmt::Display for SignInFailure {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let reason = match self.0 {
             SignInProblem::Premium => "the account has no Spotify Premium",
+            SignInProblem::Subscription => "the account has no active Apple Music subscription",
             SignInProblem::Region => "the account is out of its home region",
             SignInProblem::Credentials => "the stored credentials are no longer valid",
             SignInProblem::Network => "the provider could not be reached",
@@ -1126,24 +1155,23 @@ pub trait MusicProvider: Send + Sync {
 /// Leniently convert an ISO8601 timestamp to unix epoch seconds. Accepts only
 /// the date portion, date and time portions, or full date and time with offset.
 pub fn iso_8601_to_epoch(value: Option<&str>) -> Option<i64> {
-    let time_str = value?.as_bytes();
-    let defaults = Parsed::new()
-        .with_month(Month::January)
-        .and_then(|d| d.with_day(NonZero::<u8>::new(1)?))
-        .and_then(|d| d.with_hour_24(0))
-        .and_then(|d| d.with_minute(0))
-        .and_then(|d| d.with_second(0))
-        .and_then(|d| d.with_subsecond(0))
-        .and_then(|d| d.with_offset_hour(0))
-        .and_then(|d| d.with_offset_minute_signed(0))
-        .and_then(|d| d.with_offset_second_signed(0))?;
-    let timestamp = OffsetDateTime::parse_with_defaults(time_str, &Iso8601::PARSING, defaults)
-        .ok()?
-        .unix_timestamp();
-    Some(timestamp)
+    let value = value?;
+    let parser = DateTimeParser::new();
+    let timestamp = parser
+        .parse_timestamp(value)
+        .or_else(|_| {
+            parser
+                .parse_datetime(value)
+                .and_then(|datetime| jiff::tz::TimeZone::UTC.to_timestamp(datetime))
+        })
+        .or_else(|_| {
+            parser
+                .parse_date(value)
+                .and_then(|date| jiff::tz::TimeZone::UTC.to_timestamp(date.at(0, 0, 0, 0)))
+        })
+        .ok()?;
+    Some(timestamp.as_second())
 }
-
-const SAME_SONG: Duration = Duration::from_secs(5);
 
 /// Keeps playable songs credited to the artist in their supplied order, collapsing repeat
 /// ids and matching titles of similar duration across releases. Remaster labels do not
@@ -1187,28 +1215,27 @@ fn artist_songs(tracks: Vec<Track>, artist_id: &str) -> Vec<Track> {
 /// brackets or after a dash, and with its spacing collapsed.
 fn song_title(name: &str) -> String {
     let lower = name.to_lowercase();
-    let rest = match lower.rsplit_once(" - ") {
+    let mut rest = match lower.rsplit_once(" - ") {
         Some((head, tail)) if remaster_note(tail) => head,
         _ => lower.as_str(),
     };
     let mut title = String::with_capacity(rest.len());
-    let mut current = rest;
-    while let Some(open) = current.find(['(', '[']) {
-        let close = match current.as_bytes()[open] {
+    while let Some(open) = rest.find(['(', '[']) {
+        let close = match rest.as_bytes()[open] {
             b'(' => ')',
             _ => ']',
         };
-        let Some(length) = current[open..].find(close) else {
+        let Some(length) = rest[open..].find(close) else {
             break;
         };
         let end = open + length + 1;
-        title.push_str(&current[..open]);
-        if !remaster_note(&current[open + 1..end - 1]) {
-            title.push_str(&current[open..end]);
+        title.push_str(&rest[..open]);
+        if !remaster_note(&rest[open + 1..end - 1]) {
+            title.push_str(&rest[open..end]);
         }
-        current = &current[end..];
+        rest = &rest[end..];
     }
-    title.push_str(current);
+    title.push_str(rest);
     title.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
@@ -1225,8 +1252,6 @@ fn remaster_note(note: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use time::macros::datetime;
-
     use super::*;
 
     #[test]
@@ -1246,29 +1271,35 @@ mod tests {
         );
 
         // A specific date with/without time/offset
-        assert_eq!(
-            iso_8601_to_epoch(Some("2021-03-20")),
-            Some(datetime!(2021-03-20 00:00:00 UTC).unix_timestamp())
-        );
+        let date = jiff::civil::date(2021, 3, 20);
+        let midnight = jiff::tz::TimeZone::UTC
+            .to_timestamp(date.at(0, 0, 0, 0))
+            .unwrap()
+            .as_second();
+        let afternoon = jiff::tz::TimeZone::UTC
+            .to_timestamp(date.at(13, 45, 7, 0))
+            .unwrap()
+            .as_second();
+        assert_eq!(iso_8601_to_epoch(Some("2021-03-20")), Some(midnight));
         assert_eq!(
             iso_8601_to_epoch(Some("2021-03-20T13:45:07")),
-            Some(datetime!(2021-03-20 13:45:07 UTC).unix_timestamp())
+            Some(afternoon)
         );
         assert_eq!(
             iso_8601_to_epoch(Some("2021-03-20T13:45:07.123456")),
-            Some(datetime!(2021-03-20 13:45:07 UTC).unix_timestamp())
+            Some(afternoon)
         );
         assert_eq!(
             iso_8601_to_epoch(Some("2021-03-20T13:45:07Z")),
-            Some(datetime!(2021-03-20 13:45:07 UTC).unix_timestamp())
+            Some(afternoon)
         );
         assert_eq!(
             iso_8601_to_epoch(Some("2021-03-20T13:45:07+00:00")),
-            Some(datetime!(2021-03-20 13:45:07 UTC).unix_timestamp())
+            Some(afternoon)
         );
         assert_eq!(
             iso_8601_to_epoch(Some("2021-03-20T10:45:07-03:00")),
-            Some(datetime!(2021-03-20 13:45:07 UTC).unix_timestamp())
+            Some(afternoon)
         );
     }
 }

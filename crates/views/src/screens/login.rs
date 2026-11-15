@@ -1,15 +1,16 @@
 use crate::shared::device_code::device_code;
-use crate::shared::popups::{AccountPicker, CookiePrompt};
+use crate::shared::popups::{AccountPicker, CookiePrompt, Credentials, CredentialsPrompt};
+use gpui::accesskit::Role;
 use gpui::prelude::*;
 use gpui::{
     ClipboardItem, Context, Entity, FontWeight, IntoElement, Pixels, Render, SharedString, Window,
     div, px, svg,
 };
 use i18n::t;
-use music::{AccountChoice, SignIn, SignInPrompt};
-use state::{Session, SessionState, Sonora, Usage};
+use music::{AccountChoice, SignIn, SignInProblem, SignInPrompt};
+use state::{Failure, Session, SessionState, Sonora, Usage};
 use ui::ActiveTheme as _;
-use ui::{Button, Checkbox, Input, Modal, TabBar, Text};
+use ui::{Button, Checkbox, Input, TabBar, Text};
 
 const COLUMN: Pixels = px(280.);
 const LOGO: Pixels = px(48.);
@@ -21,6 +22,7 @@ struct Column {
     web_sign_in: bool,
     disabled: bool,
     cancel: bool,
+    failure: Option<Failure>,
 }
 
 enum LoginAction {
@@ -40,9 +42,7 @@ pub struct LoginView {
     session: Entity<Session>,
     usage: Entity<Usage>,
     secret: Entity<Input>,
-    server: Entity<Input>,
-    username: Entity<Input>,
-    password: Entity<Input>,
+    credentials: Credentials,
     credentials_for: Option<&'static str>,
     manual_secret: Option<(&'static str, &'static str)>,
     tab: usize,
@@ -50,16 +50,25 @@ pub struct LoginView {
 
 impl LoginView {
     pub fn new(session: Entity<Session>, cx: &mut Context<Self>) -> Self {
-        cx.observe(&session, |_, _, cx| cx.notify()).detach();
+        cx.observe(&session, |this, session, cx| {
+            if matches!(session.read(cx).state(), SessionState::Failed(_))
+                && let Some(index) = session
+                    .read(cx)
+                    .providers()
+                    .position(|info| info.error.is_some())
+            {
+                this.tab = index;
+            }
+            cx.notify();
+        })
+        .detach();
         let usage = Sonora::global(cx).usage.clone();
         cx.observe(&usage, |_, _, cx| cx.notify()).detach();
         Self {
             session,
             usage,
             secret: cx.new(|cx| Input::new("login-cookie-hint", cx)),
-            server: cx.new(|cx| Input::new("login-server-hint", cx)),
-            username: cx.new(|cx| Input::new("login-username-hint", cx)),
-            password: cx.new(|cx| Input::new("login-password-hint", cx).masked()),
+            credentials: Credentials::new(cx),
             credentials_for: None,
             manual_secret: None,
             tab: 0,
@@ -98,9 +107,7 @@ impl LoginView {
 
     fn clear_credentials(&mut self, cx: &mut Context<Self>) {
         self.credentials_for = None;
-        self.server.update(cx, |input, cx| input.set_text("", cx));
-        self.username.update(cx, |input, cx| input.set_text("", cx));
-        self.password.update(cx, |input, cx| input.set_text("", cx));
+        self.credentials.clear(cx);
     }
 
     fn clear_secret(&mut self, cx: &mut Context<Self>) {
@@ -118,12 +125,9 @@ impl LoginView {
         let Some(slug) = self.credentials_for else {
             return;
         };
-        let server = self.server.read(cx).text().to_string();
-        let username = self.username.read(cx).text().to_string();
-        let password = self.password.read(cx).text().to_string();
-        if server.trim().is_empty() || username.trim().is_empty() || password.is_empty() {
+        let Some((server, username, password)) = self.credentials.filled(cx) else {
             return;
-        }
+        };
         self.clear_credentials(cx);
         self.start(
             slug,
@@ -265,11 +269,11 @@ impl LoginView {
             web_sign_in,
             disabled,
             cancel,
+            failure,
         } = column;
-        let options: Vec<&SignIn> = options
+        let options = options
             .iter()
-            .filter(|option| !matches!(option, SignIn::Anonymous))
-            .collect();
+            .filter(|option| !matches!(option, SignIn::Anonymous));
 
         div()
             .flex()
@@ -284,12 +288,20 @@ impl LoginView {
                     .flex_none()
                     .text_color(theme.foreground),
             )
-            .child(
+            .child({
+                let name = SharedString::from(name.to_string());
                 div()
+                    .id("login-provider-name")
+                    .role(Role::Heading)
+                    .aria_level(2)
+                    .aria_label(name.clone())
                     .text_size(theme.text(Text::Large))
                     .font_weight(FontWeight::SEMIBOLD)
-                    .child(SharedString::from(name.to_string())),
-            )
+                    .child(name)
+            })
+            .when_some(failure, |this, failure| {
+                this.child(crate::shared::trouble::trouble(failure, true, cx))
+            })
             .child(
                 div()
                     .flex()
@@ -330,10 +342,9 @@ impl LoginView {
             .items_center()
             .gap_2()
             .child(
-                div()
+                ui::spoken("login-device-code", t!("login-device-code", url = &url))
                     .text_size(theme.text(Text::Small))
-                    .text_color(theme.muted_foreground)
-                    .child(t!("login-device-code", url = &url)),
+                    .text_color(theme.muted_foreground),
             )
             .child(device_code(code, cx))
     }
@@ -365,25 +376,9 @@ impl LoginView {
     }
 
     fn credentials_prompt(&self, cx: &mut Context<Self>) -> impl IntoElement {
-        Modal::new("server-prompt", t!("login-server-title"))
-            .w(px(560.))
-            .detail(t!("login-server-detail"))
-            .child(self.server.clone())
-            .child(self.username.clone())
-            .child(self.password.clone())
-            .action(
-                Button::new("cancel-server")
-                    .ghost()
-                    .label(t!("common-cancel"))
-                    .on_click(cx.listener(|this, _, _, cx| this.abandon_credentials(cx))),
-            )
-            .action(
-                Button::new("submit-server")
-                    .label(t!("login-server-submit"))
-                    .primary()
-                    .on_click(cx.listener(|this, _, _, cx| this.submit_credentials(cx))),
-            )
-            .on_dismiss(cx.listener(|this, _, _, cx| this.abandon_credentials(cx)))
+        CredentialsPrompt::new(&self.credentials)
+            .on_submit(cx.listener(|this, _, _, cx| this.submit_credentials(cx)))
+            .on_cancel(cx.listener(|this, _, _, cx| this.abandon_credentials(cx)))
     }
 
     fn secret_prompt(
@@ -429,6 +424,7 @@ impl Render for LoginView {
             }
             _ => false,
         };
+        let count = providers.len();
         let tabs = providers
             .iter()
             .enumerate()
@@ -438,6 +434,8 @@ impl Render for LoginView {
                     .small()
                     .ghost()
                     .selected(index == self.tab)
+                    .aria_position_in_set(index + 1)
+                    .aria_size_of_set(count)
                     .on_click(cx.listener(move |this, _, _, cx| {
                         this.acted(cx);
                         this.tab = index;
@@ -445,19 +443,24 @@ impl Render for LoginView {
                     }))
             })
             .collect::<Vec<_>>();
-        let column = providers.into_iter().nth(self.tab).map(|info| Column {
+        let selected = providers.into_iter().nth(self.tab);
+        let mut failure = selected.as_ref().and_then(|info| info.error.clone());
+        let subscription = failure
+            .as_ref()
+            .is_some_and(|failure| failure.problem == Some(SignInProblem::Subscription));
+        let inline_failure = match subscription {
+            true => failure.take(),
+            false => None,
+        };
+        let column = selected.map(|info| Column {
             slug: info.slug,
             name: info.name,
             options: info.options,
             web_sign_in: info.web_sign_in,
             disabled: pending,
             cancel: waiting && info.pending,
+            failure: inline_failure,
         });
-
-        let failure = match &state {
-            SessionState::Failed(failure) => Some(failure.clone()),
-            _ => None,
-        };
 
         let status = match &state {
             SessionState::SignedOut => t!("login-signed-out"),
@@ -494,15 +497,15 @@ impl Render for LoginView {
         #[cfg(not(any(target_os = "linux", target_os = "freebsd")))]
         let radius: Option<Pixels> = None;
 
-        div()
-            .relative()
+        let content = div()
             .flex()
             .flex_col()
             .items_center()
             .justify_center()
             .gap_6()
-            .size_full()
-            .when_some(radius, |this, radius| this.rounded_b(radius))
+            .w_full()
+            .min_h_full()
+            .p(theme.metrics.pad)
             .child(
                 div()
                     .flex()
@@ -511,12 +514,19 @@ impl Render for LoginView {
                     .gap_2()
                     .child(
                         div()
+                            .id("login-title")
+                            .role(Role::Heading)
+                            .aria_level(1)
+                            .aria_label("Sonora")
                             .child("Sonora")
                             .text_size(theme.text(Text::Display))
                             .font_weight(FontWeight::BOLD),
                     )
                     .child(
                         div()
+                            .id("login-status")
+                            .role(Role::Status)
+                            .aria_label(status.clone())
                             .max_w(px(560.))
                             .text_center()
                             .text_size(theme.text(Text::Body))
@@ -525,13 +535,24 @@ impl Render for LoginView {
                     ),
             )
             .when_some(failure, |this, failure| {
-                this.child(crate::shared::trouble::trouble(failure, true))
+                this.child(
+                    div()
+                        .id("login-failure")
+                        .role(Role::Alert)
+                        .aria_label(t!("login-failed-title"))
+                        .child(crate::shared::trouble::trouble(failure, true, cx)),
+                )
             })
             .when_some(code, |this, (code, url)| {
                 this.child(self.code_prompt(code, url, cx).into_any_element())
             })
             .when_some(url, |this, url| this.child(self.url_prompt(url)))
-            .child(TabBar::new("login-providers").flex_none().items(tabs))
+            .child(
+                TabBar::new("login-providers")
+                    .name(t!("login-providers"))
+                    .flex_none()
+                    .items(tabs),
+            )
             .when_some(column, |this, column| this.child(self.column(column, cx)))
             .when_some(guest, |this, slug| {
                 this.child(
@@ -542,17 +563,22 @@ impl Render for LoginView {
                         .gap_2()
                         .w(COLUMN)
                         .child(self.guest_mode(slug, pending, cx))
-                        .child(
-                            div()
-                                .text_center()
-                                .text_size(theme.text(Text::Small))
-                                .text_color(theme.muted_foreground)
-                                .child(t!("login-guest-detail")),
-                        )
                         .when(asking, |this| this.child(self.consent(cx))),
                 )
             })
-            .when(orphan, |this| this.child(self.consent(cx)))
+            .when(orphan, |this| this.child(self.consent(cx)));
+
+        div()
+            .relative()
+            .size_full()
+            .when_some(radius, |this, radius| this.rounded_b(radius))
+            .child(
+                div()
+                    .id("login-scroll")
+                    .size_full()
+                    .overflow_y_scroll()
+                    .child(content),
+            )
             .when_some(manual_secret, |this, (slug, provider)| {
                 this.child(self.secret_prompt(slug, provider, cx).into_any_element())
             })

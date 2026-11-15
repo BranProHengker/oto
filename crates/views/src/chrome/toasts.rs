@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::time::{Duration, Instant};
 
+use gpui::accesskit::Role;
 use gpui::prelude::*;
 use gpui::{
     Context, DispatchPhase, Entity, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent,
@@ -363,13 +364,13 @@ impl ToastStack {
                     .or_else(|| toast.note.as_ref().map(|key| i18n::lookup(key, None))),
                 Toast::detail,
             )
-            .when(
-                toast
-                    .action
-                    .as_ref()
-                    .is_some_and(|action| action.target.is_some()),
-                |card| card.action_icon("icons/external-link.svg"),
-            )
+            .when_some(toast.action.as_ref(), |card, action| {
+                match (&action.url, &action.target) {
+                    (Some(_), _) => card.action_icon("icons/square-arrow-out-up-right.svg"),
+                    (None, Some(_)) => card.action_icon("icons/external-link.svg"),
+                    (None, None) => card,
+                }
+            })
             .map(|card| match toast.outcome {
                 Outcome::Plain => card,
                 Outcome::Done => card.icon("icons/circle-check.svg"),
@@ -438,6 +439,9 @@ impl ToastStack {
                 if let Some(target) = action.target.clone() {
                     navigate(destination(target), cx);
                 }
+                if let Some(url) = &action.url {
+                    cx.open_url(url);
+                }
                 toasts.update(cx, |this, cx| this.dismiss(id, cx));
             }),
             None => card,
@@ -459,10 +463,9 @@ impl ToastStack {
                             .ok();
                     }
                 });
-                let released = stack.clone();
                 window.on_mouse_event(move |event: &MouseUpEvent, phase, _, cx| {
                     if phase == DispatchPhase::Capture && event.button == MouseButton::Left {
-                        released.update(cx, |this, cx| this.release(cx)).ok();
+                        stack.update(cx, |this, cx| this.release(cx)).ok();
                     }
                 });
             },
@@ -531,6 +534,7 @@ impl Render for ToastStack {
             .child(
                 div()
                     .id("toast-stack")
+                    .role(Role::Log)
                     .relative()
                     .occlude()
                     .w(theme.font_size * WIDTH)

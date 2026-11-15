@@ -1,5 +1,4 @@
 use router::{Destination, Link, navigate};
-use std::time::Duration;
 use ui::ActiveTheme as _;
 use ui::Tails as _;
 use ui::Tipped as _;
@@ -10,12 +9,12 @@ use gpui::{
     AnyElement, Context, Entity, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, Pixels,
     Point, Render, SharedString, StyledText,
 };
-use gpui::{Window, div, px};
+use gpui::{Window, deferred, div, px};
 use i18n::t;
 use input::{ShowMembers, ToggleFullscreen, ToggleLyrics, ToggleQueue};
 use state::{AppSettings, Playback, PlayerBarLayout, Queue, SideTab, Sonora};
 use ui::{
-    Artwork, Button, ExplicitBadge, Flight, InlineLink, InlineLinks, Perch, Pinnable, Popup, Room,
+    Artwork, Badge, Button, Flight, InlineLink, InlineLinks, Perch, Pinnable, Popup, Room,
     Scrollbar, Scrubber, ScrubberState, clock, tabular,
 };
 
@@ -24,7 +23,7 @@ use crate::chrome::{Chrome, SidebarRight};
 use crate::shared::menus::ItemMenu;
 use crate::shared::pins::Pinned as _;
 use crate::shared::transport::{
-    COVER_FLIGHT, CoverAway, fraction, like, moved, percent, transport, volume_icon,
+    COVER_FLIGHT, CoverAway, ShellSwap, fraction, like, moved, percent, transport, volume_icon,
 };
 use crate::shared::volume::{RisingVolume, VolumeHost, rising_volume, turn_volume};
 
@@ -56,6 +55,8 @@ const TITLE_ROOM: f32 = 1.4;
 const STACK_GAP: f32 = 0.5;
 const CLOCK_SHORT: f32 = 3.4;
 const CLOCK_LONG: f32 = 5.4;
+/// The extra room both clocks take, in ems, while the right one leads with a minus sign.
+const CLOCK_SIGN: f32 = 0.6;
 
 /// How the bar draws its volume control.
 #[derive(Clone, Copy)]
@@ -102,6 +103,7 @@ impl PlayerBar {
         cx.observe(&queue, |_, _, cx| cx.notify()).detach();
         cx.observe(&library, |_, _, cx| cx.notify()).detach();
         cx.observe(&settings, |_, _, cx| cx.notify()).detach();
+        cx.observe_global::<ShellSwap>(|_, cx| cx.notify()).detach();
 
         let me = cx.entity_id();
         let playlist_scrollbar = cx.new(|_| Scrollbar::inset().watching(me));
@@ -294,13 +296,21 @@ impl PlayerBar {
             .into_any_element()
     }
 
-    fn fullscreen_button(&self) -> Button {
-        Button::new("toggle-fullscreen")
+    /// The button that opens the fullscreen player. It takes over from the player's leave
+    /// button the moment the player starts closing and paints above its fade, and it paints
+    /// nothing while the player opens over it.
+    fn fullscreen_button(&self, cx: &gpui::App) -> AnyElement {
+        let button = Button::new("toggle-fullscreen")
             .ghost()
             .small()
             .icon("icons/maximize.svg")
             .tooltip_above("player-fullscreen")
-            .on_click(|_, window, cx| window.dispatch_action(Box::new(ToggleFullscreen), cx))
+            .on_click(|_, window, cx| window.dispatch_action(Box::new(ToggleFullscreen), cx));
+        match cx.try_global::<ShellSwap>().copied().unwrap_or_default() {
+            ShellSwap::Closing => deferred(button).into_any_element(),
+            ShellSwap::Opening => button.invisible().into_any_element(),
+            ShellSwap::Settled => button.into_any_element(),
+        }
     }
 
     fn now_playing(
@@ -428,7 +438,7 @@ impl PlayerBar {
             .items_center()
             .gap_1()
             .when(explicit, |this| {
-                this.child(div().flex_none().child(ExplicitBadge::new()))
+                this.child(div().flex_none().child(Badge::explicit()))
             })
             .child(like(track, &self.playback, cx));
         let headline = match centered {
@@ -459,11 +469,14 @@ impl PlayerBar {
                         ),
                 )
             }
+            // The row is one line of the title tall, so the heart beside it reaches past it rather
+            // than pushing the artist line down.
             false => div()
                 .w_full()
                 .flex()
                 .min_w_0()
                 .items_center()
+                .h(theme.text(ui::Text::Body) * ui::LEADING)
                 .gap_1()
                 .child(title)
                 .child(actions),
@@ -471,9 +484,9 @@ impl PlayerBar {
         div()
             .flex()
             .flex_col()
-            .when(centered, |this| {
-                this.items_center().line_height(gpui::relative(ui::LEADING))
-            })
+            .line_height(gpui::relative(ui::LEADING))
+            .gap(theme.metrics.pad / 2.)
+            .when(centered, |this| this.items_center())
             .justify_center()
             .flex_1()
             .min_w_0()
@@ -620,19 +633,23 @@ impl Render for PlayerBar {
         let seekable = playback.shown_track(cx).is_some();
         let (elapsed, total) = playback.shown_time(cx);
         let progress = self.pending.unwrap_or_else(|| fraction(elapsed, total));
+        let time_left = self.settings.read(cx).player_bar_time_left();
         let clock_width = clock_text
-            * match total.as_secs() >= 3600 {
+            * (match total.as_secs() >= 3600 {
                 true => CLOCK_LONG,
                 false => CLOCK_SHORT,
-            };
+            } + match time_left {
+                true => CLOCK_SIGN,
+                false => 0.,
+            });
 
         let seek_bubble = self
             .over_seek
             .or(self.pending)
             .map(|at| (at, clock(total.mul_f32(at))));
 
-        let clock_label = |id: &'static str, value: Duration, align_end: bool| {
-            ui::spoken(id, clock(value))
+        let clock_label = |id: &'static str, text: SharedString, align_end: bool| {
+            ui::spoken(id, text)
                 .w(clock_width)
                 .flex_none()
                 .whitespace_nowrap()
@@ -650,7 +667,7 @@ impl Render for PlayerBar {
             .items_center()
             .gap_2()
             .w_full()
-            .child(clock_label("player-elapsed", elapsed, true))
+            .child(clock_label("player-elapsed", clock(elapsed), true))
             .child(
                 div().flex_1().min_w_0().child(
                     Scrubber::new(&self.seek, progress)
@@ -668,7 +685,18 @@ impl Render for PlayerBar {
                         ),
                 ),
             )
-            .child(clock_label("player-duration", total, false))
+            .child(match time_left {
+                true => {
+                    let left = clock(total.saturating_sub(elapsed));
+                    clock_label(
+                        "player-time-left",
+                        t!("player-time-left", time = &left),
+                        false,
+                    )
+                    .aria_value(t!("player-time-left-spoken", time = &left))
+                }
+                false => clock_label("player-duration", clock(total), false),
+            })
             .into_any_element();
 
         #[cfg(any(target_os = "linux", target_os = "freebsd"))]
@@ -729,7 +757,7 @@ impl Render for PlayerBar {
                         .child(div().flex_1().min_w_0().child(seek))
                         .child(buttons)
                         .child(self.sound(Volume::Slider(Self::volume_width(window)), cx))
-                        .child(self.fullscreen_button()),
+                        .child(self.fullscreen_button(cx)),
                 ),
             (false, PlayerBarLayout::Centered) => base
                 .items_center()
@@ -769,7 +797,7 @@ impl Render for PlayerBar {
                         .gap_2()
                         .child(buttons)
                         .child(self.sound(Volume::Slider(px(VOLUME_WIDTH)), cx))
-                        .child(self.fullscreen_button()),
+                        .child(self.fullscreen_button(cx)),
                 ),
             (false, PlayerBarLayout::Compact) => base
                 .items_center()
@@ -782,7 +810,7 @@ impl Render for PlayerBar {
                 .child(div().flex_1().min_w_0().child(seek))
                 .child(buttons)
                 .child(self.sound(Volume::Slider(px(VOLUME_WIDTH)), cx))
-                .child(self.fullscreen_button()),
+                .child(self.fullscreen_button(cx)),
             // The two sides share what the middle leaves them evenly, so the transport and the
             // seek bar stay centred. `classic` works out how wide the middle is and how the
             // volume draws.
@@ -812,7 +840,7 @@ impl Render for PlayerBar {
                             .gap_2()
                             .child(buttons)
                             .child(self.sound(volume, cx))
-                            .child(self.fullscreen_button()),
+                            .child(self.fullscreen_button(cx)),
                     )
             }
         };

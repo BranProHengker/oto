@@ -1,3 +1,4 @@
+use gpui::accesskit::Role;
 use gpui::prelude::*;
 use gpui::{
     AnyElement, App, Context, Div, Entity, FocusHandle, Focusable as _, Pixels, Render,
@@ -11,13 +12,14 @@ use state::{
     AppSettings, Equalizer, Outputs, RuleDevice, Signal, Sonora, Sound, equalizer_profile_label,
 };
 use ui::{
-    ActiveTheme as _, Button, Dismiss, FORM_CONTEXT, Input, Lazy, MenuItem, Modal, Picker,
-    Popovers, Room, Scrollbar, Scrubber, ScrubberState, Submit, Switch, TabBar,
+    ActiveTheme as _, Button, Dismiss, FORM_CONTEXT, Field, Form, Input, Lazy, MenuItem, Modal,
+    Picker, Popovers, Room, Scrollbar, Scrubber, ScrubberState, Submit, Switch, TabBar,
 };
 
 use crate::chrome::Chrome;
 use crate::screens::settings::{self, Row};
 use crate::shared::confirm::{self, Confirm};
+use crate::shared::device_menu::DeviceMenu;
 use crate::shared::equalizer::{preset_key, sound_picker};
 
 use graph::{EqualizerGraph, EqualizerSpectrum};
@@ -70,6 +72,8 @@ pub(crate) struct EqualizerView {
     /// The device and the sound chosen in the row that adds a device rule, until it is added.
     rule_device: Option<RuleDevice>,
     rule_sound: Option<Sound>,
+    /// The add row's device menu, the same one the output picker opens.
+    device_menu: DeviceMenu,
     /// The name dialog's own focus, and what had focus before it opened, given back on close.
     focus: FocusHandle,
     restore: Option<FocusHandle>,
@@ -211,7 +215,7 @@ impl EqualizerView {
         let outputs = Sonora::global(cx).outputs.clone();
         let id = cx.entity_id();
         let preamp = cx.new(|cx| {
-            Input::new("", cx)
+            Input::new("equalizer-decibels", cx)
                 .compact()
                 .align_end()
                 .suffix("equalizer-decibels")
@@ -250,6 +254,7 @@ impl EqualizerView {
             naming: None,
             rule_device: None,
             rule_sound: None,
+            device_menu: DeviceMenu::new(cx),
             focus: cx.focus_handle(),
             restore: None,
             shown: None,
@@ -484,6 +489,7 @@ impl EqualizerView {
         ];
 
         TabBar::new("equalizer-mode")
+            .name(t!("equalizer-mode"))
             .flex_none()
             .items(modes)
             .into_any_element()
@@ -574,12 +580,14 @@ impl EqualizerView {
                     .gap_x_2()
                     .gap_y_3()
                     .child(picker)
-                    .child(Switch::new("equalizer-enabled", on).on_click(cx.listener(
-                        move |this, _, _, cx| {
-                            this.equalizer
-                                .update(cx, |equalizer, cx| equalizer.set_enabled(!on, cx))
-                        },
-                    )))
+                    .child(
+                        Switch::new("equalizer-enabled", on)
+                            .name(t!("settings-equalizer"))
+                            .on_click(cx.listener(move |this, _, _, cx| {
+                                this.equalizer
+                                    .update(cx, |equalizer, cx| equalizer.set_enabled(!on, cx))
+                            })),
+                    )
                     .child(history)
                     .children(manage),
             )
@@ -606,7 +614,8 @@ impl EqualizerView {
             .child(card(&view, "equalizer-filters", |this, window, cx| {
                 let row = settings::Layout::of(window, cx).room();
                 let filters = this.filters(row.fits(Room::Roomy), cx);
-                form(filters, cx).into_any_element()
+                let fields = this.filter_focus(cx);
+                form("equalizer-filters-form", filters, fields, cx).into_any_element()
             }))
             .child(card(&view, "equalizer-rules", |this, _, cx| this.rules(cx)))
             .child(card(&view, "equalizer-transfer", |this, _, cx| {
@@ -647,16 +656,26 @@ impl EqualizerView {
             false => figure(gain, 1),
         };
 
-        let slider = div().w(theme.metrics.cover * TONE_SLIDER).child(
-            Scrubber::new(state, ((gain - low) / (high - low)) as f32)
-                .colors(theme.muted, theme.muted, theme.foreground)
-                .on_move(cx.listener(move |this, fraction: &f32, _, cx| {
-                    let gain = tone_gain(*fraction);
-                    let tone = shelf.with(this.equalizer.read(cx).tone(), gain);
-                    this.equalizer
-                        .update(cx, |equalizer, cx| equalizer.glide_tone(tone, cx));
-                })),
-        );
+        let slider = div()
+            .id(match shelf {
+                Shelf::Bass => "equalizer-bass-slider",
+                Shelf::Treble => "equalizer-treble-slider",
+            })
+            .role(Role::Group)
+            .aria_label(title.clone())
+            .w(theme.metrics.cover * TONE_SLIDER)
+            .child(
+                Scrubber::new(state, ((gain - low) / (high - low)) as f32)
+                    .name(title.clone())
+                    .value(t!("equalizer-decibels-value", db = signed.clone()))
+                    .colors(theme.muted, theme.muted, theme.foreground)
+                    .on_move(cx.listener(move |this, fraction: &f32, _, cx| {
+                        let gain = tone_gain(*fraction);
+                        let tone = shelf.with(this.equalizer.read(cx).tone(), gain);
+                        this.equalizer
+                            .update(cx, |equalizer, cx| equalizer.glide_tone(tone, cx));
+                    })),
+            );
         let value = Button::new(reset)
             .small()
             .w(theme.metrics.cover * TONE_VALUE)
@@ -695,6 +714,7 @@ impl EqualizerView {
                 false => t!("equalizer-preamp-manual"),
             },
         )
+        .name(t!("equalizer-preamp"))
         .width(Picker::NARROW)
         .items(
             [
@@ -707,13 +727,19 @@ impl EqualizerView {
                     .on_click(cx.listener(move |this, _, _, cx| this.set_preamp(choice, cx)))
             }),
         );
+        let level = t!("equalizer-decibels-value", db = figure(resolved, 1));
         let value = match auto {
             true => figure_cell(
-                t!("equalizer-decibels-value", db = figure(resolved, 1)),
+                "equalizer-preamp-value",
+                level.clone(),
+                level,
                 theme.metrics.cover * FIELD,
                 cx,
             ),
             false => div()
+                .id("equalizer-preamp-field")
+                .role(Role::Group)
+                .aria_label(t!("equalizer-preamp-level"))
                 .flex_none()
                 .w(theme.metrics.cover * FIELD)
                 .child(self.preamp.clone())
@@ -727,7 +753,14 @@ impl EqualizerView {
             .child(value)
             .into_any_element();
 
-        form(Row::new(t!("equalizer-preamp"), controls), cx).into_any_element()
+        let preamp = vec![self.preamp.read(cx).focus_handle(cx)];
+        form(
+            "equalizer-preamp-form",
+            Row::new(t!("equalizer-preamp"), controls),
+            preamp,
+            cx,
+        )
+        .into_any_element()
     }
 
     /// The dialog that names a profile, titled for saving or renaming.
@@ -739,7 +772,7 @@ impl EqualizerView {
         let theme = *cx.theme();
         let modal = Modal::new("equalizer-name-dialog", title)
             .w(theme.metrics.cover * DIALOG)
-            .child(self.name.clone())
+            .child(Form::new("equalizer-name-form").field(Field::new(&self.name, cx)))
             .action(
                 Button::new("equalizer-name-cancel")
                     .ghost()
@@ -839,32 +872,41 @@ fn shown(part: &Entity<Part>, cx: &App) -> impl IntoElement + use<> {
 
 /// A group's heading as every settings page draws it, its icon before an uppercase eyebrow, with
 /// `action` at the end of its line when the group has one.
-fn heading(key: &'static str, icon: &'static str, action: Option<AnyElement>, cx: &App) -> Div {
+fn heading(
+    key: &'static str,
+    icon: &'static str,
+    action: Option<AnyElement>,
+    cx: &App,
+) -> gpui::Stateful<Div> {
     let theme = cx.theme();
+    let label = i18n::lookup(key, None);
     div()
+        .id(SharedString::from(key))
+        .role(Role::Heading)
+        .aria_level(2)
+        .aria_label(label.clone())
         .flex()
         .items_center()
         .justify_between()
         .gap_4()
         .mb(theme.metrics.pad)
-        .child(settings::group_heading(i18n::lookup(key, None), Some(icon), cx).mb_0())
+        .child(settings::group_heading(label, Some(icon), cx).mb_0())
         .children(action)
 }
 
-/// Gives `content` the form keys of the number fields in it: Enter commits the focused field and
-/// Escape puts it back.
-fn form(content: impl IntoElement, cx: &mut Context<EqualizerView>) -> Div {
-    div()
-        .key_context(FORM_CONTEXT)
-        .on_action(cx.listener(|this, _: &Submit, window, cx| {
-            cx.stop_propagation();
-            this.submit(window, cx);
-        }))
-        .on_action(cx.listener(|this, _: &Dismiss, window, cx| {
-            cx.stop_propagation();
-            this.revert(window, cx);
-        }))
+/// Gives `content` the form keys of the number fields in it: Enter commits the focused field,
+/// Escape puts it back and Tab moves along `fields`, committing the one it leaves.
+fn form(
+    id: &'static str,
+    content: impl IntoElement,
+    fields: Vec<FocusHandle>,
+    cx: &mut Context<EqualizerView>,
+) -> Form {
+    Form::new(id)
+        .placed(fields)
         .child(content)
+        .on_submit(cx.listener(|this, _, window, cx| this.submit(window, cx)))
+        .on_dismiss(cx.listener(|this, _, window, cx| this.revert(window, cx)))
 }
 
 /// An advanced group that is built and laid out only while it is on screen, so scrolling the

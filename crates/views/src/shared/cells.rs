@@ -1,19 +1,21 @@
 use std::cell::RefCell;
+use std::panic::Location;
 use std::rc::Rc;
 use std::time::Duration;
 
+use gpui::accesskit::Role;
 use gpui::prelude::*;
 use gpui::{
-    AnyElement, App, Context, Div, Entity, Hsla, MouseButton, Pixels, SharedString, Stateful, Task,
-    Window, div, px, svg,
+    AnyElement, App, Context, Div, ElementId, Entity, Hsla, MouseButton, Pixels, SharedString,
+    Stateful, Task, Window, div, px, svg,
 };
 use i18n::t;
 use music::{ArtistRef, Contributor};
 use router::{Destination, Link as _, navigate};
 use state::Playback;
 use ui::{
-    ActiveTheme as _, Artwork, Avatar, Cell, ExplicitBadge, InlineLink, InlineLinks, ROW_GROUP,
-    Theme, clock, tabular,
+    ActiveTheme as _, Artwork, Avatar, Badge, Cell, InlineLink, InlineLinks, ROW_GROUP, Theme,
+    clock, tabular,
 };
 
 use crate::chrome::Chrome;
@@ -131,6 +133,11 @@ pub(crate) fn index<F>(
         true => theme.foreground,
         false => theme.muted_foreground,
     };
+    let action = match playing {
+        Some(true) => t!("play-pause"),
+        Some(false) => t!("play-resume"),
+        None => t!("common-play"),
+    };
 
     transport(
         cell,
@@ -140,6 +147,7 @@ pub(crate) fn index<F>(
             color,
             preload,
             press,
+            label: action,
         },
     )
 }
@@ -165,6 +173,7 @@ pub(crate) struct Transport {
     pub(crate) color: Hsla,
     pub(crate) preload: Option<Tap>,
     pub(crate) press: Option<Tap>,
+    pub(crate) label: SharedString,
 }
 
 pub(crate) fn transport<F>(cell: &Cell<F>, resting: AnyElement, hover: Transport) -> AnyElement {
@@ -173,6 +182,7 @@ pub(crate) fn transport<F>(cell: &Cell<F>, resting: AnyElement, hover: Transport
         color,
         preload,
         press,
+        label,
     } = hover;
     let enabled = press.is_some();
     let preload = preload.map(Rc::<dyn Fn(&mut App)>::from);
@@ -210,6 +220,8 @@ pub(crate) fn transport<F>(cell: &Cell<F>, resting: AnyElement, hover: Transport
                 .child(
                     div()
                         .id(("transport", cell.row))
+                        .role(Role::Button)
+                        .aria_label(label)
                         .absolute()
                         .top_0()
                         .left_0()
@@ -249,11 +261,14 @@ pub(crate) fn link<F>(
     color: Hsla,
     to: Destination,
 ) -> AnyElement {
+    let value = value.into();
     line(cell, Some(color))
         .id((id, cell.row))
+        .role(Role::Link)
+        .aria_label(value.clone())
         .hover(|style| style.underline())
         .link(to)
-        .child(value.into())
+        .child(value)
         .into_any_element()
 }
 
@@ -292,18 +307,69 @@ fn line<F>(cell: &Cell<F>, color: Option<Hsla>) -> Div {
         .when_some(color, |this, color| this.text_color(color))
 }
 
+/// A line of plain text in `muted`, which screen readers reach by its value. The node is keyed
+/// to the call site, so each column that calls this from a line of its own gets its own node.
+#[track_caller]
 pub(crate) fn dim<F>(cell: &Cell<F>, value: impl Into<SharedString>, muted: Hsla) -> AnyElement {
-    line(cell, Some(muted))
-        .child(value.into())
-        .into_any_element()
+    said(line(cell, Some(muted)), Location::caller(), value.into())
 }
 
 /// A track length in tabular digits, so the column reads as a monospace strip.
+#[track_caller]
 pub(crate) fn length<F>(cell: &Cell<F>, value: Duration, muted: Hsla) -> AnyElement {
-    line(cell, Some(muted))
-        .font_features(tabular())
-        .child(clock(value))
+    said(
+        line(cell, Some(muted)).font_features(tabular()),
+        Location::caller(),
+        clock(value),
+    )
+}
+
+/// The name of a library row in `color`, followed by the local file badge when `local`. The text
+/// node is keyed to the call site like `dim`.
+#[track_caller]
+pub(crate) fn name<F>(
+    cell: &Cell<F>,
+    value: impl Into<SharedString>,
+    color: Hsla,
+    local: bool,
+) -> AnyElement {
+    let caller = Location::caller();
+    if !local {
+        return said(line(cell, Some(color)), caller, value.into());
+    }
+    line(cell, Some(color))
+        .flex()
+        .items_center()
+        .gap_1p5()
+        .child(said(div().min_w_0().truncate(), caller, value.into()))
+        .child(local_badge(cell.row))
         .into_any_element()
+}
+
+/// The badge a local file carries beside its name on a library page that mixes both shelves,
+/// announced as a local file.
+pub(crate) fn local_badge(row: usize) -> AnyElement {
+    div()
+        .id(("local-badge", row))
+        .role(Role::Image)
+        .aria_label(t!("song-local"))
+        .flex_none()
+        .child(Badge::icon(crate::shared::blend::LOCAL_MARK))
+        .into_any_element()
+}
+
+/// Puts `value` in `frame` and exposes it to screen readers as a label. Empty text stays out of
+/// the tree.
+fn said(frame: Div, id: impl Into<ElementId>, value: SharedString) -> AnyElement {
+    let frame = frame.child(value.clone());
+    match value.is_empty() {
+        true => frame.into_any_element(),
+        false => frame
+            .id(id)
+            .role(Role::Label)
+            .aria_value(value)
+            .into_any_element(),
+    }
 }
 
 pub(crate) fn stamp(seconds: Option<i64>) -> SharedString {
@@ -358,16 +424,22 @@ pub(crate) fn title<F>(
     cell: &Cell<F>,
     value: impl Into<SharedString>,
     color: Option<Hsla>,
-    explicit: bool,
+    explicit: Option<SharedString>,
     press: Option<Tap>,
     status: Option<AnyElement>,
     is_liked: Option<AnyElement>,
 ) -> AnyElement {
+    let value = value.into();
     let text = div()
         .id(("track-title", cell.row))
+        .role(match press.is_some() {
+            true => Role::Link,
+            false => Role::Paragraph,
+        })
+        .aria_label(value.clone())
         .min_w_0()
         .truncate()
-        .child(value.into())
+        .child(value)
         .when_some(press, |this, press| {
             this.cursor_pointer()
                 .hover(|style| style.underline())
@@ -382,8 +454,15 @@ pub(crate) fn title<F>(
         .items_center()
         .gap_1p5()
         .child(text)
-        .when(explicit, |this| {
-            this.child(div().flex_none().child(ExplicitBadge::new()))
+        .when_some(explicit, |this, label| {
+            this.child(
+                div()
+                    .id(("explicit-badge", cell.row))
+                    .role(Role::Image)
+                    .aria_label(label)
+                    .flex_none()
+                    .child(Badge::explicit()),
+            )
         })
         .when_some(status, |this, status| this.child(status))
         .when_some(is_liked, |this, is_liked| this.child(is_liked))
@@ -403,6 +482,8 @@ pub(crate) fn avatar<F>(cell: &Cell<F>, url: Option<String>) -> AnyElement {
 fn portrait(added: &Contributor, row: usize) -> Stateful<Div> {
     div()
         .id(("added-face", row))
+        .role(Role::Link)
+        .aria_label(SharedString::from(added.name.clone()))
         .flex_none()
         .cursor_pointer()
         .link(Destination::User(added.id.clone().into()))
@@ -423,6 +504,8 @@ pub(crate) fn added_by<F>(cell: &Cell<F>, added: &Contributor, color: Hsla) -> A
         .child(
             div()
                 .id(("added-name", cell.row))
+                .role(Role::Link)
+                .aria_label(SharedString::from(added.name.clone()))
                 .min_w_0()
                 .truncate()
                 .hover(|style| style.underline())
@@ -447,7 +530,11 @@ pub(crate) fn credited<F>(
         .items_center()
         .gap_2()
         .child(portrait(added, cell.row))
-        .child(div().min_w_0().truncate().child(value.into()))
+        .child(said(
+            div().min_w_0().truncate(),
+            ("credited", cell.row),
+            value.into(),
+        ))
         .into_any_element()
 }
 
@@ -455,8 +542,10 @@ pub(crate) fn blank<F>(cell: &Cell<F>) -> AnyElement {
     cell.frame().into_any_element()
 }
 
+/// The room a page leaves for its content once `inset` is taken off its width. On a wide window
+/// this is measured against the centred page, not the whole content area.
 pub(crate) fn content_width(window: &Window, inset: Pixels, cx: &App) -> Pixels {
-    (Chrome::content(window, cx) - inset).max(ui::MIN_CONTENT)
+    (Chrome::page(window, cx) - inset).max(ui::MIN_CONTENT)
 }
 
 #[cfg(test)]
