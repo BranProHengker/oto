@@ -56,7 +56,6 @@ pub const LINUX_ICONS: &[(u32, &[u8])] = &[
 ];
 
 /// Embedded fonts and platform artwork exposed to GPUI alongside the active icon pack.
-
 pub struct Assets;
 
 impl Assets {

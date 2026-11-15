@@ -1,4 +1,5 @@
 # common
+common-none = Tidak ada
 common-on = Aktif
 common-off = Nonaktif
 common-left = Kiri
@@ -480,6 +481,8 @@ song-language = Bahasa
 song-content = Konten
 song-explicit = Eksplisit
 song-clean = Versi Bersih
+song-file-path = Lokasi berkas
+song-lyrics-file = Berkas lirik
 artist-about = Tentang artis
 artist-about-fallback = Jelajahi lagu populer dan rilisan dari artis ini.
 artist-about-open = Buka profil artis
@@ -631,6 +634,8 @@ settings-fullscreen-controls-autohide = Sembunyikan kontrol layar penuh
 settings-fullscreen-controls-autohide-detail = Pudarkan kontrol pemutaran saat layar penuh sedang tidak digunakan
 settings-os-fullscreen = Gunakan layar penuh sistem
 settings-os-fullscreen-detail = Buat layar Sedang diputar memenuhi seluruh layar, seperti F11
+settings-dual-preview = Pratinjau panel ganda
+settings-dual-preview-detail = Tampilkan antrean dan lirik berdampingan saat keduanya dibuka
 settings-icons = Paket ikon
 settings-icons-detail = Pilih kumpulan ikon yang digunakan antarmuka
 settings-motion = Kurangi animasi

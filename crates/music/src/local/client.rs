@@ -445,6 +445,10 @@ impl MusicApi for LocalClient {
         self.store.add(playlist_id, track_id)
     }
 
+    fn cache_track_details(&self, tracks: &[Track]) -> Result<()> {
+        self.store.cache_track_details(tracks)
+    }
+
     async fn remove_track_from_playlist(&self, playlist_id: &str, track_id: &str) -> Result<()> {
         self.store.remove(playlist_id, track_id)
     }

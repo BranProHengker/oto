@@ -282,6 +282,11 @@ pub trait MusicApi: Send + Sync {
     }
     async fn add_track_to_playlist(&self, playlist_id: &str, track_id: &str) -> Result<()>;
 
+    /// Caches track metadata for hybrid playlists.
+    fn cache_track_details(&self, _tracks: &[Track]) -> Result<()> {
+        Ok(())
+    }
+
     /// Adds tracks to the end of a playlist in order, and a track named twice goes in twice. A
     /// provider that takes many at once does it in one write. The default adds them one by one
     /// and stops at the first that fails, leaving the ones before it in.
