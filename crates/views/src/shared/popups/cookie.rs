@@ -1,8 +1,9 @@
 use std::rc::Rc;
 
+use gpui::accesskit::Role;
 use gpui::{App, Entity, IntoElement, RenderOnce, Window, div, prelude::*, px};
 use i18n::{FluentArgs, Value as _, lookup, t};
-use ui::{ActiveTheme as _, Button, Input, Modal, Text};
+use ui::{ActiveTheme as _, Button, Field, Form, Input, Modal, Text};
 
 use crate::shared::steps::steps;
 
@@ -132,6 +133,7 @@ impl RenderOnce for CookiePrompt {
             cancel,
         } = self;
         let dismissed = cancel.clone();
+        let (submitted, escaped) = (submit.clone(), cancel.clone());
         let theme = *cx.theme();
         let guide = guide(slug);
 
@@ -156,13 +158,29 @@ impl RenderOnce for CookiePrompt {
             ))
             .child(
                 div()
+                    .id("cookie-note")
+                    .role(Role::Paragraph)
+                    .aria_label(lookup(guide.note, Some(&args)))
                     .child(lookup(guide.note, Some(&args)))
                     .flex_1()
                     .min_w_0()
                     .text_size(theme.text(Text::Small))
                     .text_color(theme.muted_foreground),
             )
-            .child(secret)
+            .child(
+                Form::new("cookie-form")
+                    .field(Field::new(&secret, cx))
+                    .on_submit(move |_, window, cx| {
+                        if let Some(submit) = &submitted {
+                            submit(&(), window, cx);
+                        }
+                    })
+                    .on_dismiss(move |_, window, cx| {
+                        if let Some(cancel) = &escaped {
+                            cancel(&(), window, cx);
+                        }
+                    }),
+            )
             .action(
                 Button::new("cancel-cookies")
                     .ghost()

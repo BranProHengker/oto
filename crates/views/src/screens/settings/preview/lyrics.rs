@@ -5,9 +5,9 @@
 use std::time::Duration;
 
 use gpui::prelude::*;
-use gpui::{AnyElement, Context, Div, Pixels, Window, div, px};
-use music::{LyricsLine, LyricsWord, RomanizedText, Voice, WritingSystem};
-use state::{RomanizationScripts, RomanizationStyle};
+use gpui::{AnyElement, Context, Div, Pixels, Window, div};
+use music::{LyricsLine, LyricsWord, RomanizedText, WritingSystem};
+use state::RomanizationScripts;
 use ui::{ActiveTheme as _, Theme};
 
 use crate::chrome::{VerseLook, verse, verse_gap, verse_sizes};
@@ -48,7 +48,6 @@ struct Look {
     karaoke: bool,
     blur: bool,
     scripts: Option<RomanizationScripts>,
-    style: RomanizationStyle,
 }
 
 impl LyricsPreview {
@@ -65,8 +64,16 @@ pub(in crate::screens::settings) fn preview(
     window: &mut Window,
     cx: &mut Context<SettingsView>,
 ) -> Option<AnyElement> {
-    let theme = *cx.theme();
     let height = (Layout::of(window, cx).width * ASPECT).round();
+    let field = view.settings.read(cx).ambient().then(|| {
+        let cover = view.previews.playing_or_picked(cx).large_cover(cx);
+        view.previews.ambient(cover, cx)
+    });
+    // over the field the lines wear what fullscreen would, not the theme around them
+    let theme = match &field {
+        Some(field) => field.read(cx).theme(cx),
+        None => *cx.theme(),
+    };
 
     let settings = view.settings.read(cx);
     let look = Look {
@@ -75,21 +82,17 @@ pub(in crate::screens::settings) fn preview(
         scripts: settings
             .romanized_lyrics()
             .then(|| settings.romanization_scripts()),
-        style: settings.romanization_style(),
     };
     let sizes = verse_sizes(false, settings.fullscreen_lyrics_scale(), &theme);
-    let field = settings.ambient().then(|| {
-        let cover = view.previews.playing_or_picked(cx).large_cover(cx);
-        view.previews.ambient(cover, cx)
-    });
-
+    let on = settings.lyrics_enabled();
     let sheet = div()
         .relative()
         .w_full()
         .h(height)
         .bg(theme.background)
         .children(field)
-        .child(lines(look, sizes, height, theme));
+        .child(lines(look, sizes, height, &theme))
+        .when(!on, |sheet| sheet.opacity(super::DIMMED));
 
     Some(super::framed(sheet, cx).into_any_element())
 }
@@ -97,14 +100,10 @@ pub(in crate::screens::settings) fn preview(
 /// The sample lines around the one being sung, drawn the way the sheet draws them at the verse
 /// and lane sizes in `sizes`, over the whole of a parent `height` tall. The one being sung starts
 /// at `ANCHOR` of the height whatever the sizes, so a large text size never pushes it out of view.
-fn lines(look: Look, sizes: (Pixels, Pixels), height: Pixels, theme: Theme) -> Div {
+fn lines(look: Look, sizes: (Pixels, Pixels), height: Pixels, theme: &Theme) -> Div {
     let lines = sample();
     let (size, lane) = sizes;
-    let is_ruby = look.style == RomanizationStyle::Ruby;
-    let gap = match is_ruby {
-        true => px(16.),
-        false => verse_gap(size),
-    };
+    let gap = verse_gap(size);
     let position = lines[SUNG_LINE].start + SUNG.mul_f32(STILL);
     let verse_at = |index: usize| {
         let sung = index == SUNG_LINE;
@@ -121,11 +120,11 @@ fn lines(look: Look, sizes: (Pixels, Pixels), height: Pixels, theme: Theme) -> D
                 lane,
                 karaoke: look.karaoke,
                 scripts: look.scripts,
-                style: look.style,
+                style: state::RomanizationStyle::Ruby,
                 haze,
             },
             position,
-            &theme,
+            theme,
         )
     };
     let fade = size * VERSE_FADE;
@@ -173,13 +172,7 @@ fn sample() -> Vec<LyricsLine> {
             let romanized = (index == SUNG_LINE).then(|| RomanizedText {
                 text: i18n::lookup(ROMANIZED, None).to_string(),
                 writing_system: WritingSystem::Japanese,
-                tokens: vec![
-                    ("ここに".into(), "koko ni".into()),
-                    ("面白い".into(), "omoshiroi".into()),
-                    ("文章を".into(), "bunshou o".into()),
-                    ("入れて".into(), "irete".into()),
-                    ("ください".into(), "kudasai".into()),
-                ],
+                tokens: Vec::new(),
             });
             LyricsLine {
                 start,
@@ -187,8 +180,7 @@ fn sample() -> Vec<LyricsLine> {
                 words: Some(timed(&text, start)),
                 text,
                 romanized,
-                secondary: Vec::new(),
-                voice: Voice::Lead,
+                ..Default::default()
             }
         })
         .collect()

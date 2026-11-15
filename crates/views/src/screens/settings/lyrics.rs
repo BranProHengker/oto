@@ -1,9 +1,12 @@
+use gpui::accesskit::Role;
 use gpui::prelude::*;
-use gpui::{AnyElement, Context, DragMoveEvent, Pixels, Point, Render, SharedString, Window, div};
+use gpui::{
+    AnyElement, App, Context, DragMoveEvent, Pixels, Point, Render, SharedString, Window, div,
+};
 use i18n::t;
 use music::{LyricsSaveFormat, WritingSystem};
 use router::{Destination, SettingsPage, navigate};
-use state::{AppSettings, LYRICS_SOURCES, RomanizationStyle};
+use state::{AppSettings, LYRICS_SOURCES};
 use ui::{
     ActiveTheme as _, Button, Ghost, MAX_LYRICS_SCALE, MIN_LYRICS_SCALE, MenuItem, Picker, Switch,
     drop_gap, drop_marker, grip, tabular,
@@ -23,8 +26,12 @@ pub(super) struct DraggedSource {
 }
 
 impl SettingsView {
-    pub(super) fn lyrics_groups(&self) -> Vec<Group> {
-        vec![
+    pub(super) fn lyrics_groups(&self, cx: &App) -> Vec<Group> {
+        let mut groups = vec![Group::untitled().rows([Slot::Lyrics])];
+        if !self.settings.read(cx).lyrics_enabled() {
+            return groups;
+        }
+        groups.push(
             Group::new("settings-group-display", "icons/mic-vocal.svg").rows([
                 Slot::Karaoke,
                 Slot::BlurLyrics,
@@ -32,19 +39,12 @@ impl SettingsView {
                 Slot::PanelLyricsSize,
                 Slot::FullscreenLyricsSize,
             ]),
-            Group::new("settings-group-sources", "icons/list-music.svg").rows([
-                Slot::LyricsSources,
-                Slot::LyricsForLocal,
-                Slot::LyricsSaveFormat,
-            ]),
-        ]
-    }
-
-    pub(super) fn lyrics_sources_groups(&self) -> Vec<Group> {
-        vec![
-            Group::new("settings-group-lyrics-order", "icons/arrow-up-down.svg")
-                .rows([Slot::LyricsPriority]),
-        ]
+        );
+        groups.push(
+            Group::new("settings-group-sources", "icons/list-music.svg")
+                .rows([Slot::LyricsSources, Slot::LyricsForLocal, Slot::LyricsSaveFormat]),
+        );
+        groups
     }
 
     pub(super) fn lyrics_save_format_row(&self, cx: &mut Context<Self>) -> AnyElement {
@@ -66,6 +66,45 @@ impl SettingsView {
         self.row(
             t!("settings-lyrics-save-format"),
             choices.into_any_element(),
+        )
+    }
+
+    pub(super) fn lyrics_row(&self, cx: &mut Context<Self>) -> AnyElement {
+        let on = self.settings.read(cx).lyrics_enabled();
+
+        self.row(
+            t!("settings-lyrics"),
+            Switch::new("lyrics-enabled", on)
+                .name(t!("settings-lyrics"))
+                .on_click(cx.listener(move |this, _, _, cx| {
+                    this.settings
+                        .update(cx, |settings, cx| settings.set_lyrics_enabled(!on, cx));
+                }))
+                .into_any_element(),
+        )
+    }
+
+    pub(super) fn lyrics_sources_groups(&self) -> Vec<Group> {
+        vec![
+            Group::untitled().rows([Slot::WordSyncedFirst]),
+            Group::new("settings-group-lyrics-order", "icons/arrow-up-down.svg")
+                .rows([Slot::LyricsPriority]),
+        ]
+    }
+
+    pub(super) fn word_synced_first_row(&self, cx: &mut Context<Self>) -> AnyElement {
+        let on = self.settings.read(cx).lyrics_word_synced_first();
+
+        self.row(
+            t!("settings-lyrics-word-synced-first"),
+            Switch::new("lyrics-word-synced-first", on)
+                .name(t!("settings-lyrics-word-synced-first"))
+                .on_click(cx.listener(move |this, _, _, cx| {
+                    this.settings.update(cx, |settings, cx| {
+                        settings.set_lyrics_word_synced_first(!on, cx)
+                    });
+                }))
+                .into_any_element(),
         )
     }
 
@@ -102,31 +141,36 @@ impl SettingsView {
         apply: fn(&mut AppSettings, f32, &mut Context<AppSettings>),
         cx: &mut Context<Self>,
     ) -> AnyElement {
-        let step = move |suffix: &'static str, label: &'static str, delta: f32| {
-            let wanted = (scale + delta).clamp(MIN_LYRICS_SCALE, MAX_LYRICS_SCALE);
+        let step =
+            move |suffix: &'static str, label: &'static str, name: &'static str, delta: f32| {
+                let wanted = (scale + delta).clamp(MIN_LYRICS_SCALE, MAX_LYRICS_SCALE);
 
-            Button::new(SharedString::from(format!("{id}-{suffix}")))
-                .label(label)
-                .small()
-                .outline()
-                .disabled(wanted == scale)
-                .on_click(cx.listener(move |this, _, _, cx| {
-                    this.settings
-                        .update(cx, |settings, cx| apply(settings, wanted, cx));
-                    cx.notify();
-                }))
-        };
+                Button::new(SharedString::from(format!("{id}-{suffix}")))
+                    .label(label)
+                    .name(i18n::lookup(name, None))
+                    .small()
+                    .outline()
+                    .disabled(wanted == scale)
+                    .on_click(cx.listener(move |this, _, _, cx| {
+                        this.settings
+                            .update(cx, |settings, cx| apply(settings, wanted, cx));
+                        cx.notify();
+                    }))
+            };
 
         let actions = div()
             .flex()
             .items_center()
             .gap_2()
-            .child(step("smaller", "\u{2212}", -0.1))
-            .child(div().child(t!(
-                "settings-lyrics-size-value",
-                size = (scale * 100.).round() as i64
-            )))
-            .child(step("larger", "+", 0.1));
+            .child(step("smaller", "\u{2212}", "settings-font-smaller", -0.1))
+            .child(ui::spoken(
+                SharedString::from(format!("{id}-value")),
+                t!(
+                    "settings-lyrics-size-value",
+                    size = (scale * 100.).round() as i64
+                ),
+            ))
+            .child(step("larger", "+", "settings-font-larger", 0.1));
 
         self.row(i18n::lookup(title, None), actions.into_any_element())
     }
@@ -137,6 +181,7 @@ impl SettingsView {
         self.row(
             t!("settings-lyrics-for-local-files"),
             Switch::new("lyrics-for-local-files", on)
+                .name(t!("settings-lyrics-for-local-files"))
                 .on_click(cx.listener(move |this, _, _, cx| {
                     this.settings.update(cx, |settings, cx| {
                         settings.set_lyrics_for_local_files(!on, cx)
@@ -165,8 +210,8 @@ impl SettingsView {
     }
 
     /// Every lyrics source in one list. The ones that are on come first, in the order ties
-    /// between them are settled, and each can be dragged anywhere among them or stepped with
-    /// its arrows. The ones that are off follow. Every source carries its own switch.
+    /// between them are settled, and each can be dragged anywhere among them. The ones that are
+    /// off follow. Every source carries its own switch.
     pub(super) fn lyrics_priority(&self, cx: &mut Context<Self>) -> AnyElement {
         let settings = self.settings.read(cx);
         let order = settings.enabled_lyrics_provider_priority();
@@ -175,19 +220,22 @@ impl SettingsView {
             .filter(|provider| !settings.lyrics_provider_enabled(provider))
             .collect::<Vec<_>>();
         let count = order.len();
+        let total = count + off.len();
         let mut entries: Vec<AnyElement> = order
             .into_iter()
             .enumerate()
-            .map(|(index, provider)| self.lyrics_source_entry(index, provider, count, cx))
+            .map(|(index, provider)| self.lyrics_source_entry(index, provider, count, total, cx))
             .collect();
         entries.extend(
-            off.into_iter()
-                .enumerate()
-                .map(|(index, provider)| self.lyrics_source_off(count + index, provider, cx)),
+            off.into_iter().enumerate().map(|(index, provider)| {
+                self.lyrics_source_off((count + index, total), provider, cx)
+            }),
         );
 
         div()
             .id("lyrics-priority")
+            .role(Role::List)
+            .aria_label(t!("settings-group-lyrics-order"))
             .flex()
             .flex_col()
             .children(entries)
@@ -223,6 +271,7 @@ impl SettingsView {
             SharedString::from(format!("lyrics-source-on-{provider}")),
             on,
         )
+        .name(source_name(provider))
         .on_click(cx.listener(move |this, _, _, cx| {
             this.settings.update(cx, |settings, cx| {
                 settings.set_lyrics_provider(provider, !on, cx)
@@ -230,17 +279,22 @@ impl SettingsView {
         }))
     }
 
-    /// A source that is off: no place in the order, its name muted, and its switch.
+    /// A source that is off, placed by its index and the list's length: no place in the order,
+    /// its name muted, and its switch.
     fn lyrics_source_off(
         &self,
-        index: usize,
+        (index, total): (usize, usize),
         provider: &'static str,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let theme = *cx.theme();
 
         div()
-            .id(("lyrics-source", index))
+            .id(SharedString::from(format!("lyrics-source-{provider}")))
+            .role(Role::ListItem)
+            .aria_label(source_name(provider))
+            .aria_position_in_set(index + 1)
+            .aria_size_of_set(total)
             .flex()
             .items_center()
             .gap_3()
@@ -258,16 +312,19 @@ impl SettingsView {
     }
 
     /// One source that is on: the grip it is dragged by, its muted place in the order, its name
-    /// and its switch. The whole row drags, the grip only shows that it does.
+    /// and its switch. The whole row drags, the grip only shows that it does. `count` sources are
+    /// on out of the `total` the list shows.
     pub(super) fn lyrics_source_entry(
         &self,
         index: usize,
         provider: String,
         count: usize,
+        total: usize,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let theme = *cx.theme();
         let name = source_name(&provider);
+        let id = SharedString::from(format!("lyrics-source-{provider}"));
         let edge = match self.lyrics_drop_gap {
             Some(gap) if gap == index => Some(ui::Edge::Above),
             Some(gap) if gap == count && index + 1 == count => Some(ui::Edge::Below),
@@ -283,7 +340,11 @@ impl SettingsView {
             position: Point::default(),
         };
         div()
-            .id(("lyrics-source", index))
+            .id(id)
+            .role(Role::ListItem)
+            .aria_label(name.clone())
+            .aria_position_in_set(index + 1)
+            .aria_size_of_set(total)
             .relative()
             .h(theme.metrics.list_row)
             .flex()
@@ -338,6 +399,7 @@ impl SettingsView {
         self.row(
             t!("settings-karaoke-lyrics"),
             Switch::new("karaoke-lyrics", on)
+                .name(t!("settings-karaoke-lyrics"))
                 .on_click(cx.listener(move |this, _, _, cx| {
                     this.settings
                         .update(cx, |settings, cx| settings.set_karaoke_lyrics(!on, cx));
@@ -352,6 +414,7 @@ impl SettingsView {
         self.row(
             t!("settings-blur-lyrics"),
             Switch::new("blur-lyrics", on)
+                .name(t!("settings-blur-lyrics"))
                 .on_click(cx.listener(move |this, _, _, cx| {
                     this.settings
                         .update(cx, |settings, cx| settings.set_blur_lyrics(!on, cx));
@@ -364,32 +427,6 @@ impl SettingsView {
         let settings = self.settings.read(cx);
         let on = settings.romanized_lyrics();
         let scripts = settings.romanization_scripts();
-        let style = settings.romanization_style();
-        let style_picker = Picker::new(
-            "romanization-style",
-            &self.popovers,
-            match style {
-                RomanizationStyle::Ruby => t!("settings-romanization-ruby"),
-                RomanizationStyle::Line => t!("settings-romanization-line"),
-            },
-        )
-        .width(Picker::REGULAR)
-        .items([
-            MenuItem::new("style-ruby", t!("settings-romanization-ruby"))
-                .selected(style == RomanizationStyle::Ruby)
-                .on_click(cx.listener(|this, _, _, cx| {
-                    this.settings.update(cx, |settings, cx| {
-                        settings.set_romanization_style(RomanizationStyle::Ruby, cx);
-                    });
-                })),
-            MenuItem::new("style-line", t!("settings-romanization-line"))
-                .selected(style == RomanizationStyle::Line)
-                .on_click(cx.listener(|this, _, _, cx| {
-                    this.settings.update(cx, |settings, cx| {
-                        settings.set_romanization_style(RomanizationStyle::Line, cx);
-                    });
-                })),
-        ]);
         let picker = Picker::new(
             "romanization-scripts",
             &self.popovers,
@@ -412,14 +449,16 @@ impl SettingsView {
             .flex()
             .items_center()
             .gap_2()
-            .when(on, |this| this.child(style_picker).child(picker))
-            .child(Switch::new("romanized-lyrics", on).on_click(cx.listener(
-                move |this, _, _, cx| {
-                    this.settings.update(cx, |settings, cx| {
-                        settings.set_romanized_lyrics(!on, cx);
-                    });
-                },
-            )));
+            .when(on, |this| this.child(picker))
+            .child(
+                Switch::new("romanized-lyrics", on)
+                    .name(t!("settings-romanized-lyrics"))
+                    .on_click(cx.listener(move |this, _, _, cx| {
+                        this.settings.update(cx, |settings, cx| {
+                            settings.set_romanized_lyrics(!on, cx);
+                        });
+                    })),
+            );
 
         self.row(t!("settings-romanized-lyrics"), action.into_any_element())
     }

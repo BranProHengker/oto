@@ -47,6 +47,7 @@ impl SettingsView {
         self.row(
             t!("settings-discord"),
             Switch::new("discord", on)
+                .name(t!("settings-discord"))
                 .on_click(cx.listener(move |this, _, _, cx| {
                     this.settings
                         .update(cx, |settings, cx| settings.set_discord_presence(!on, cx));
@@ -74,7 +75,10 @@ impl SettingsView {
                 }))
         }));
 
-        self.row(t!("settings-discord-name"), picker.into_any_element())
+        self.row(
+            t!("settings-discord-name"),
+            picker.name(t!("settings-discord-name")).into_any_element(),
+        )
     }
 
     pub(super) fn discord_show_paused_row(&self, cx: &mut Context<Self>) -> AnyElement {
@@ -83,6 +87,7 @@ impl SettingsView {
         self.row(
             t!("settings-discord-show-paused"),
             Switch::new("discord-show-paused", on)
+                .name(t!("settings-discord-show-paused"))
                 .on_click(cx.listener(move |this, _, _, cx| {
                     this.settings
                         .update(cx, |settings, cx| settings.set_discord_show_paused(!on, cx));
@@ -97,6 +102,7 @@ impl SettingsView {
         self.row(
             t!("settings-discord-badge"),
             Switch::new("discord-badge", on)
+                .name(t!("settings-discord-badge"))
                 .on_click(cx.listener(move |this, _, _, cx| {
                     this.settings
                         .update(cx, |settings, cx| settings.set_discord_badge(!on, cx));
@@ -111,6 +117,7 @@ impl SettingsView {
         self.row(
             t!("settings-artwork-for-local-files"),
             Switch::new("artwork-for-local-files", on)
+                .name(t!("settings-artwork-for-local-files"))
                 .on_click(cx.listener(move |this, _, _, cx| {
                     this.settings.update(cx, |settings, cx| {
                         settings.set_artwork_for_local_files(!on, cx)
@@ -142,6 +149,7 @@ impl SettingsView {
         self.row(
             t!("settings-discord-anonymous"),
             Switch::new("discord-anonymous", on)
+                .name(t!("settings-discord-anonymous"))
                 .on_click(cx.listener(move |this, _, _, cx| {
                     this.settings.update(cx, |settings, cx| {
                         settings.set_discord_without_details(!on, cx)
@@ -157,6 +165,7 @@ impl SettingsView {
         self.row(
             t!("settings-discord-hide-on-connect"),
             Switch::new("discord-hide-on-connect", on)
+                .name(t!("settings-discord-hide-on-connect"))
                 .on_click(cx.listener(move |this, _, _, cx| {
                     this.settings.update(cx, |settings, cx| {
                         settings.set_discord_hide_on_connect(!on, cx)
@@ -172,30 +181,33 @@ impl SettingsView {
         let sonora = settings.discord_sonora_button();
         let provider = settings.discord_provider_button();
 
-        let buttons = TabBar::new("discord-buttons").flex_none().items([
-            Button::new("discord-button-provider")
-                .label(t!("settings-discord-name-provider"))
-                .small()
-                .ghost()
-                .selected(provider)
-                .on_click(cx.listener(move |this, _, _, cx| {
-                    this.settings.update(cx, |settings, cx| {
-                        settings.set_discord_provider_button(!provider, cx)
-                    });
-                    cx.notify();
-                })),
-            Button::new("discord-button-sonora")
-                .label(t!("settings-discord-name-sonora"))
-                .small()
-                .ghost()
-                .selected(sonora)
-                .on_click(cx.listener(move |this, _, _, cx| {
-                    this.settings.update(cx, |settings, cx| {
-                        settings.set_discord_sonora_button(!sonora, cx)
-                    });
-                    cx.notify();
-                })),
-        ]);
+        let buttons = TabBar::new("discord-buttons")
+            .name(t!("settings-discord-buttons"))
+            .flex_none()
+            .items([
+                Button::new("discord-button-provider")
+                    .label(t!("settings-discord-name-provider"))
+                    .small()
+                    .ghost()
+                    .selected(provider)
+                    .on_click(cx.listener(move |this, _, _, cx| {
+                        this.settings.update(cx, |settings, cx| {
+                            settings.set_discord_provider_button(!provider, cx)
+                        });
+                        cx.notify();
+                    })),
+                Button::new("discord-button-sonora")
+                    .label(t!("settings-discord-name-sonora"))
+                    .small()
+                    .ghost()
+                    .selected(sonora)
+                    .on_click(cx.listener(move |this, _, _, cx| {
+                        this.settings.update(cx, |settings, cx| {
+                            settings.set_discord_sonora_button(!sonora, cx)
+                        });
+                        cx.notify();
+                    })),
+            ]);
 
         self.row(t!("settings-discord-buttons"), buttons.into_any_element())
     }

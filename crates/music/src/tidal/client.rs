@@ -114,6 +114,8 @@ const ADD_CHUNK: usize = 100;
 
 /// How many artist lookups run at once, for portraits and for an album's recommendations.
 const LOOKUPS: usize = 4;
+/// The page size for Tidal's ranked artist songs.
+const ARTIST_TRACKS: usize = 1000;
 /// How many tracks a station asks for.
 const RADIO: &str = "100";
 /// How many results a search asks for.
@@ -800,6 +802,23 @@ impl TidalClient {
         wire::text(&bio, "text").map(wire::plain_bio)
     }
 
+    /// How many accounts follow the artist, which the web player shows as fans. The v1 artist
+    /// detail leaves it out, so it comes from the openapi artist. A failed read or a zero is no count.
+    async fn followers(&self, artist_id: &str) -> Option<u64> {
+        let artist = self
+            .read(
+                OPENAPI,
+                &format!("/artists/{}", escape::component(artist_id)),
+                &[],
+            )
+            .await
+            .ok()?;
+        artist
+            .pointer("/data/attributes/numberOfFollowers")
+            .and_then(Value::as_u64)
+            .filter(|count| *count > 0)
+    }
+
     /// Up to `SUGGESTIONS` artists Tidal lists as similar.
     async fn similar_artists(&self, artist_id: &str) -> Result<Vec<SavedArtist>> {
         let page = self
@@ -1118,11 +1137,12 @@ impl MusicApi for TidalClient {
     async fn artist(&self, artist_id: &str) -> Result<Artist> {
         let detail_path = format!("/artists/{}", escape::component(artist_id));
         let top_path = format!("{detail_path}/toptracks");
-        let (detail, top, albums, biography) = tokio::join!(
+        let (detail, top, albums, biography, followers) = tokio::join!(
             self.get(&detail_path, &[]),
             self.get(&top_path, &[("limit", "20")]),
             self.releases(artist_id, None, 50),
             self.biography(artist_id),
+            self.followers(artist_id),
         );
         let detail = detail.context("cannot load the artist")?;
         Ok(Artist {
@@ -1131,6 +1151,7 @@ impl MusicApi for TidalClient {
             banner: None,
             biography,
             monthly_listeners: None,
+            followers,
             top_tracks: top.map(|page| wire::track_list(&page)).unwrap_or_default(),
             albums: wire::distinct(albums.unwrap_or_default()),
         })
@@ -1151,6 +1172,15 @@ impl MusicApi for TidalClient {
             top_tracks: Vec::new(),
             appears_on: wire::distinct(appears_on.unwrap_or_default()),
         })
+    }
+
+    async fn artist_tracks(&self, artist_id: &str) -> Result<Vec<Track>> {
+        let path = format!("/artists/{}/toptracks", escape::component(artist_id));
+        let tracks = self
+            .all(&path, &[], ARTIST_TRACKS, wire::track_list)
+            .await
+            .context("cannot load the artist's tracks")?;
+        Ok(crate::artist_songs(tracks, artist_id))
     }
 
     async fn artist_profile(&self, artist_id: &str) -> Result<ArtistProfile> {
@@ -1599,6 +1629,11 @@ impl MusicApi for TidalClient {
     async fn search_albums(&self, query: &str) -> Result<Vec<Album>> {
         let found = self.search_kind(query, "ALBUMS", "albums").await?;
         Ok(wire::distinct(wire::release_list(&found)))
+    }
+
+    async fn search_artists(&self, query: &str) -> Result<Vec<SavedArtist>> {
+        let found = self.search_kind(query, "ARTISTS", "artists").await?;
+        Ok(wire::artist_list(&found))
     }
 
     async fn search_playlists(&self, query: &str) -> Result<Vec<Playlist>> {

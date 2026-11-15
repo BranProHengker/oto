@@ -26,6 +26,8 @@ const PLACEHOLDER_LENGTH: Duration = Duration::from_secs(214);
 /// How far past a frame its corner ring reaches, as a share of the radius. It has to pass
 /// the square root of two less one for the ring to cover the corners.
 const CORNER_REACH: f32 = 0.5;
+/// How much of a preview shows while the feature it pictures is turned off.
+const DIMMED: f32 = 0.4;
 
 /// The state every preview keeps between frames, one field per preview, each owned by its file,
 /// and what they share.
@@ -76,12 +78,17 @@ impl Previews {
         })
         .detach();
 
+        // the previews over the field take their colours from the cover it samples, so they
+        // redraw once that lands
+        let ambient = cx.new(Ambient::framed);
+        cx.observe(&ambient, |_, _, cx| cx.notify()).detach();
+
         Self {
             now_playing: now_playing::NowPlayingPreview::new(cx),
             lyrics: lyrics::LyricsPreview::new(cx),
             sound: sound::SoundPreview::new(cx),
             discord: discord::DiscordPreview::new(cx),
-            ambient: cx.new(Ambient::framed),
+            ambient,
             seed: Cell::new(random()),
             picked: RefCell::new(None),
         }

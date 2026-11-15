@@ -3,30 +3,82 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 use gpui::prelude::*;
-use gpui::{AnyElement, Context, FontWeight, div, img};
+use gpui::{AnyElement, Context, FontWeight, SharedString, div, img};
 use i18n::t;
-use ui::{ActiveTheme as _, Switch, Text};
+use state::Channel;
+use ui::{ActiveTheme as _, Avatar, Glowing as _, Switch, Text};
 
-use super::rows::outward;
-use super::{Group, SettingsView, Slot};
+use super::rows::{outward, segmented};
+use super::{Group, SettingsView, Slot, group_heading};
 
-const VERSION: &str = env!("CARGO_PKG_VERSION");
 /// How large the app icon stands, in covers.
 const MARK_TILE: f32 = 0.5;
 /// The app icon as this platform shows it, registered by the binary's asset source.
 const APP_ICON: &str = "brand/sonora.svg";
 const LICENSE_URL: &str = "https://www.gnu.org/licenses/gpl-3.0.html";
-const SOURCE_URL: &str = "https://github.com/BranProHengker/oto";
+const SOURCE_URL: &str = "https://github.com/sonorahq/sonora";
+
+#[derive(Clone, Copy)]
+struct Member {
+    login: &'static str,
+    avatar: &'static str,
+    profile: &'static str,
+    role: Role,
+}
+
+#[derive(Clone, Copy)]
+enum Role {
+    LeadMaintainer,
+    Maintainer,
+    Contributor,
+}
+
+impl Role {
+    fn label(self) -> SharedString {
+        match self {
+            Self::LeadMaintainer => t!("settings-role-lead-maintainer"),
+            Self::Maintainer => t!("settings-role-maintainer"),
+            Self::Contributor => t!("settings-role-contributor"),
+        }
+    }
+}
+
+macro_rules! member {
+    ($login:literal, $role:expr) => {
+        Member {
+            login: $login,
+            avatar: concat!("https://github.com/", $login, ".png"),
+            profile: concat!("https://github.com/", $login),
+            role: $role,
+        }
+    };
+}
+
+const MEMBERS: [Member; 5] = [
+    member!("nolight132", Role::LeadMaintainer),
+    member!("zxsleebu", Role::Maintainer),
+    member!("fx-got", Role::Maintainer),
+    member!("Makakashan", Role::Contributor),
+    member!("imizgun", Role::Contributor),
+];
 
 impl SettingsView {
     pub(super) fn about_groups(&self) -> Vec<Group> {
-        vec![Group::untitled().rows([Slot::Version, Slot::Log, Slot::License])]
+        let channel = state::updates_itself().then_some(Slot::Channel);
+        vec![
+            Group::untitled().rows(
+                [Slot::Version, Slot::Updates]
+                    .into_iter()
+                    .chain(channel)
+                    .chain([Slot::Log, Slot::License, Slot::Source]),
+            ),
+        ]
     }
 
     pub(super) fn version_row(&self) -> AnyElement {
         self.row(
             t!("settings-version"),
-            div().child(VERSION).into_any_element(),
+            ui::spoken("settings-version-value", state::version()).into_any_element(),
         )
     }
 
@@ -36,10 +88,33 @@ impl SettingsView {
         self.row(
             t!("settings-check-updates"),
             Switch::new("check-updates", on)
+                .name(t!("settings-check-updates"))
                 .on_click(cx.listener(move |this, _, _, cx| {
                     this.settings
                         .update(cx, |settings, cx| settings.set_check_updates(!on, cx));
                 }))
+                .into_any_element(),
+        )
+    }
+
+    pub(super) fn channel_row(&self, cx: &mut Context<Self>) -> AnyElement {
+        let current = self.settings.read(cx).update_channel();
+
+        let choices = segmented(
+            "update-channel",
+            Channel::ALL.map(|channel| (channel, channel.label())),
+            current,
+            cx.listener(|this, channel: &Channel, _, cx| {
+                let channel = *channel;
+                this.settings
+                    .update(cx, |settings, cx| settings.set_update_channel(channel, cx));
+            }),
+        );
+
+        self.row(
+            t!("settings-update-channel"),
+            choices
+                .name(t!("settings-update-channel"))
                 .into_any_element(),
         )
     }
@@ -93,6 +168,10 @@ impl SettingsView {
             .child(img(APP_ICON).size(tile).flex_none())
             .child(
                 div()
+                    .id("settings-about-name")
+                    .role(gpui::accesskit::Role::Heading)
+                    .aria_level(2)
+                    .aria_label(t!("settings-about-name"))
                     .text_size(theme.text(Text::Title))
                     .font_weight(FontWeight::SEMIBOLD)
                     .child(t!("settings-about-name")),
@@ -103,9 +182,63 @@ impl SettingsView {
         let theme = *cx.theme();
 
         div()
+            .id("settings-notice")
+            .role(gpui::accesskit::Role::Paragraph)
+            .aria_label(t!("settings-notice"))
             .text_color(theme.muted_foreground)
             .text_size(theme.text(Text::Small))
             .child(t!("settings-notice"))
+    }
+
+    /// The people behind Sonora, each opening their GitHub profile.
+    pub(super) fn team(&self, cx: &Context<Self>) -> impl IntoElement {
+        let theme = *cx.theme();
+
+        div()
+            .flex()
+            .flex_col()
+            .child(
+                group_heading(t!("settings-team"), Some("icons/user-round.svg"), cx)
+                    .id("settings-team")
+                    .role(gpui::accesskit::Role::Heading)
+                    .aria_level(2)
+                    .aria_label(t!("settings-team")),
+            )
+            .children(MEMBERS.into_iter().enumerate().map(|(index, member)| {
+                div()
+                    .id(("team-member", index))
+                    .role(gpui::accesskit::Role::Link)
+                    .aria_label(member.login)
+                    .aria_description(member.role.label())
+                    .aria_position_in_set(index + 1)
+                    .aria_size_of_set(MEMBERS.len())
+                    .flex()
+                    .items_center()
+                    .gap_3()
+                    .h(theme.metrics.list_row)
+                    .mx_neg_3()
+                    .px_3()
+                    .rounded(theme.radius)
+                    .cursor_pointer()
+                    .on_click(move |_, _, cx| cx.open_url(member.profile))
+                    .child(Avatar::new(Some(member.avatar)).size(theme.metrics.thumb))
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_w_0()
+                            .truncate()
+                            .font_weight(FontWeight::MEDIUM)
+                            .child(member.login),
+                    )
+                    .child(
+                        div()
+                            .flex_none()
+                            .text_size(theme.text(Text::Label))
+                            .text_color(theme.muted_foreground)
+                            .child(member.role.label()),
+                    )
+                    .glowed(theme.secondary_hover)
+            }))
     }
 }
 

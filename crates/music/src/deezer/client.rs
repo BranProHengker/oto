@@ -874,6 +874,7 @@ impl MusicApi for DeezerClient {
             banner: None,
             biography: None,
             monthly_listeners: wire::number(&detail, &["nb_fan"]),
+            followers: None,
             top_tracks: top.map(|page| wire::track_list(&page)).unwrap_or_default(),
             albums: albums
                 .map(|page| {

@@ -21,11 +21,13 @@ common-clear = Clear
 number-group = { "," }
 
 # navigation
-nav-history = History
+nav-history = Recents
 nav-home = Home
 nav-search = Search
 nav-library = Your Library
+sidebar-library = Library
 nav-settings = Settings
+account-manage = Manage accounts
 nav-songs = Songs
 nav-albums = Albums
 nav-playlists = Playlists
@@ -33,6 +35,7 @@ nav-artists = Artists
 nav-local = Local Music
 nav-back = Back
 nav-forward = Forward
+nav-trail = Navigation history
 nav-sidebar = Toggle sidebar
 nav-sidebar-right = Show or hide lyrics and queue
 nav-pinned = Pinned
@@ -209,6 +212,12 @@ playlist-cover-remove = Remove cover
 playlist-cover-unopenable = Sonora can't open this file
 playlist-cover-too-large = This picture is larger than 40 MB
 playlist-cover-not-a-picture = This file is not a JPEG, PNG or WebP picture
+
+# cover viewer
+cover-view = View cover
+cover-zoom-in = Zoom in
+cover-zoom-out = Zoom out
+cover-zoom-fit = Fit to window
 playlist-delete-title = Delete playlist
 playlist-delete-confirm = Delete “{ $name }”? This cannot be undone.
 playlist-again-title = Add it again?
@@ -277,6 +286,8 @@ player-previous = Previous track
 player-next = Next track
 player-fullscreen = Now playing
 player-fullscreen-leave = Leave Now playing
+player-time-left = -{ $time }
+player-time-left-spoken = { $time } left
 devices-this-computer = This computer
 devices-jam-join = Join a Jam…
 devices-jam-join-title = Join a Jam
@@ -343,6 +354,8 @@ filter-playable = Playable only
 filter-favorites = Favorites only
 filter-downloaded = Downloaded
 filter-owned = By you
+filter-local-only = Local only
+filter-streaming-only = Streaming only
 
 # view
 view-list = List
@@ -352,6 +365,7 @@ view-cards = Grid
 tool-columns = Columns
 tool-sort = Sort
 tool-filters = Filters
+tool-account = Account
 
 # login
 login-signed-out = Sign in to load your music library
@@ -419,6 +433,10 @@ artist-monthly-listeners = { $count ->
     [one] { $value } monthly listener
    *[other] { $value } monthly listeners
 }
+artist-followers = { $count ->
+    [one] { $value } follower
+   *[other] { $value } followers
+}
 artist-play = Play now
 artist-popular = Popular
 artist-popular-eyebrow = Explore this artist
@@ -474,6 +492,12 @@ home-favorite-albums = Favorite albums
 home-artists = Artists
 home-collection-albums = Albums from your collection
 
+# powerbar (quick search)
+powerbar-title = Quick search
+powerbar-placeholder = What do you want to listen to?
+powerbar-open = Open
+powerbar-song = Go to song
+
 # search page
 search-placeholder = What do you want to listen to?
 search-browse = Browse all
@@ -520,6 +544,7 @@ song-genres = Genres
 song-language = Language
 song-content = Content
 song-explicit = Explicit
+song-local = Local file
 song-clean = Clean
 song-audio-format = Audio format
 artist-about = About the artist
@@ -612,6 +637,40 @@ settings-tab-integrations = Integrations
 settings-about-name = Oto
 settings-page-lyrics-sources = Lyrics sources
 settings-page-music-folders = Music folders
+settings-page-keybinds = Keybinds
+keybinds-group-playback = Playback
+keybinds-group-navigation = Navigation
+keybinds-group-view = View
+keybinds-change = Change the shortcut for { $action }
+keybinds-recording = Press keys…
+keybinds-none = Not set
+keybinds-reset = Reset to default
+keybinds-reset-all = Reset all shortcuts
+keybinds-reset-all-button = Reset
+keybind-toggle-playback = Play or pause
+keybind-song-previous = Previous track
+keybind-song-next = Next track
+keybind-seek-forward = Seek forward
+keybind-seek-backward = Seek backward
+keybind-toggle-shuffle = Shuffle
+keybind-toggle-repeat = Repeat
+keybind-navigate-back = Go back
+keybind-navigate-forward = Go forward
+keybind-open-search = Search
+keybind-toggle-powerbar = Quick search
+keybind-open-filter = Filter the page
+keybind-open-settings = Open settings
+keybind-refresh = Refresh
+keybind-toggle-fullscreen = Now playing
+keybind-toggle-queue = Show the queue
+keybind-toggle-lyrics = Show lyrics
+keybind-toggle-window-fullscreen = Full screen window
+keybind-increase-font-size = Larger text
+keybind-decrease-font-size = Smaller text
+keybind-reset-font-size = Default text size
+settings-player-bar-time = Time
+settings-player-bar-time-left = Show time left
+settings-player-bar-time-left-detail = Count down the time left in the song instead of showing its length
 settings-group-services = Streaming services
 settings-group-local-files = Local files
 settings-group-background = Background
@@ -1158,6 +1217,7 @@ settings-local-folder-empty = Not configured
 settings-choose-folder = Choose folder…
 settings-add-folder = Add folder
 settings-remove-folder = Remove folder
+settings-open-folder = Open folder
 settings-rescan = Rescan
 settings-scan-walking = Scanning…
 settings-scan-progress = { $percent }%
@@ -1421,6 +1481,9 @@ trouble-offline = No connection
 trouble-offline-detail = Check your internet connection and try again.
 trouble-not-loaded = Could not load
 trouble-retry = Try again
+trouble-busy = Service is busy
+trouble-busy-detail = Too many requests went out at once. Wait a minute and try again.
+trouble-failed-detail = Something went wrong on the service's side. Try again in a moment.
 toast-offline = No connection. Nothing will stream until it is back.
 toast-offline-unsupported = { $name } plays downloads only when online.
 toast-offline-mode = You are offline. Go online to stream this song.
@@ -1443,6 +1506,7 @@ toast-tray-unavailable = There is no system tray to put the icon in
 toast-undo = Undo
 toast-link-copied = Link copied
 toast-link-sign-in = Sign in to { $name } to open this link
+toast-keybind-taken = { $name } no longer has that shortcut
 toast-link-unreadable = That link does not lead anywhere Sonora can open
 toast-code-copied = Code copied
 menu-copy-link-none = This has no link to share

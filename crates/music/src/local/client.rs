@@ -249,6 +249,7 @@ impl MusicApi for LocalClient {
             banner: None,
             biography: None,
             monthly_listeners: None,
+            followers: None,
             top_tracks: scanned
                 .tracks
                 .iter()

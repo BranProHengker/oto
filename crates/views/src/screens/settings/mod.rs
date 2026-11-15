@@ -2,10 +2,11 @@ use std::cell::RefCell;
 use std::collections::HashSet;
 use std::time::Duration;
 
+use gpui::accesskit::Role;
 use gpui::prelude::*;
 use gpui::{
     AnyElement, App, Context, Div, ElementId, Entity, FocusHandle, Pixels, Render, ScrollHandle,
-    SharedString, Task, Window, canvas, div, px, svg,
+    SharedString, Subscription, Task, Window, canvas, div, px,
 };
 use i18n::{Language, t};
 use music::SignInPrompt;
@@ -16,11 +17,11 @@ use state::{
 };
 use ui::{
     ActiveTheme as _, Card, Deck, Dismiss, Input, Lazy, Popovers, Scrollbar, ScrubberState,
-    Vacancy, faint, snapped, upper,
+    Vacancy, snapped,
 };
 
 use crate::chrome::{Chrome, OutputPicker};
-use crate::shared::popups::SearchPopup;
+use crate::shared::popups::{Credentials, SearchPopup};
 use crate::shared::text;
 
 mod about;
@@ -30,6 +31,7 @@ mod connect;
 mod discord;
 mod general;
 mod header;
+mod keybinds;
 mod layout;
 mod lrc_studio;
 mod lyrics;
@@ -40,7 +42,6 @@ mod preview;
 mod rows;
 mod scrobbling;
 mod sessions;
-mod shortcuts;
 mod sound;
 mod storage;
 mod themes;
@@ -57,6 +58,8 @@ const TITLE_WEIGHT: u32 = 2;
 /// The picker keys the page's render watches, shared with the rows that open them.
 const LANGUAGES: &str = "languages";
 const TYPEFACES: &str = "typefaces";
+/// The shortcut that puts the caret in the search field, whose key the field shows.
+const OPEN_FILTER: &str = "open-filter";
 /// How often the storage section measures the cache and the downloads again while its tab shows.
 const STORAGE_POLL: Duration = Duration::from_secs(2);
 
@@ -69,6 +72,7 @@ enum Slot {
     Folders,
     Theme,
     Adaptive,
+    CommunityThemes,
     Icons,
     Corners,
     Typeface,
@@ -79,11 +83,14 @@ enum Slot {
     Ambient,
     AmbientMotion,
     Visualizer,
+    VisualizerScreens,
     VisualizerAbsolute,
     PlayerBarLayout,
     PlayerBarTransparent,
+    PlayerBarTimeLeft,
     FullscreenControlsAutohide,
     OsFullscreen,
+    Lyrics,
     Karaoke,
     BlurLyrics,
     Romanized,
@@ -91,11 +98,12 @@ enum Slot {
     FullscreenLyricsSize,
     LyricsSources,
     LyricsPriority,
+    WordSyncedFirst,
     LyricsForLocal,
-    LyricsSaveFormat,
     Normalisation,
     Gapless,
     Crossfade,
+    LyricsSaveFormat,
     KeepTracks,
     CacheSize,
     CacheUsage,
@@ -132,6 +140,9 @@ enum Slot {
     ArtworkForLocal,
     Scrobble(usize),
     ScrobbleProvider,
+    /// The shortcut at this place in `input::shortcuts`.
+    Keybind(usize),
+    KeybindsReset,
     Startup,
     Entries,
     Language,
@@ -157,45 +168,11 @@ enum Slot {
     Saver,
     AdaptiveMenu,
     Version,
-    #[allow(dead_code)]
     Updates,
+    Channel,
     Log,
     License,
-    #[allow(dead_code)]
     Source,
-    Shortcuts,
-    ShortcutPlayback,
-    ShortcutNext,
-    ShortcutPrevious,
-    ShortcutSeekForward,
-    ShortcutSeekBackward,
-    ShortcutShuffle,
-    ShortcutRepeat,
-    ShortcutVolumeUp,
-    ShortcutVolumeDown,
-    ShortcutVolumeWheel,
-    ShortcutFullscreen,
-    ShortcutSearch,
-    ShortcutFilter,
-    ShortcutQueue,
-    ShortcutLyrics,
-    ShortcutBack,
-    ShortcutForward,
-    ShortcutRefresh,
-    ShortcutSettings,
-    ShortcutFullscreenWindow,
-    ShortcutIncreaseFont,
-    ShortcutDecreaseFont,
-    ShortcutResetFont,
-    ShortcutDismiss,
-    ShortcutQuit,
-    ShortcutUndo,
-    ShortcutRedo,
-    ShortcutSelectNext,
-    ShortcutSelectPrevious,
-    ShortcutActivate,
-    ShortcutRemove,
-    ShortcutDeselect,
 }
 
 /// What a tab scrolls to once it is laid out.
@@ -286,17 +263,16 @@ pub struct SettingsView {
     opacity: ScrubberState,
     sleep: ScrubberState,
     pending_sleep: Option<Option<Sleep>>,
-    crossfade: ScrubberState,
-    pending_crossfade: Option<u32>,
     cache: ScrubberState,
     /// The cache size a drag of its slider points at, until it lets go.
     pending_cache: Option<u32>,
     popovers: Popovers,
     /// The theme family whose variant menu opened last, which owns that menu's popover.
     theme_variants: Option<String>,
-    server: Entity<Input>,
-    username: Entity<Input>,
-    password: Entity<Input>,
+    /// The user's theme family waiting for the user to confirm its deletion.
+    deleting_theme: Option<String>,
+    /// The fields of a sign-in to a server of the user's own.
+    credentials: Credentials,
     credentials_for: Option<&'static str>,
     secret: Entity<Input>,
     manual_secret: Option<(&'static str, &'static str)>,
@@ -332,7 +308,13 @@ pub struct SettingsView {
     font_task: Option<Task<()>>,
     /// What the pages' previews keep between frames.
     previews: preview::Previews,
+    crossfade: ScrubberState,
+    pending_crossfade: Option<u32>,
     lrc_studio: lrc_studio::LrcStudioState,
+    /// The shortcut, by id, whose new key the page is waiting for.
+    recording: Option<&'static str>,
+    /// Catches every key pressed while a shortcut records, before it does anything else.
+    recorder: Option<Subscription>,
 }
 
 impl SettingsView {
@@ -344,9 +326,9 @@ impl SettingsView {
         let settings = Sonora::global(cx).settings.clone();
         let scrobbling = Sonora::global(cx).scrobbling.clone();
         let drm = Sonora::global(cx).drm.clone();
-        let soloist = Sonora::global(cx).soloist.clone();
         let equalizer = Sonora::global(cx).equalizer.clone();
         let outputs = Sonora::global(cx).outputs.clone();
+        let soloist = Sonora::global(cx).soloist.clone();
         cx.observe(&drm, |this, _, cx| this.remeasure(cx)).detach();
         cx.observe(&soloist, |this, _, cx| this.remeasure(cx))
             .detach();
@@ -358,8 +340,11 @@ impl SettingsView {
             .detach();
         cx.observe(&scrobbling, |this, _, cx| this.remeasure(cx))
             .detach();
-        cx.observe(&settings, |this, _, cx| this.remeasure(cx))
-            .detach();
+        cx.observe(&settings, |this, _, cx| {
+            this.show_filter_shortcut(cx);
+            this.remeasure(cx);
+        })
+        .detach();
         cx.observe(&playback, |_, _, cx| cx.notify()).detach();
         playback.update(cx, |playback, cx| playback.measure_storage(cx));
         let storage = cx.spawn(async move |this, cx| {
@@ -401,9 +386,11 @@ impl SettingsView {
             Input::new("settings-search", cx)
                 .icon("icons/search.svg")
                 .blurred()
-                .shortcut("secondary-f")
                 .clearable()
         });
+        let filter =
+            input::shown(OPEN_FILTER, settings.read(cx).keybinds()).map(SharedString::from);
+        search.update(cx, |input, cx| input.set_shortcut(filter, cx));
         cx.observe(&search, |this, input, cx| {
             let query = input.read(cx).text().trim().to_owned();
             // A search swaps the page for hits from every page, so wherever the page was
@@ -463,7 +450,7 @@ impl SettingsView {
             settings,
             outputs,
             output_picker,
-            page: SettingsPage::General,
+            page: SettingsTab::General.lead(),
             search,
             query: String::new(),
             reveal: None,
@@ -474,15 +461,12 @@ impl SettingsView {
             opacity: ScrubberState::new("opacity"),
             sleep: ScrubberState::new("sleep"),
             pending_sleep: None,
-            crossfade: ScrubberState::new("crossfade"),
-            pending_crossfade: None,
             cache: ScrubberState::new("cache-size"),
             pending_cache: None,
             popovers,
             theme_variants: None,
-            server: cx.new(|cx| Input::new("login-server-hint", cx)),
-            username: cx.new(|cx| Input::new("login-username-hint", cx)),
-            password: cx.new(|cx| Input::new("login-password-hint", cx).masked()),
+            deleting_theme: None,
+            credentials: Credentials::new(cx),
             credentials_for: None,
             secret: cx.new(|cx| Input::new("login-cookie-hint", cx)),
             manual_secret: None,
@@ -504,7 +488,11 @@ impl SettingsView {
             loading_fonts: false,
             font_task: None,
             previews,
+            crossfade: ScrubberState::new("crossfade"),
+            pending_crossfade: None,
             lrc_studio: lrc_studio::LrcStudioState::new(cx),
+            recording: None,
+            recorder: None,
         }
     }
 
@@ -529,6 +517,9 @@ impl SettingsView {
                     .then_some(Reveal::Section(page)),
             };
         }
+        if self.page != page {
+            self.stop_recording(cx);
+        }
         self.page = page;
         self.popovers.close();
         self.previews.shown(page.tab());
@@ -542,10 +533,13 @@ impl SettingsView {
 
     /// Tells the previews whether settings are open, so a new opening picks a new track and a
     /// closing stops what they keep running.
-    pub(crate) fn set_open(&mut self, open: bool) {
+    pub(crate) fn set_open(&mut self, open: bool, cx: &mut Context<Self>) {
         match open {
             true => self.previews.opened(),
-            false => self.previews.closed(),
+            false => {
+                self.previews.closed();
+                self.stop_recording(cx);
+            }
         }
     }
 
@@ -589,7 +583,7 @@ impl SettingsView {
             SettingsPage::Appearance => self.appearance_groups(cx),
             SettingsPage::PlayerBar => self.player_bar_groups(),
             SettingsPage::NowPlaying => self.now_playing_groups(cx),
-            SettingsPage::Lyrics => self.lyrics_groups(),
+            SettingsPage::Lyrics => self.lyrics_groups(cx),
             SettingsPage::Playback => self.playback_groups(cx),
             SettingsPage::Sound => self.sound_groups(cx),
             SettingsPage::Storage => self.storage_groups(cx),
@@ -597,11 +591,19 @@ impl SettingsView {
             SettingsPage::Scrobbling => self.scrobbling_groups(cx),
             SettingsPage::General => self.general_groups(cx),
             SettingsPage::About => self.about_groups(),
+            SettingsPage::Keybinds => self.keybinds_groups(),
             SettingsPage::LyricsSources => self.lyrics_sources_groups(),
             SettingsPage::MusicFolders => self.music_folders_groups(),
-            SettingsPage::Shortcuts => self.shortcuts_groups(),
             SettingsPage::LrcStudio => Vec::new(),
         }
+    }
+
+    /// Draws the key that opens the search in its field, which the user may have rebound.
+    fn show_filter_shortcut(&self, cx: &mut Context<Self>) {
+        let filter =
+            input::shown(OPEN_FILTER, self.settings.read(cx).keybinds()).map(SharedString::from);
+        self.search
+            .update(cx, |input, cx| input.set_shortcut(filter, cx));
     }
 
     /// Invalidates cached block heights after data or settings change their layout.
@@ -654,6 +656,7 @@ impl SettingsView {
                         .flex()
                         .flex_col()
                         .gap(GROUPS)
+                        .child(this.team(cx))
                         .child(this.notice(cx))
                         .into_any_element()
                 })
@@ -740,10 +743,6 @@ impl SettingsView {
     /// The title and detail a search is matched against, without building the row. Kept next
     /// to the slots: a new row needs its pair here to be found. A slot with no pair is left out
     /// of searches.
-    #[allow(
-        clippy::too_many_lines,
-        reason = "one arm per row keeps the keys beside the rows"
-    )]
     fn slot_meta(&self, slot: Slot, cx: &App) -> Option<(SharedString, SharedString)> {
         let meta = match slot {
             Slot::Folders => return None,
@@ -769,6 +768,10 @@ impl SettingsView {
             ),
             Slot::Theme => (t!("settings-theme"), t!("settings-theme-detail")),
             Slot::Adaptive => (t!("settings-adaptive"), t!("settings-adaptive-detail")),
+            Slot::CommunityThemes => (
+                t!("settings-theme-explore"),
+                t!("settings-theme-explore-detail"),
+            ),
             Slot::Ambient => (t!("settings-ambient"), t!("settings-ambient-detail")),
             Slot::AmbientMotion => (
                 t!("settings-ambient-motion"),
@@ -782,6 +785,14 @@ impl SettingsView {
             Slot::PlayerBarTransparent => (
                 t!("settings-player-bar-transparent"),
                 t!("settings-player-bar-transparent-detail"),
+            ),
+            Slot::PlayerBarTimeLeft => (
+                t!("settings-player-bar-time-left"),
+                t!("settings-player-bar-time-left-detail"),
+            ),
+            Slot::VisualizerScreens => (
+                t!("settings-visualizer-screens"),
+                t!("settings-visualizer-screens-detail"),
             ),
             Slot::VisualizerAbsolute => (
                 t!("settings-visualizer-absolute"),
@@ -860,6 +871,10 @@ impl SettingsView {
             ),
             Slot::Gapless => (t!("settings-gapless"), t!("settings-gapless-detail")),
             Slot::Crossfade => (t!("settings-crossfade"), t!("settings-crossfade-detail")),
+            Slot::LyricsSaveFormat => (
+                t!("settings-lyrics-save-format"),
+                t!("settings-lyrics-save-format-detail"),
+            ),
             Slot::KeepTracks => (
                 t!("settings-keep-tracks"),
                 t!("settings-keep-tracks-detail"),
@@ -922,6 +937,11 @@ impl SettingsView {
                 t!("settings-lyrics-priority"),
                 t!("settings-lyrics-priority-detail"),
             ),
+            Slot::WordSyncedFirst => (
+                t!("settings-lyrics-word-synced-first"),
+                t!("settings-lyrics-word-synced-first-detail"),
+            ),
+            Slot::Lyrics => (t!("settings-lyrics"), t!("settings-lyrics-detail")),
             Slot::Karaoke => (
                 t!("settings-karaoke-lyrics"),
                 t!("settings-karaoke-lyrics-detail"),
@@ -933,10 +953,6 @@ impl SettingsView {
             Slot::LyricsForLocal => (
                 t!("settings-lyrics-for-local-files"),
                 t!("settings-lyrics-for-local-files-detail"),
-            ),
-            Slot::LyricsSaveFormat => (
-                t!("settings-lyrics-save-format"),
-                t!("settings-lyrics-save-format-detail"),
             ),
             Slot::SpotifyConnect => (
                 t!("settings-spotify-connect"),
@@ -988,78 +1004,20 @@ impl SettingsView {
             ),
             Slot::Scrobble(index) => self.scrobble_meta(index, cx)?,
             Slot::ScrobbleProvider => self.scrobble_provider_meta(cx)?,
+            Slot::Keybind(index) => self.keybind_meta(index, cx)?,
+            Slot::KeybindsReset => (t!("keybinds-reset-all"), SharedString::default()),
             Slot::Version => (t!("settings-version"), t!("settings-version-detail")),
             Slot::Updates => (
                 t!("settings-check-updates"),
                 t!("settings-check-updates-detail"),
             ),
+            Slot::Channel => (
+                t!("settings-update-channel"),
+                t!("settings-update-channel-detail"),
+            ),
             Slot::Log => (t!("settings-log"), t!("settings-log-detail")),
             Slot::License => (t!("settings-license"), t!("settings-license-detail")),
             Slot::Source => (t!("settings-source"), t!("settings-source-detail")),
-            Slot::Shortcuts => (t!("settings-shortcuts"), t!("settings-shortcuts-detail")),
-            Slot::ShortcutPlayback => (t!("shortcut-playback"), t!("shortcut-playback-detail")),
-            Slot::ShortcutNext => (t!("shortcut-next"), t!("shortcut-next-detail")),
-            Slot::ShortcutPrevious => (t!("shortcut-previous"), t!("shortcut-previous-detail")),
-            Slot::ShortcutSeekForward => (
-                t!("shortcut-seek-forward"),
-                t!("shortcut-seek-forward-detail"),
-            ),
-            Slot::ShortcutSeekBackward => (
-                t!("shortcut-seek-backward"),
-                t!("shortcut-seek-backward-detail"),
-            ),
-            Slot::ShortcutShuffle => (t!("shortcut-shuffle"), t!("shortcut-shuffle-detail")),
-            Slot::ShortcutRepeat => (t!("shortcut-repeat"), t!("shortcut-repeat-detail")),
-            Slot::ShortcutVolumeUp => (t!("shortcut-volume-up"), t!("shortcut-volume-up-detail")),
-            Slot::ShortcutVolumeDown => (
-                t!("shortcut-volume-down"),
-                t!("shortcut-volume-down-detail"),
-            ),
-            Slot::ShortcutVolumeWheel => (
-                t!("shortcut-volume-wheel"),
-                t!("shortcut-volume-wheel-detail"),
-            ),
-            Slot::ShortcutFullscreen => {
-                (t!("shortcut-fullscreen"), t!("shortcut-fullscreen-detail"))
-            }
-            Slot::ShortcutSearch => (t!("shortcut-search"), t!("shortcut-search-detail")),
-            Slot::ShortcutFilter => (t!("shortcut-filter"), t!("shortcut-filter-detail")),
-            Slot::ShortcutQueue => (t!("shortcut-queue"), t!("shortcut-queue-detail")),
-            Slot::ShortcutLyrics => (t!("shortcut-lyrics"), t!("shortcut-lyrics-detail")),
-            Slot::ShortcutBack => (t!("shortcut-back"), t!("shortcut-back-detail")),
-            Slot::ShortcutForward => (t!("shortcut-forward"), t!("shortcut-forward-detail")),
-            Slot::ShortcutRefresh => (t!("shortcut-refresh"), t!("shortcut-refresh-detail")),
-            Slot::ShortcutSettings => (t!("shortcut-settings"), t!("shortcut-settings-detail")),
-            Slot::ShortcutFullscreenWindow => (
-                t!("shortcut-window-fullscreen"),
-                t!("shortcut-window-fullscreen-detail"),
-            ),
-            Slot::ShortcutIncreaseFont => (
-                t!("shortcut-font-increase"),
-                t!("shortcut-font-increase-detail"),
-            ),
-            Slot::ShortcutDecreaseFont => (
-                t!("shortcut-font-decrease"),
-                t!("shortcut-font-decrease-detail"),
-            ),
-            Slot::ShortcutResetFont => {
-                (t!("shortcut-font-reset"), t!("shortcut-font-reset-detail"))
-            }
-            Slot::ShortcutDismiss => (t!("shortcut-dismiss"), t!("shortcut-dismiss-detail")),
-            Slot::ShortcutQuit => (t!("shortcut-quit"), t!("shortcut-quit-detail")),
-            Slot::ShortcutUndo => (t!("shortcut-undo"), t!("shortcut-undo-detail")),
-            Slot::ShortcutRedo => (t!("shortcut-redo"), t!("shortcut-redo-detail")),
-            Slot::ShortcutSelectNext => (
-                t!("shortcut-select-next"),
-                t!("shortcut-select-next-detail"),
-            ),
-            Slot::ShortcutSelectPrevious => (
-                t!("shortcut-select-previous"),
-                t!("shortcut-select-previous-detail"),
-            ),
-            Slot::ShortcutActivate => (t!("shortcut-activate"), t!("shortcut-activate-detail")),
-            Slot::ShortcutRemove => (t!("shortcut-remove"), t!("shortcut-remove-detail")),
-            Slot::ShortcutDeselect => (t!("shortcut-deselect"), t!("shortcut-deselect-detail")),
         };
         Some(meta)
     }
@@ -1077,11 +1035,14 @@ impl SettingsView {
             Slot::Folders => self.folders(cx),
             Slot::Theme | Slot::Icons | Slot::Corners => div().into_any_element(),
             Slot::Adaptive => self.adaptive_row(cx),
+            Slot::CommunityThemes => self.community_themes_row(cx),
             Slot::Ambient => self.ambient_row(cx),
             Slot::AmbientMotion => self.ambient_motion_row(cx),
             Slot::Visualizer => div().into_any_element(),
             Slot::PlayerBarLayout => div().into_any_element(),
             Slot::PlayerBarTransparent => self.player_bar_transparent_row(cx),
+            Slot::PlayerBarTimeLeft => self.player_bar_time_left_row(cx),
+            Slot::VisualizerScreens => self.visualizer_screens_row(cx),
             Slot::VisualizerAbsolute => self.visualizer_absolute_row(cx),
             Slot::Opacity => self.opacity_row(cx),
             Slot::WindowBlur => self.blur_window_row(cx),
@@ -1115,6 +1076,7 @@ impl SettingsView {
             Slot::Normalisation => self.playback_row(cx),
             Slot::Gapless => self.gapless_row(cx),
             Slot::Crossfade => self.crossfade_row(cx),
+            Slot::LyricsSaveFormat => self.lyrics_save_format_row(cx),
             Slot::KeepTracks => self.keep_tracks_row(cx),
             Slot::CacheSize => self.cache_size_row(cx),
             Slot::CacheUsage => self.cache_usage_row(cx),
@@ -1126,7 +1088,7 @@ impl SettingsView {
             Slot::StreamBitrate => self.stream_bitrate_row(cx),
             Slot::Sleep => self.sleep_row(cx),
             Slot::StayAwake => self.stay_awake_row(cx),
-            Slot::OutputDevice => self.output_device_row(),
+            Slot::OutputDevice => self.output_device_row(cx),
             Slot::OutputFailure => self.output_failure_row(cx),
             Slot::SampleRate => self.sample_rate_row(cx),
             Slot::Buffer => self.buffer_row(cx),
@@ -1136,13 +1098,14 @@ impl SettingsView {
             Slot::Equalizer => self.equalizer_row(cx),
             Slot::LyricsSources => self.lyrics_sources_row(cx),
             Slot::LyricsPriority => self.lyrics_priority(cx),
+            Slot::WordSyncedFirst => self.word_synced_first_row(cx),
+            Slot::Lyrics => self.lyrics_row(cx),
             Slot::Karaoke => self.karaoke_lyrics_row(cx),
             Slot::Romanized => self.romanized_lyrics_row(cx),
             Slot::LyricsForLocal => self.lyrics_for_local_files_row(cx),
-            Slot::LyricsSaveFormat => self.lyrics_save_format_row(cx),
             Slot::SpotifyConnect => self.spotify_connect_row(cx),
             Slot::SpotifyConnectName => self.spotify_connect_name_row(cx),
-            Slot::SpotifyConnectCustom => self.spotify_connect_custom_row(),
+            Slot::SpotifyConnectCustom => self.spotify_connect_custom_row(cx),
             Slot::SessionsButton => self.sessions_button_row(cx),
             Slot::SessionsOfficial => self.sessions_official_row(cx),
             Slot::SessionsServer => self.sessions_server_row(cx),
@@ -1160,78 +1123,14 @@ impl SettingsView {
                 false => div().into_any_element(),
             },
             Slot::ScrobbleProvider => self.scrobble_provider_row(cx),
+            Slot::Keybind(index) => self.keybind_row(index, cx),
+            Slot::KeybindsReset => self.keybinds_reset_row(cx),
             Slot::Version => self.version_row(),
             Slot::Updates => self.updates_row(cx),
+            Slot::Channel => self.channel_row(cx),
             Slot::Log => self.log_row(cx),
             Slot::License => self.license_row(cx),
             Slot::Source => self.source_row(cx),
-            Slot::Shortcuts => self.shortcuts_row(cx),
-            Slot::ShortcutPlayback => self.shortcut_row(t!("shortcut-playback"), "space"),
-            Slot::ShortcutNext => self.shortcut_row(t!("shortcut-next"), "secondary-right"),
-            Slot::ShortcutPrevious => self.shortcut_row(t!("shortcut-previous"), "secondary-left"),
-            Slot::ShortcutSeekForward => {
-                self.shortcut_row(t!("shortcut-seek-forward"), "shift-right")
-            }
-            Slot::ShortcutSeekBackward => {
-                self.shortcut_row(t!("shortcut-seek-backward"), "shift-left")
-            }
-            Slot::ShortcutShuffle => self.shortcut_row(t!("shortcut-shuffle"), "r"),
-            Slot::ShortcutRepeat => self.shortcut_row(t!("shortcut-repeat"), "l"),
-            Slot::ShortcutVolumeUp => self.shortcut_row(t!("shortcut-volume-up"), "secondary-up"),
-            Slot::ShortcutVolumeDown => {
-                self.shortcut_row(t!("shortcut-volume-down"), "secondary-down")
-            }
-            Slot::ShortcutVolumeWheel => self.shortcut_wheel_row(t!("shortcut-volume-wheel")),
-            Slot::ShortcutFullscreen => self.shortcut_row(t!("shortcut-fullscreen"), "f"),
-            Slot::ShortcutSearch => self.shortcut_row(t!("shortcut-search"), "secondary-shift-f"),
-            Slot::ShortcutFilter => self.shortcut_row(t!("shortcut-filter"), "secondary-f"),
-            Slot::ShortcutQueue => self.shortcut_row(t!("shortcut-queue"), "q"),
-            Slot::ShortcutLyrics => self.shortcut_row(t!("shortcut-lyrics"), "secondary-l"),
-            Slot::ShortcutBack => {
-                let key = match cfg!(target_os = "macos") {
-                    true => "cmd-[",
-                    false => "alt-left",
-                };
-                self.shortcut_row(t!("shortcut-back"), key)
-            }
-            Slot::ShortcutForward => {
-                let key = match cfg!(target_os = "macos") {
-                    true => "cmd-]",
-                    false => "alt-right",
-                };
-                self.shortcut_row(t!("shortcut-forward"), key)
-            }
-            Slot::ShortcutRefresh => self.shortcut_row(t!("shortcut-refresh"), "secondary-shift-r"),
-            Slot::ShortcutSettings => self.shortcut_row(t!("shortcut-settings"), "secondary-,"),
-            Slot::ShortcutFullscreenWindow => {
-                let key = match cfg!(target_os = "macos") {
-                    true => "ctrl-cmd-f",
-                    false => "f11",
-                };
-                self.shortcut_row(t!("shortcut-window-fullscreen"), key)
-            }
-            Slot::ShortcutIncreaseFont => {
-                self.shortcut_row(t!("shortcut-font-increase"), "secondary-=")
-            }
-            Slot::ShortcutDecreaseFont => {
-                self.shortcut_row(t!("shortcut-font-decrease"), "secondary--")
-            }
-            Slot::ShortcutResetFont => self.shortcut_row(t!("shortcut-font-reset"), "secondary-0"),
-            Slot::ShortcutDismiss => self.shortcut_row(t!("shortcut-dismiss"), "escape"),
-            Slot::ShortcutQuit => self.shortcut_row(t!("shortcut-quit"), "cmd-q"),
-            Slot::ShortcutUndo => self.shortcut_row(t!("shortcut-undo"), "secondary-z"),
-            Slot::ShortcutRedo => {
-                let key = match cfg!(target_os = "macos") {
-                    true => "shift-cmd-z",
-                    false => "ctrl-y",
-                };
-                self.shortcut_row(t!("shortcut-redo"), key)
-            }
-            Slot::ShortcutSelectNext => self.shortcut_row(t!("shortcut-select-next"), "down"),
-            Slot::ShortcutSelectPrevious => self.shortcut_row(t!("shortcut-select-previous"), "up"),
-            Slot::ShortcutActivate => self.shortcut_row(t!("shortcut-activate"), "enter"),
-            Slot::ShortcutRemove => self.shortcut_row(t!("shortcut-remove"), "delete"),
-            Slot::ShortcutDeselect => self.shortcut_row(t!("shortcut-deselect"), "escape"),
         }
     }
 
@@ -1259,7 +1158,14 @@ impl SettingsView {
             cards,
             rows,
         } = group;
-        let heading = title.map(|key| group_heading(i18n::lookup(key, None), icon, cx));
+        let heading = title.map(|key| {
+            let label = i18n::lookup(key, None);
+            group_heading(label.clone(), icon, cx)
+                .id(SharedString::from(format!("settings-group-{key}")))
+                .role(Role::Heading)
+                .aria_level(2)
+                .aria_label(label)
+        });
         let carded = cards.is_some();
         let cards = cards.map(|slot| {
             let cards = self.cards(slot, window, cx);
@@ -1389,13 +1295,17 @@ impl SettingsView {
         let theme = *cx.theme();
         let hits = self.found(cx);
         if hits.is_empty() {
+            let empty = t!("search-no-matches");
             return div().child(
-                Vacancy::new(t!("search-no-matches"))
-                    .icon("icons/search.svg")
-                    .py_6(),
+                div()
+                    .id("settings-results-empty")
+                    .role(Role::Label)
+                    .aria_value(empty.clone())
+                    .child(Vacancy::new(empty).icon("icons/search.svg").py_6()),
             );
         }
         let row = snapped(theme.metrics.list_row, window);
+        let count = hits.len();
 
         // the cards pad their art in from their own edge, so the list reaches out by as much to
         // put the art in line with the column
@@ -1405,7 +1315,7 @@ impl SettingsView {
                     .rows(hits.iter().map(|_| row))
                     .draw(cx.processor(move |this: &mut Self, index: usize, _, cx| {
                         match hits.get(index) {
-                            Some((page, slot)) => this.result(index, *page, *slot, cx),
+                            Some((page, slot)) => this.result((index, count), *page, *slot, cx),
                             None => div().into_any_element(),
                         }
                     })),
@@ -1413,10 +1323,11 @@ impl SettingsView {
         )
     }
 
-    /// One search result: the setting's name over the page it lives on.
+    /// One search result, placed by its rank and the number of results: the setting's name over
+    /// the page it lives on.
     fn result(
         &self,
-        index: usize,
+        (index, count): (usize, usize),
         page: SettingsPage,
         slot: Slot,
         cx: &mut Context<Self>,
@@ -1435,11 +1346,17 @@ impl SettingsView {
             None => i18n::lookup(tab.key(), None),
         };
 
-        Card::new(("settings-result", index), title)
-            .fallback(tab.icon())
-            .meta(place)
-            .press(cx.listener(move |this, _, _, cx| this.open_result(page, slot, cx)))
-            .into_any_element()
+        Card::new(
+            SharedString::from(format!("settings-result-{}-{title}", page.id())),
+            title,
+        )
+        .aria_description(place.clone())
+        .aria_position_in_set(index + 1)
+        .aria_size_of_set(count)
+        .fallback(tab.icon())
+        .meta(place)
+        .press(cx.listener(move |this, _, _, cx| this.open_result(page, slot, cx)))
+        .into_any_element()
     }
 
     /// Opens the page a result lives on and scrolls its setting into view.
@@ -1554,7 +1471,11 @@ impl Render for SettingsView {
         let sign_in_for = self.sign_in_for.filter(|_| !taken);
 
         // a dialog takes the key focus, since escape only reaches the page from inside it
-        let dialog = taken || sign_in_for.is_some() || self.scrobble_prompt.is_some();
+        let theme_delete = self.theme_delete_modal(cx);
+        let dialog = taken
+            || sign_in_for.is_some()
+            || self.scrobble_prompt.is_some()
+            || theme_delete.is_some();
         match (dialog, self.grabbed) {
             (true, false) => {
                 window.focus(&self.focus, cx);
@@ -1609,24 +1530,11 @@ impl Render for SettingsView {
         .when_some(sign_in_for, |this, (slug, provider)| {
             this.child(self.sign_in_prompt(slug, provider, cx).into_any_element())
         })
+        .when_some(theme_delete, |this, modal| this.child(modal))
     }
 }
 
 /// A group's heading: its icon, when it has one, before its name as an uppercase eyebrow.
 pub(super) fn group_heading(label: SharedString, icon: Option<&'static str>, cx: &App) -> Div {
-    let theme = cx.theme();
-
-    faint(cx)
-        .flex()
-        .items_center()
-        .gap_2()
-        .mb(theme.metrics.pad)
-        .children(icon.map(|icon| {
-            svg()
-                .path(icons::path(icon))
-                .size(theme.text(ui::Text::Small))
-                .flex_none()
-                .text_color(theme.muted_foreground)
-        }))
-        .child(upper(label))
+    ui::eyebrow_with(icon, label, cx).mb(cx.theme().metrics.pad)
 }
