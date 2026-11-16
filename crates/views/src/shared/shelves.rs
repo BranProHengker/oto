@@ -491,6 +491,7 @@ impl Rail {
             tabs,
         } = spec;
         let tall = Card::tile_height(tile, window, cx);
+        let inset = cx.theme().metrics.inset;
         let scrolled = self.scroll.clone();
         let glided = self.glide.clone();
         let arrows = match count > columns {

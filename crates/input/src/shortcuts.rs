@@ -145,7 +145,6 @@ const SHORTCUTS: &[Shortcut] = &[
         mac: &[],
     },
     Shortcut {
-    Shortcut {
         id: "volume-up",
         key: "keybind-volume-up",
         section: Section::Playback,
@@ -179,8 +178,6 @@ const SHORTCUTS: &[Shortcut] = &[
         scope: Scope::Browsing,
         bind: bind::<SeekForward>,
         defaults: &["right"],
-        mac: &[],
-    },
         mac: &[],
     },
     Shortcut {

@@ -108,22 +108,6 @@ pub fn register(lingers: bool, cx: &mut App) {
         playback.update(cx, |playback, cx| playback.toggle_repeat(cx));
     });
 
-    cx.on_action(|_: &IncreaseVolume, cx: &mut App| {
-        let playback = Sonora::global(cx).playback.clone();
-        playback.update(cx, |playback, cx| {
-            let level = (playback.shown_volume(cx) + 0.05).clamp(0., 1.);
-            playback.set_volume(level, cx);
-        });
-    });
-
-    cx.on_action(|_: &DecreaseVolume, cx: &mut App| {
-        let playback = Sonora::global(cx).playback.clone();
-        playback.update(cx, |playback, cx| {
-            let level = (playback.shown_volume(cx) - 0.05).clamp(0., 1.);
-            playback.set_volume(level, cx);
-        });
-    });
-
     cx.on_action(|_: &Undo, cx: &mut App| edit_equalizer(cx, Equalizer::undo));
     cx.on_action(|_: &Redo, cx: &mut App| edit_equalizer(cx, Equalizer::redo));
 

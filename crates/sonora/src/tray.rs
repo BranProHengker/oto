@@ -100,7 +100,7 @@ pub fn install(
         return false;
     };
     let tray = cx.new(|cx| Tray::new(icon, receiver, show, toggle, cx));
-    cx.set_global(Installed { _tray: tray });
+    cx.set_global(Installed { tray });
     Icon::hosted()
 }
 

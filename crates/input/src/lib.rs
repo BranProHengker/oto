@@ -129,7 +129,7 @@ fn shared() -> Vec<KeyBinding> {
         KeyBinding::new("win-q", Quit, None),
         KeyBinding::new("super-q", Quit, None),
         KeyBinding::new("shift-right", SeekForward, Some(&away_from_text)),
-        KeyBinding::new("shift-left", SeekBackward, Some(&away_from_text)),
+        KeyBinding::new("shift-left", SeekBack, Some(&away_from_text)),
         KeyBinding::new("down", SelectNext, Some(POWERBAR_CONTEXT)),
         KeyBinding::new("up", SelectPrevious, Some(POWERBAR_CONTEXT)),
         KeyBinding::new("enter", Submit, Some(POWERBAR_CONTEXT)),

@@ -334,6 +334,7 @@ impl Covers {
             tags: item.genres,
             languages: Vec::new(),
             credits,
+            format: item.container.as_deref().map(|c| c.to_uppercase()),
         }
     }
 
