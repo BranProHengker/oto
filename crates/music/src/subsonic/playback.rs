@@ -13,7 +13,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::aac::Aac;
 use crate::engine::{self, Fetch, Loudness};
-use crate::stream::{Plain, Reader, Stream};
+use crate::mp4::{Input, Prepared, Remote};
+use crate::stream::{Plain, Stream};
 use crate::subsonic::client::{Details, SubsonicClient};
 use crate::vault::{Recording, Shelf};
 use crate::{PlaybackConfig, PlaybackEvents, PlaybackFactory, Player, Transcode};

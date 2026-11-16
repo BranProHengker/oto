@@ -6,7 +6,6 @@ license.workspace = true
 
 [features]
 bundled-sqlite = ["rusqlite/bundled", "music/bundled-sqlite", "storage/bundled-sqlite"]
-
 [dependencies]
 anyhow.workspace = true
 cli.workspace = true
