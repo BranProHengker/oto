@@ -603,11 +603,20 @@ pub enum Voice {
     #[default]
     Lead,
     Counter,
+    Duet,
 }
 
 impl Voice {
     pub fn lead(&self) -> bool {
         matches!(self, Self::Lead)
+    }
+
+    pub fn counter(&self) -> bool {
+        matches!(self, Self::Counter)
+    }
+
+    pub fn duet(&self) -> bool {
+        matches!(self, Self::Duet)
     }
 }
 

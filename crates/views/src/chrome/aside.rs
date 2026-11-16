@@ -143,6 +143,7 @@ struct Sung {
     from: gpui::Point<f32>,
     /// Whether the lyrics mostly read right to left, which puts the lead voice on the right.
     mirrored: bool,
+    preset: state::LyricsPreset,
 }
 
 /// How one verse is drawn outside the sheet, for a still picture of the lyrics such as the
@@ -158,6 +159,7 @@ pub(crate) struct VerseLook {
     pub(crate) style: state::RomanizationStyle,
     /// How far out of focus the verse sits, from 0 for sharp to 1 at the sheet's edge.
     pub(crate) haze: f32,
+    pub(crate) preset: state::LyricsPreset,
 }
 
 #[derive(Clone, Copy)]
@@ -1288,13 +1290,14 @@ impl Aside {
         let following = (self.verse_of.as_deref() != lyrics.following())
             .then(|| lyrics.following().map(str::to_owned));
         let take = lyrics.revision();
-        let (karaoke_lyrics, romanization_scripts) = {
+        let (karaoke_lyrics, romanization_scripts, lyrics_preset) = {
             let settings = self.settings.read(cx);
             (
                 settings.karaoke_lyrics(),
                 settings
                     .romanized_lyrics()
                     .then(|| settings.romanization_scripts()),
+                settings.lyrics_preset(),
             )
         };
         let karaoke_effects = karaoke_lyrics && effects();
@@ -1328,6 +1331,7 @@ impl Aside {
             lift: 1.,
             from: gpui::point(0., 0.5),
             mirrored,
+            preset: lyrics_preset,
         };
 
         if let Some(following) = following {
@@ -1452,14 +1456,10 @@ impl Aside {
                 let instrumental_line = active_instrumental(lines, position);
                 let lyrics_preset = self.settings.read(cx).lyrics_preset();
                 let hazing = match lyrics_preset {
-                    LyricsPreset::Kinetic | LyricsPreset::Terminal => false,
-                    LyricsPreset::Parallax => effects() && self.pinned,
+                    LyricsPreset::Plain => false,
                     _ => effects() && self.settings.read(cx).blur_lyrics() && self.pinned,
                 };
-                let blur = match lyrics_preset {
-                    LyricsPreset::Parallax => verse * (BLUR * 1.5),
-                    _ => verse * BLUR,
-                };
+                let blur = verse * BLUR;
                 let sharpen = self.sharpen_progress(window);
                 // with motion turned down a press is simply on or off
                 let sink = match animations {
@@ -1604,37 +1604,49 @@ impl Aside {
                     let wrapped = self.lyrics_wraps.get(&index);
                     let line_has_ended = active_line.is_some_and(|active| index < active)
                         || line_has_passed(line, position);
+                    let is_active = Some(index) == active_line;
+                    let is_upcoming = active_line.is_some_and(|active| index == active + 1);
+                    let is_past = active_line.is_some_and(|active| index < active) || line_has_ended;
                     let worded = karaoke_effects && line.worded() && line.words.is_some();
-                    let (past_opacity, ahead_opacity) = match lyrics_preset {
-                        LyricsPreset::Kinetic => (0.25, 0.45),
-                        LyricsPreset::Parallax => (0.18, 0.45),
-                        LyricsPreset::Terminal => (0.28, 0.38),
-                        LyricsPreset::Neon => (0.35, 0.55),
-                        LyricsPreset::Fluid => (PAST, AHEAD),
+                    let (past_opacity, upcoming_opacity, default_opacity) = match lyrics_preset {
+                        LyricsPreset::Plain => (0.30, 0.50, 0.40),
+                        _ => (0.24, 0.50, 0.38),
                     };
-                    let shade = |singing: bool| match (singing, line_has_ended) {
-                        (true, _) if worded => quiet(&theme),
-                        (true, _) => match lyrics_preset {
-                            LyricsPreset::Neon => theme.primary,
-                            _ => theme.foreground,
-                        },
-                        (false, true) => quiet(&theme).opacity(past_opacity),
-                        (false, false) => quiet(&theme).opacity(ahead_opacity),
+                    let shade = |singing: bool| match (singing, is_past, is_upcoming) {
+                        (true, _, _) if worded => quiet(&theme).opacity(0.58),
+                        (true, _, _) => theme.foreground,
+                        (false, true, _) => quiet(&theme).opacity(past_opacity),
+                        (false, false, true) => quiet(&theme).opacity(upcoming_opacity),
+                        (false, false, false) => quiet(&theme).opacity(default_opacity),
                     };
-                    let tint = shade(Some(index) == active_line);
+                    let tint = shade(is_active);
 
                     let dimming = (animations && departing).then_some(self.departure);
                     let growing =
-                        animations && active && self.arrived.elapsed() < Motion::Base.span();
+                        animations && is_active && self.arrived.elapsed() < Motion::Base.span();
                     let shrinking = dimming.is_some();
                     let active_size = match lyrics_preset {
-                        LyricsPreset::Kinetic => verse * 1.09,
-                        LyricsPreset::Fluid | LyricsPreset::Neon => active_verse_size(verse),
-                        LyricsPreset::Parallax => verse * 1.03,
-                        LyricsPreset::Terminal => verse,
+                        LyricsPreset::Plain => verse,
+                        LyricsPreset::Legacy => verse * 1.04,
+                        _ => verse * 1.06,
                     };
-                    let small = verse / active_size;
-                    let big = active_size / verse;
+                    let target_line_size = match (is_active, is_upcoming, is_past) {
+                        (true, _, _) => active_size,
+                        (_, true, _) => match lyrics_preset {
+                            LyricsPreset::Plain => verse,
+                            _ => verse * 0.98,
+                        },
+                        (_, _, true) => match lyrics_preset {
+                            LyricsPreset::Plain => verse,
+                            _ => verse * 0.93,
+                        },
+                        _ => match lyrics_preset {
+                            LyricsPreset::Plain => verse,
+                            _ => verse * 0.95,
+                        },
+                    };
+                    let small = target_line_size / active_size;
+                    let big = active_size / target_line_size;
                     // both ways land on 1
                     let lift = match (growing, shrinking) {
                         (true, _) => small + (1. - small) * ramp(self.arrived, window),
@@ -1646,15 +1658,12 @@ impl Aside {
                         (_, true) => mix(shade(true), tint, ramp(self.departed, window)),
                         _ => tint,
                     };
-                    let karaoke_highlight = match lyrics_preset {
-                        LyricsPreset::Neon => theme.primary,
-                        _ => theme.foreground,
-                    };
+                    let karaoke_highlight = theme.foreground;
                     let sung = Sung {
                         karaoke_tint: mix(
                             karaoke_highlight,
                             tint,
-                            primary_karaoke_fade(line, active, position),
+                            primary_karaoke_fade(line, is_active, position),
                         ),
                         lift,
                         from: match hugs_end(line.voice, sung.mirrored) {
@@ -1785,7 +1794,10 @@ impl Aside {
                         .when(warmth > 0., |this| {
                             this.bg(theme.table_hover.opacity(warmth))
                         })
-                        .when(hugs_end(line.voice, sung.mirrored), |this| {
+                        .when(line.voice.duet(), |this| {
+                            this.items_center().text_center()
+                        })
+                        .when(!line.voice.duet() && hugs_end(line.voice, sung.mirrored), |this| {
                             this.items_end().text_right()
                         })
                         .child(primary)
@@ -1800,13 +1812,29 @@ impl Aside {
                             this.layer_scale(1. - (1. - PRESSED) * depth)
                         });
 
+                    let cascading = animations
+                        && is_upcoming
+                        && self.arrived.elapsed() < Motion::Base.span()
+                        && lyrics_preset.is_word_rising();
+                    let cascade_shift = match cascading {
+                        true => {
+                            let t = (ramp(self.arrived, window) * 1.2 - 0.1).clamp(0.0, 1.0);
+                            px((1.0 - t) * 3.0)
+                        }
+                        false => px(0.0),
+                    };
+
                     let softness = match hazing && Some(index) != active_line {
                         true => haze(viewport_haze(&scroll, row, view, blur, translation)),
                         false => 0.,
                     };
-                    let row_blur = match background_line_singing(line, active, position) {
+                    let row_blur = match background_line_singing(line, is_active, position) {
                         true => BACKGROUND_SINGING_BLUR,
-                        false => blur,
+                        false => match (is_upcoming, is_past) {
+                            (true, _) => px(2.5),
+                            (_, true) => px(12.0),
+                            _ => px(6.0),
+                        },
                     };
                     let traded = index
                         .checked_sub(1)
@@ -1825,12 +1853,13 @@ impl Aside {
                         .when(!lanes_spoken.is_empty(), |this| {
                             this.aria_description(SharedString::from(lanes_spoken))
                         })
-                        .when(active, |this| this.aria_selected(true))
+                        .when(is_active, |this| this.aria_selected(true))
                         .aria_position_in_set(index + 1)
                         .aria_size_of_set(lines.len())
                         .w_full()
                         .flex()
-                        .when(hugs_end(line.voice, sung.mirrored), |this| {
+                        .when(line.voice.duet(), |this| this.justify_center())
+                        .when(!line.voice.duet() && hugs_end(line.voice, sung.mirrored), |this| {
                             this.justify_end()
                         })
                         .when(traded, |this| this.mt(phrase_gap * 0.5))
@@ -1841,13 +1870,12 @@ impl Aside {
                                 this.press_verse(Warm::Verse(index), true, cx)
                             }),
                         )
-                        .text_size(verse)
+                        .text_size(target_line_size)
                         .line_height(line_height)
                         .text_color(tint)
-                        .font_weight(match (active, lyrics_preset) {
-                            (true, LyricsPreset::Kinetic) => FontWeight::BOLD,
-                            (false, LyricsPreset::Kinetic) => FontWeight::NORMAL,
-                            (true, LyricsPreset::Terminal) => FontWeight::MEDIUM,
+                        .font_weight(match (is_active, is_past) {
+                            (true, _) => FontWeight::BOLD,
+                            (_, true) => FontWeight::NORMAL,
                             _ => FontWeight::SEMIBOLD,
                         })
                         .on_hover(cx.listener(move |this, over: &bool, _, cx| {
@@ -1859,21 +1887,21 @@ impl Aside {
                         .child(content);
 
                     let verse_line = verse_line
-                        .when(active && lyrics_preset == LyricsPreset::Terminal, |this| {
-                            this.border_l_2().border_color(theme.primary).pl_2()
-                        })
                         .when(softness > 0., |this| this.opacity(1. - VEIL * softness))
                         .map(|this| match stepped(row_blur * softness) {
                             soft if soft > HAZE_LEAST => this.blur(soft),
                             _ => this,
                         });
-                    let verse_line = match (growing, shrinking, active) {
-                        (_, true, false) => verse_line.text_color(paint),
+                    let verse_line = match (growing, shrinking, is_active) {
+                        (_, true, false) => verse_line.text_size(target_line_size).text_color(paint),
                         (true, _, _) | (_, _, true) => {
                             verse_line.text_size(active_size).text_color(paint)
                         }
-                        _ => verse_line,
+                        _ => verse_line.text_size(target_line_size),
                     };
+                    let verse_line = verse_line.when(cascade_shift > px(0.0), |this| {
+                        this.layer_translate(gpui::point(px(0.), cascade_shift))
+                    });
                     rendered.push(adrift(verse_line, translation, traded, window));
                 }
 
@@ -2564,11 +2592,15 @@ pub(crate) fn verse(
     let karaoke = look.karaoke && effects();
     let ended = line_has_passed(line, position);
     let worded = karaoke && line.worded() && line.words.is_some();
+    let (past_opacity, _upcoming_opacity, default_opacity) = match look.preset {
+        LyricsPreset::Plain => (0.30, 0.50, 0.40),
+        _ => (0.24, 0.50, 0.38),
+    };
     let tint = match (look.active, ended) {
-        (true, _) if worded => quiet(theme),
+        (true, _) if worded => quiet(theme).opacity(0.58),
         (true, _) => theme.foreground,
-        (false, true) => quiet(theme).opacity(PAST),
-        (false, false) => quiet(theme).opacity(AHEAD),
+        (false, true) => quiet(theme).opacity(past_opacity),
+        (false, false) => quiet(theme).opacity(default_opacity),
     };
     let mirrored = right_to_left(&line.text);
     let sung = Sung {
@@ -2587,6 +2619,7 @@ pub(crate) fn verse(
             false => gpui::point(0., 0.5),
         },
         mirrored,
+        preset: look.preset,
     };
     let is_ruby = look.style == state::RomanizationStyle::Ruby
         && selected_romanization_tokens(&line.romanized, look.scripts).is_some();
@@ -2623,12 +2656,17 @@ pub(crate) fn verse(
         _ => lifted(
             div()
                 .w_full()
-                .when(hugs_end(line.voice, mirrored), |this| this.text_right())
+                .when(line.voice.duet(), |this| this.text_center())
+                .when(!line.voice.duet() && hugs_end(line.voice, mirrored), |this| this.text_right())
                 .child(SharedString::from(line.text.clone())),
             &sung,
         ),
     };
-    let active_size = active_verse_size(look.size);
+    let active_size = match look.preset {
+        LyricsPreset::Plain => look.size,
+        LyricsPreset::Legacy => look.size * 1.04,
+        _ => look.size * 1.06,
+    };
     let haze = match effects() {
         true => look.haze,
         false => 0.,
@@ -2648,13 +2686,21 @@ pub(crate) fn verse(
         })
         .line_height(active_size * ui::LEADING)
         .text_color(tint)
-        .font_weight(FontWeight::SEMIBOLD)
+        .font_weight(match look.active {
+            true => FontWeight::BOLD,
+            false => FontWeight::SEMIBOLD,
+        })
+        .when(line.voice.duet(), |this| this.text_center())
+        .when(!line.voice.duet() && hugs_end(line.voice, mirrored), |this| this.text_right())
         .child(
             div()
                 .flex()
                 .flex_col()
                 .gap_1()
-                .when(hugs_end(line.voice, mirrored), |this| {
+                .when(line.voice.duet(), |this| {
+                    this.items_center().text_center()
+                })
+                .when(!line.voice.duet() && hugs_end(line.voice, mirrored), |this| {
                     this.items_end().text_right()
                 })
                 .child(primary)
@@ -2737,6 +2783,38 @@ fn karaoke_lane(
     // a right-to-left line is read from its right edge, so its fill grows from there, and the
     // text inside it hangs from that edge to line up with the text beneath
     let rtl = plan.rtl;
+    let glow = |text: SharedString, reveal: Reveal| {
+        (sung.preset.has_glow() && effects() && reveal.shown).then(|| {
+            div()
+                .absolute()
+                .map(|this| match rtl {
+                    true => this.right_0(),
+                    false => this.left_0(),
+                })
+                .top_0()
+                .bottom_0()
+                .map(|this| match reveal.width {
+                    Some(width) => this.w(width),
+                    None => this.w(relative(reveal.share)),
+                })
+                .overflow_hidden()
+                .text_color(sung.karaoke_tint.opacity(0.65))
+                .blur(px(4.5))
+                .when(reveal.landing > 0., |this| {
+                    let fade = edge_fade * (reveal.landing * 1.5).min(1.0);
+                    match rtl {
+                        true => this.fade_sides(fade, px(0.)),
+                        false => this.fade_sides(px(0.), fade),
+                    }
+                })
+                .child(
+                    div()
+                        .whitespace_nowrap()
+                        .when(rtl, |this| this.absolute().top_0().right_0())
+                        .child(text),
+                )
+        })
+    };
     let overlay = |text: SharedString, reveal: Reveal, tint: gpui::Hsla| {
         div()
             .absolute()
@@ -2766,14 +2844,52 @@ fn karaoke_lane(
                     .child(text),
             )
     };
-    let lit = |text: SharedString, reveal: Reveal| {
+    let lit = |text: SharedString, reveal: Reveal, word_idx: usize| {
+        let (y_offset, word_scale, word_opacity) = if sung.preset.is_word_rising() {
+            let dur = windows.get(word_idx).map(|&(s, e, _)| e.saturating_sub(s)).unwrap_or_default();
+            let is_long = dur >= std::time::Duration::from_millis(500);
+            if reveal.share <= 0.0 {
+                (3.5, 1.0, 0.58)
+            } else if reveal.share < 1.0 {
+                let rise = (1.0 - (reveal.share * 1.6).min(1.0)) * 3.5;
+                let swell = if is_long {
+                    1.0 + (reveal.share * std::f32::consts::PI).sin() * 0.08
+                } else {
+                    1.0
+                };
+                (rise, swell, 1.0)
+            } else {
+                (0.0, 1.0, 1.0)
+            }
+        } else if sung.preset.has_wave_lift() {
+            if reveal.share > 0.0 && reveal.share < 1.0 {
+                let lift_y = -2.5 * (reveal.share * std::f32::consts::PI).sin();
+                let bell_zoom = 1.0 + 0.06 * (reveal.share * std::f32::consts::PI).sin();
+                (lift_y, bell_zoom, 1.0)
+            } else {
+                (0.0, 1.0, if reveal.share > 0.0 { 1.0 } else { 0.58 })
+            }
+        } else {
+            (0.0, 1.0, if reveal.share > 0.0 { 1.0 } else { 0.58 })
+        };
+
         div()
             .relative()
             .flex_none()
             .whitespace_nowrap()
+            .when(y_offset.abs() > 0.001, |this| {
+                this.layer_translate(gpui::point(px(0.), px(y_offset)))
+            })
+            .when(word_scale != 1.0, |this| {
+                this.layer_scale(word_scale).layer_scale_origin(gpui::point(0.5, 0.5))
+            })
+            .when(word_opacity < 1.0 && !reveal.shown, |this| {
+                this.opacity(word_opacity)
+            })
             .child(text.clone())
             .when(reveal.shown, |this| {
-                this.child(overlay(text, reveal, sung.karaoke_tint))
+                this.when_some(glow(text.clone(), reveal), |this, g| this.child(g))
+                    .child(overlay(text, reveal, sung.karaoke_tint))
             })
     };
 
@@ -2787,8 +2903,19 @@ fn karaoke_lane(
                 lifted(
                     div()
                         .flex()
-                        .when(hugs_end(voice, sung.mirrored), |this| this.justify_end())
-                        .child(lit(plan.text[row].clone(), reveal)),
+                        .when(voice.duet(), |this| this.justify_center())
+                        .when(!voice.duet() && hugs_end(voice, sung.mirrored), |this| this.justify_end())
+                        .child(
+                            div()
+                                .relative()
+                                .flex_none()
+                                .whitespace_nowrap()
+                                .child(plan.text[row].clone())
+                                .when(reveal.shown, |this| {
+                                    this.when_some(glow(plan.text[row].clone(), reveal), |this, g| this.child(g))
+                                        .child(overlay(plan.text[row].clone(), reveal, sung.karaoke_tint))
+                                }),
+                        ),
                     sung,
                 )
             })),
@@ -2799,11 +2926,13 @@ fn karaoke_lane(
             // the far end of a row is its left
             .when(rtl, |this| this.flex_row_reverse())
             .text_left()
-            .when(hugs_end(voice, sung.mirrored) != rtl, |this| {
+            .when(voice.duet(), |this| this.justify_center())
+            .when(!voice.duet() && (hugs_end(voice, sung.mirrored) != rtl), |this| {
                 this.justify_end()
             })
             .children((0..fragments.len()).map(|index| {
-                let share = sweep(spoken.get(index).copied().unwrap_or(index));
+                let word_idx = spoken.get(index).copied().unwrap_or(index);
+                let share = sweep(word_idx);
                 let reveal = Reveal {
                     shown: share > 0.,
                     width: None,
@@ -2813,7 +2942,7 @@ fn karaoke_lane(
                         false => 0.,
                     },
                 };
-                lit(fragments[index].clone(), reveal)
+                lit(fragments[index].clone(), reveal, word_idx)
             })),
     }
 }
@@ -3092,7 +3221,8 @@ fn ruby_lyrics_lane(
         .gap_x(px(6.))
         .gap_y(px(4.))
         .items_start()
-        .when(!voice.lead(), |this| this.justify_end())
+        .when(voice.duet(), |this| this.justify_center())
+        .when(!voice.duet() && !voice.lead(), |this| this.justify_end())
         .children(
             tokens
                 .iter()
@@ -3131,12 +3261,63 @@ fn ruby_lyrics_lane(
                         sung.theme.muted_foreground
                     };
 
+                    let (y_offset, word_scale, word_opacity) = if active && sung.preset.is_word_rising() {
+                        let dur = if let Some(&(start, end)) = windows.get(index) {
+                            end.saturating_sub(start)
+                        } else {
+                            std::time::Duration::ZERO
+                        };
+                        let is_long = dur >= std::time::Duration::from_millis(500);
+                        if share <= 0.0 {
+                            (3.5, 1.0, 0.58)
+                        } else if share < 1.0 {
+                            let rise = (1.0 - (share * 1.6).min(1.0)) * 3.5;
+                            let swell = if is_long {
+                                1.0 + (share * std::f32::consts::PI).sin() * 0.08
+                            } else {
+                                1.0
+                            };
+                            (rise, swell, 1.0)
+                        } else {
+                            (0.0, 1.0, 1.0)
+                        }
+                    } else if active && sung.preset.has_wave_lift() {
+                        if share > 0.0 && share < 1.0 {
+                            let lift_y = -2.5 * (share * std::f32::consts::PI).sin();
+                            let bell_zoom = 1.0 + 0.06 * (share * std::f32::consts::PI).sin();
+                            (lift_y, bell_zoom, 1.0)
+                        } else {
+                            (0.0, 1.0, if share > 0.0 { 1.0 } else { 0.58 })
+                        }
+                    } else {
+                        (0.0, 1.0, if active && share <= 0.0 { 0.58 } else { 1.0 })
+                    };
+
                     let kanji_text = SharedString::from(text.clone());
                     let kanji = div()
                         .relative()
                         .whitespace_nowrap()
                         .line_height(relative(1.0))
                         .child(kanji_text.clone())
+                        .when(sung.preset.has_glow() && effects() && share > 0., |this| {
+                            this.child(
+                                div()
+                                    .absolute()
+                                    .left_0()
+                                    .top_0()
+                                    .bottom_0()
+                                    .w(relative(share))
+                                    .overflow_hidden()
+                                    .text_color(sung.karaoke_tint.opacity(0.65))
+                                    .blur(px(4.0))
+                                    .child(
+                                        div()
+                                            .whitespace_nowrap()
+                                            .line_height(relative(1.0))
+                                            .child(kanji_text.clone()),
+                                    ),
+                            )
+                        })
                         .when(share > 0., |this| {
                             this.child(
                                 div()
@@ -3160,6 +3341,15 @@ fn ruby_lyrics_lane(
                         .flex()
                         .flex_col()
                         .items_center()
+                        .when(y_offset.abs() > 0.001, |this| {
+                            this.layer_translate(gpui::point(px(0.), px(y_offset)))
+                        })
+                        .when(word_scale != 1.0, |this| {
+                            this.layer_scale(word_scale).layer_scale_origin(gpui::point(0.5, 0.5))
+                        })
+                        .when(word_opacity < 1.0 && share <= 0.0, |this| {
+                            this.opacity(word_opacity)
+                        })
                         .child(kanji)
                         .when(!ruby.is_empty(), |this| {
                             this.child(
