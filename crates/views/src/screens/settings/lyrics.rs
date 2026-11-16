@@ -90,10 +90,11 @@ impl SettingsView {
         let current = i18n::lookup(chosen.key(), None);
 
         let picker = Picker::new("lyrics-preset", &self.popovers, current)
-            .width(Picker::NARROW)
+            .width(Picker::REGULAR)
             .items(state::LyricsPreset::ALL.map(|preset| {
                 MenuItem::new(preset.id(), i18n::lookup(preset.key(), None))
                     .selected(preset == chosen)
+                    .tooltip(i18n::lookup(preset.description_key(), None))
                     .on_click(cx.listener(move |this, _, _, cx| {
                         this.settings.update(cx, |settings, cx| {
                             settings.set_lyrics_preset(preset, cx);

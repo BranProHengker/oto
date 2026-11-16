@@ -48,6 +48,7 @@ struct Look {
     karaoke: bool,
     blur: bool,
     scripts: Option<RomanizationScripts>,
+    preset: state::LyricsPreset,
 }
 
 impl LyricsPreview {
@@ -82,6 +83,7 @@ pub(in crate::screens::settings) fn preview(
         scripts: settings
             .romanized_lyrics()
             .then(|| settings.romanization_scripts()),
+        preset: settings.lyrics_preset(),
     };
     let sizes = verse_sizes(false, settings.fullscreen_lyrics_scale(), &theme);
     let on = settings.lyrics_enabled();
@@ -122,6 +124,7 @@ fn lines(look: Look, sizes: (Pixels, Pixels), height: Pixels, theme: &Theme) -> 
                 scripts: look.scripts,
                 style: state::RomanizationStyle::Ruby,
                 haze,
+                preset: look.preset,
             },
             position,
             theme,

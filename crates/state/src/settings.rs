@@ -192,45 +192,69 @@ pub enum RomanizationStyle {
     Line,
 }
 
-/// The animation and visual presentation preset for synced and karaoke lyrics.
+/// The animation and visual motion presentation preset for synced and karaoke lyrics.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "kebab-case")]
 pub enum LyricsPreset {
     #[default]
-    Fluid,
-    Kinetic,
-    Parallax,
-    Neon,
-    Terminal,
+    #[serde(alias = "fluid", alias = "neon")]
+    Motion,
+    #[serde(alias = "parallax")]
+    Legacy,
+    #[serde(alias = "kinetic")]
+    Boring,
+    #[serde(alias = "terminal")]
+    Plain,
 }
 
 impl LyricsPreset {
-    pub const ALL: [Self; 5] = [
-        Self::Fluid,
-        Self::Kinetic,
-        Self::Parallax,
-        Self::Neon,
-        Self::Terminal,
+    pub const ALL: [Self; 4] = [
+        Self::Motion,
+        Self::Legacy,
+        Self::Boring,
+        Self::Plain,
     ];
 
     pub fn id(self) -> &'static str {
         match self {
-            Self::Fluid => "fluid",
-            Self::Kinetic => "kinetic",
-            Self::Parallax => "parallax",
-            Self::Neon => "neon",
-            Self::Terminal => "terminal",
+            Self::Motion => "motion",
+            Self::Legacy => "legacy",
+            Self::Boring => "boring",
+            Self::Plain => "plain",
         }
     }
 
     pub fn key(self) -> &'static str {
         match self {
-            Self::Fluid => "settings-lyrics-preset-fluid",
-            Self::Kinetic => "settings-lyrics-preset-kinetic",
-            Self::Parallax => "settings-lyrics-preset-parallax",
-            Self::Neon => "settings-lyrics-preset-neon",
-            Self::Terminal => "settings-lyrics-preset-terminal",
+            Self::Motion => "settings-lyrics-preset-motion",
+            Self::Legacy => "settings-lyrics-preset-legacy",
+            Self::Boring => "settings-lyrics-preset-boring",
+            Self::Plain => "settings-lyrics-preset-plain",
         }
+    }
+
+    pub fn description_key(self) -> &'static str {
+        match self {
+            Self::Motion => "settings-lyrics-preset-motion-desc",
+            Self::Legacy => "settings-lyrics-preset-legacy-desc",
+            Self::Boring => "settings-lyrics-preset-boring-desc",
+            Self::Plain => "settings-lyrics-preset-plain-desc",
+        }
+    }
+
+    /// Whether this preset features word-rising animation (syllable-synced offset lift).
+    pub fn is_word_rising(self) -> bool {
+        matches!(self, Self::Motion | Self::Boring)
+    }
+
+    /// Whether this preset features GPU bloom glow around active lyrics.
+    pub fn has_glow(self) -> bool {
+        matches!(self, Self::Motion | Self::Legacy)
+    }
+
+    /// Whether this preset features Gaussian wave lift-and-zoom bell curve.
+    pub fn has_wave_lift(self) -> bool {
+        matches!(self, Self::Legacy)
     }
 }
 
