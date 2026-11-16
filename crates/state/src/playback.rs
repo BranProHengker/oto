@@ -157,7 +157,7 @@ const SEEK_STEP: Duration = Duration::from_secs(5);
 /// reports the track as ended. Apple's license asks for renewal 13 minutes after it is issued,
 /// and that clock starts at the load rather than the pause, so this leaves room for a long track.
 const STALE_PAUSE: Duration = Duration::from_secs(5 * 60);
-const TAPER_DB: f32 = 50.;
+const TAPER_DB: f32 = 35.;
 const MAX_GAIN: f32 = 1.35;
 /// A level this low counts as muted, matching the player's volume button.
 const MUTE_THRESHOLD: f32 = 0.001;
