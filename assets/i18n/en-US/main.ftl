@@ -667,6 +667,7 @@ keybind-song-previous = Previous track
 keybind-song-next = Next track
 keybind-volume-up = Volume up
 keybind-volume-down = Volume down
+keybind-toggle-mute = Mute
 keybind-seek-back = Seek back
 keybind-seek-forward = Seek forward
 keybind-toggle-shuffle = Shuffle

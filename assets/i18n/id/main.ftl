@@ -1427,3 +1427,4 @@ toast-lyrics-save-failed = Tidak dapat menyimpan file lirik
 lrc-studio-save-local = Simpan di sebelah lagu (.lrc)
 lrc-studio-download = Unduh .lrc
 lrc-studio-saved-toast = Lirik berhasil disimpan!
+keybind-toggle-mute = Bisukan suara

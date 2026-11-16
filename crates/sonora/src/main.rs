@@ -25,8 +25,8 @@ use std::time::Duration;
 
 use cli::commands::CommandType;
 use gpui::{
-    App, AppContext as _, Bounds, Pixels, QuitMode, Size, TitlebarOptions, WindowBounds,
-    WindowOptions, px, size,
+    App, AppContext as _, Bounds, DispatchPhase, Pixels, QuitMode, ScrollWheelEvent, Size,
+    TitlebarOptions, WindowBounds, WindowOptions, px, size,
 };
 use music::LyricsProvider;
 use music::link::Linked;
@@ -422,6 +422,19 @@ fn open_window(cx: &mut App) {
                 thumbbar::install(window.window_handle().window_id(), handle, cx);
             }
             state::remember_window(window, cx);
+            window.on_mouse_event(move |event: &ScrollWheelEvent, phase, window, cx| {
+                if phase == DispatchPhase::Capture
+                    && (event.modifiers.control || event.modifiers.platform)
+                {
+                    let delta = event.delta.pixel_delta(window.line_height()).y;
+                    if delta != Pixels::ZERO {
+                        cx.stop_propagation();
+                        let steps = if delta > Pixels::ZERO { 1 } else { -1 };
+                        let playback = Sonora::global(cx).playback.clone();
+                        playback.update(cx, |playback, cx| playback.nudge_volume(steps, cx));
+                    }
+                }
+            });
             cx.new(|cx| Root::new(session, library, playback, queue, window, cx))
         },
     )

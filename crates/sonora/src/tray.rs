@@ -136,7 +136,10 @@ impl Tray {
                         show(cx);
                         open(cx);
                     }
-                    Event::Quit => cx.quit(),
+                    Event::Quit => {
+                        cx.quit();
+                        std::process::exit(0);
+                    }
                     Event::Toggle
                     | Event::Previous
                     | Event::Next
