@@ -1831,9 +1831,9 @@ impl Aside {
                     let row_blur = match background_line_singing(line, is_active, position) {
                         true => BACKGROUND_SINGING_BLUR,
                         false => match (is_upcoming, is_past) {
-                            (true, _) => px(2.5),
+                            (true, _) => px(5.0),
                             (_, true) => px(12.0),
-                            _ => px(6.0),
+                            _ => px(12.0),
                         },
                     };
                     let traded = index
@@ -2753,6 +2753,11 @@ fn loose_plan(line: &str, words: &[music::LyricsWord]) -> Wrapped {
     }
 }
 
+fn smoothstep(t: f32) -> f32 {
+    let t = t.clamp(0.0, 1.0);
+    t * t * (3.0 - 2.0 * t)
+}
+
 fn karaoke_lane(
     plan: &Wrapped,
     line_start: std::time::Duration,
@@ -2783,8 +2788,9 @@ fn karaoke_lane(
     // a right-to-left line is read from its right edge, so its fill grows from there, and the
     // text inside it hangs from that edge to line up with the text beneath
     let rtl = plan.rtl;
-    let glow = |text: SharedString, reveal: Reveal| {
+    let glow = |text: SharedString, reveal: Reveal, is_held: bool| {
         (sung.preset.has_glow() && effects() && reveal.shown).then(|| {
+            let glow_opacity = if is_held { 0.85 } else { 0.60 };
             div()
                 .absolute()
                 .map(|this| match rtl {
@@ -2798,8 +2804,8 @@ fn karaoke_lane(
                     None => this.w(relative(reveal.share)),
                 })
                 .overflow_hidden()
-                .text_color(sung.karaoke_tint.opacity(0.65))
-                .blur(px(4.5))
+                .text_color(sung.karaoke_tint.opacity(glow_opacity))
+                .blur(px(5.0))
                 .when(reveal.landing > 0., |this| {
                     let fade = edge_fade * (reveal.landing * 1.5).min(1.0);
                     match rtl {
@@ -2845,32 +2851,42 @@ fn karaoke_lane(
             )
     };
     let lit = |text: SharedString, reveal: Reveal, word_idx: usize| {
-        let (y_offset, word_scale, word_opacity) = if sung.preset.is_word_rising() {
-            let dur = windows.get(word_idx).map(|&(s, e, _)| e.saturating_sub(s)).unwrap_or_default();
-            let is_long = dur >= std::time::Duration::from_millis(500);
+        let (y_offset, word_scale, word_opacity, is_held) = if sung.preset.is_word_rising() {
+            let dur = windows
+                .get(word_idx)
+                .map(|&(s, e, _)| e.saturating_sub(s))
+                .unwrap_or_default();
+            let is_long = dur >= std::time::Duration::from_millis(350);
             if reveal.share <= 0.0 {
-                (3.5, 1.0, 0.58)
+                (3.0, 1.0, 0.58, false)
             } else if reveal.share < 1.0 {
-                let rise = (1.0 - (reveal.share * 1.6).min(1.0)) * 3.5;
-                let swell = if is_long {
-                    1.0 + (reveal.share * std::f32::consts::PI).sin() * 0.08
+                let through = reveal.share;
+                let word_rise = smoothstep(through / 0.85);
+                let letter_rise = smoothstep((through * 1.5).min(1.0));
+                let rise_target = word_rise + (letter_rise - word_rise) * 0.55;
+                let (lift, swell) = if is_long {
+                    let hold = smoothstep((dur.as_secs_f32() - 0.25) / 0.25);
+                    let swell_target =
+                        hold * smoothstep(through / 0.20) * smoothstep((1.0 - through) / 0.12);
+                    (swell_target * 2.5, 1.0 + swell_target * 0.075)
                 } else {
-                    1.0
+                    (0.0, 1.0)
                 };
-                (rise, swell, 1.0)
+                let y = 3.0 * (1.0 - rise_target) - lift;
+                (y, swell, 1.0, is_long)
             } else {
-                (0.0, 1.0, 1.0)
+                (0.0, 1.0, 1.0, false)
             }
         } else if sung.preset.has_wave_lift() {
             if reveal.share > 0.0 && reveal.share < 1.0 {
                 let lift_y = -2.5 * (reveal.share * std::f32::consts::PI).sin();
                 let bell_zoom = 1.0 + 0.06 * (reveal.share * std::f32::consts::PI).sin();
-                (lift_y, bell_zoom, 1.0)
+                (lift_y, bell_zoom, 1.0, false)
             } else {
-                (0.0, 1.0, if reveal.share > 0.0 { 1.0 } else { 0.58 })
+                (0.0, 1.0, if reveal.share > 0.0 { 1.0 } else { 0.58 }, false)
             }
         } else {
-            (0.0, 1.0, if reveal.share > 0.0 { 1.0 } else { 0.58 })
+            (0.0, 1.0, if reveal.share > 0.0 { 1.0 } else { 0.58 }, false)
         };
 
         div()
@@ -2888,13 +2904,14 @@ fn karaoke_lane(
             })
             .child(text.clone())
             .when(reveal.shown, |this| {
-                this.when_some(glow(text.clone(), reveal), |this, g| this.child(g))
+                this.when_some(glow(text.clone(), reveal, is_held), |this, g| this.child(g))
                     .child(overlay(text, reveal, sung.karaoke_tint))
             })
     };
 
-    match plan.rows.is_empty() {
-        false => div()
+    let has_rows = !plan.rows.is_empty();
+    if sung.preset == LyricsPreset::Plain && has_rows {
+        div()
             .flex()
             .flex_col()
             .text_left()
@@ -2904,7 +2921,9 @@ fn karaoke_lane(
                     div()
                         .flex()
                         .when(voice.duet(), |this| this.justify_center())
-                        .when(!voice.duet() && hugs_end(voice, sung.mirrored), |this| this.justify_end())
+                        .when(!voice.duet() && hugs_end(voice, sung.mirrored), |this| {
+                            this.justify_end()
+                        })
                         .child(
                             div()
                                 .relative()
@@ -2912,38 +2931,54 @@ fn karaoke_lane(
                                 .whitespace_nowrap()
                                 .child(plan.text[row].clone())
                                 .when(reveal.shown, |this| {
-                                    this.when_some(glow(plan.text[row].clone(), reveal), |this, g| this.child(g))
-                                        .child(overlay(plan.text[row].clone(), reveal, sung.karaoke_tint))
+                                    this.child(overlay(
+                                        plan.text[row].clone(),
+                                        reveal,
+                                        sung.karaoke_tint,
+                                    ))
                                 }),
                         ),
                     sung,
                 )
-            })),
-        true => div()
+            }))
+    } else {
+        let ranges: Vec<Range<usize>> = if has_rows {
+            plan.rows.clone()
+        } else {
+            vec![0..fragments.len()]
+        };
+
+        div()
             .flex()
-            .flex_wrap()
-            // right-to-left words flow from the right, where row-reverse starts, so for them
-            // the far end of a row is its left
-            .when(rtl, |this| this.flex_row_reverse())
+            .flex_col()
             .text_left()
-            .when(voice.duet(), |this| this.justify_center())
-            .when(!voice.duet() && (hugs_end(voice, sung.mirrored) != rtl), |this| {
-                this.justify_end()
-            })
-            .children((0..fragments.len()).map(|index| {
-                let word_idx = spoken.get(index).copied().unwrap_or(index);
-                let share = sweep(word_idx);
-                let reveal = Reveal {
-                    shown: share > 0.,
-                    width: None,
-                    share,
-                    landing: match share < 1. {
-                        true => ((1. - share) / LANDING).min(1.),
-                        false => 0.,
-                    },
-                };
-                lit(fragments[index].clone(), reveal, word_idx)
-            })),
+            .children(ranges.into_iter().map(|range| {
+                lifted(
+                    div()
+                        .flex()
+                        .flex_wrap()
+                        .when(rtl, |this| this.flex_row_reverse())
+                        .when(voice.duet(), |this| this.justify_center())
+                        .when(!voice.duet() && (hugs_end(voice, sung.mirrored) != rtl), |this| {
+                            this.justify_end()
+                        })
+                        .children(range.map(|index| {
+                            let word_idx = spoken.get(index).copied().unwrap_or(index);
+                            let share = sweep(word_idx);
+                            let reveal = Reveal {
+                                shown: share > 0.,
+                                width: None,
+                                share,
+                                landing: match share < 1. {
+                                    true => ((1. - share) / LANDING).min(1.),
+                                    false => 0.,
+                                },
+                            };
+                            lit(fragments[index].clone(), reveal, word_idx)
+                        })),
+                    sung,
+                )
+            }))
     }
 }
 
