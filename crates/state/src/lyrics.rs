@@ -69,8 +69,18 @@ impl Lyrics {
         io: Io,
         cx: &mut Context<Self>,
     ) -> Self {
-        cx.observe(&playback, |this, _, cx| this.follow(cx))
-            .detach();
+        cx.observe(&playback, |this, _, cx| {
+            this.follow(cx);
+            this.prefetch(cx);
+        })
+        .detach();
+        // a lookup ahead that waited on the current track's is started on a later tick
+        let ticks = playback.read(cx).ticks().clone();
+        cx.observe(&ticks, |this, _, cx| {
+            this.follow(cx);
+            this.prefetch(cx);
+        })
+        .detach();
         cx.observe(&queue, |this, _, cx| this.prefetch(cx)).detach();
         cx.observe(&settings, |this, settings, cx| {
             let settings = settings.read(cx);
