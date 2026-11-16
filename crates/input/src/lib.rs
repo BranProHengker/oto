@@ -26,6 +26,7 @@ actions!(
         SongNext,
         VolumeUp,
         VolumeDown,
+        ToggleMute,
         SeekBack,
         SeekForward,
         ToggleShuffle,

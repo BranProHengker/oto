@@ -3,8 +3,8 @@ use i18n::t;
 use input::{
     CloseWindow, DecreaseFontSize, Hide, HideOthers, IncreaseFontSize, MinimizeWindow,
     OpenSettings, Quit, Redo, Refresh, ResetFontSize, SeekBack, SeekForward, ShowAll, SignOut,
-    SongNext, SongPrevious, TogglePlayback, ToggleRepeat, ToggleShuffle, Undo, VolumeDown,
-    VolumeUp, ZoomWindow,
+    SongNext, SongPrevious, ToggleMute, TogglePlayback, ToggleRepeat, ToggleShuffle, Undo,
+    VolumeDown, VolumeUp, ZoomWindow,
 };
 use router::Destination;
 use state::{AppSettings, Equalizer, Shelf, Sonora};
@@ -24,6 +24,7 @@ pub fn register(lingers: bool, cx: &mut App) {
             tray.update(cx, |tray, _| tray.shutdown());
         }
         cx.quit();
+        std::process::exit(0);
     });
     cx.on_action(|_: &Hide, cx: &mut App| cx.hide());
     cx.on_action(|_: &HideOthers, cx: &mut App| cx.hide_other_apps());
@@ -44,6 +45,7 @@ pub fn register(lingers: bool, cx: &mut App) {
                     tray.update(cx, |tray, _| tray.shutdown());
                 }
                 cx.quit();
+                std::process::exit(0);
             }
         }
     })
@@ -95,6 +97,10 @@ pub fn register(lingers: bool, cx: &mut App) {
 
     cx.on_action(|_: &VolumeUp, cx: &mut App| nudge_volume(cx, 1));
     cx.on_action(|_: &VolumeDown, cx: &mut App| nudge_volume(cx, -1));
+    cx.on_action(|_: &ToggleMute, cx: &mut App| {
+        let playback = Sonora::global(cx).playback.clone();
+        playback.update(cx, |playback, cx| playback.toggle_muted(cx));
+    });
     cx.on_action(|_: &SeekBack, cx: &mut App| skip(cx, false));
     cx.on_action(|_: &SeekForward, cx: &mut App| skip(cx, true));
 

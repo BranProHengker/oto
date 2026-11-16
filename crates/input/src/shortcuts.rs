@@ -10,9 +10,9 @@ use ui::{FORM_CONTEXT, INPUT_CONTEXT, MENU_CONTEXT, TABLE_CONTEXT};
 use crate::{
     DecreaseFontSize, IncreaseFontSize, NavigateBack, NavigateForward, OpenFilter, OpenSearch,
     OpenSettings, POWERBAR_CONTEXT, Refresh, ResetFontSize, SEARCH_CONTEXT, SeekBack, SeekForward,
-    SongNext, SongPrevious, ToggleFullscreen, ToggleLyrics, TogglePlayback, TogglePowerbar,
-    ToggleQueue, ToggleRepeat, ToggleShuffle, ToggleWindowFullscreen, VolumeDown, VolumeUp,
-    WORKSPACE_CONTEXT,
+    SongNext, SongPrevious, ToggleFullscreen, ToggleLyrics, ToggleMute, TogglePlayback,
+    TogglePowerbar, ToggleQueue, ToggleRepeat, ToggleShuffle, ToggleWindowFullscreen, VolumeDown,
+    VolumeUp, WORKSPACE_CONTEXT,
 };
 
 /// The modifiers that make a keystroke a command rather than typing. A key pressed without any
@@ -110,7 +110,7 @@ impl Shortcut {
             .any(|part| COMMAND_MODIFIERS.contains(&part));
         match (self.scope, plain) {
             (Scope::Anywhere, false) => None,
-            (Scope::Browsing, _) => Some(browsing_context()),
+            (Scope::Browsing, true) => Some(browsing_context()),
             _ => Some(format!("{WORKSPACE_CONTEXT} && !{INPUT_CONTEXT}")),
         }
     }
@@ -150,8 +150,8 @@ const SHORTCUTS: &[Shortcut] = &[
         section: Section::Playback,
         scope: Scope::Browsing,
         bind: bind::<VolumeUp>,
-        defaults: &["up"],
-        mac: &[],
+        defaults: &["ctrl-up", "up"],
+        mac: &["cmd-up", "up"],
     },
     Shortcut {
         id: "volume-down",
@@ -159,8 +159,17 @@ const SHORTCUTS: &[Shortcut] = &[
         section: Section::Playback,
         scope: Scope::Browsing,
         bind: bind::<VolumeDown>,
-        defaults: &["down"],
-        mac: &[],
+        defaults: &["ctrl-down", "down"],
+        mac: &["cmd-down", "down"],
+    },
+    Shortcut {
+        id: "toggle-mute",
+        key: "keybind-toggle-mute",
+        section: Section::Playback,
+        scope: Scope::AwayFromText,
+        bind: bind::<ToggleMute>,
+        defaults: &["ctrl-m"],
+        mac: &["cmd-m"],
     },
     Shortcut {
         id: "seek-back",
@@ -502,11 +511,11 @@ mod tests {
     fn arrow_keys_default_to_volume_and_seek() {
         assert_eq!(
             shortcut("volume-up").map(Shortcut::defaults),
-            Some(vec!["up"])
+            Some(vec!["ctrl-up", "up"])
         );
         assert_eq!(
             shortcut("volume-down").map(Shortcut::defaults),
-            Some(vec!["down"])
+            Some(vec!["ctrl-down", "down"])
         );
         assert_eq!(
             shortcut("seek-back").map(Shortcut::defaults),

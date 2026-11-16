@@ -2,11 +2,11 @@
 //! draws them, held still in the middle of a karaoke line so every lyrics setting shows the
 //! moment it changes. The line being sung is in Japanese, so romanization has something to add.
 
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use gpui::prelude::*;
 use gpui::{AnyElement, Context, Div, Pixels, Window, div};
-use music::{LyricsLine, LyricsWord, RomanizedText, WritingSystem};
+use music::{LyricsLine, LyricsWord, Voice};
 use state::RomanizationScripts;
 use ui::{ActiveTheme as _, Theme};
 
@@ -15,32 +15,19 @@ use crate::screens::settings::{Layout, SettingsView};
 
 /// How tall the preview stands for its width.
 const ASPECT: f32 = 0.4;
-/// How many lines show either side of the one being sung.
-const AROUND: usize = 2;
 /// How far down the preview the line being sung starts, as a share of its height.
 const ANCHOR: f32 = 0.36;
 /// The haze curve of the sheet, from a line's distance to the one being sung.
 const HAZE: f32 = 0.45;
-/// How long the sample's sung line takes, and how far into it the preview stands.
-const SUNG: Duration = Duration::from_millis(3200);
-const STILL: f32 = 0.55;
 /// How far the sheet fades in from its top and bottom edges, in verse sizes, as the panel does.
 const VERSE_FADE: f32 = 1.25;
-/// How far apart the sample's lines start, and which of them is being sung.
-const SPACING: Duration = Duration::from_secs(4);
-const SUNG_LINE: usize = 2;
-/// The sample's lines by their Fluent keys, and the one in Japanese with its romanization.
-const SAMPLE: [&str; 5] = [
-    "settings-lyrics-sample-first",
-    "settings-lyrics-sample-second",
-    "settings-lyrics-sample-japanese",
-    "settings-lyrics-sample-fourth",
-    "settings-lyrics-sample-fifth",
-];
-const ROMANIZED: &str = "settings-lyrics-sample-romanized";
+/// Full animation loop duration for the live singing preview (matching Oto Android).
+const LOOP_DURATION: Duration = Duration::from_millis(7400);
 
-/// What the Lyrics page's preview keeps between frames, which is nothing, since it never moves.
-pub(in crate::screens::settings) struct LyricsPreview;
+/// Keeps track of the start time for the live singing animation loop.
+pub(in crate::screens::settings) struct LyricsPreview {
+    started: Instant,
+}
 
 /// The lyrics settings the preview follows.
 #[derive(Clone, Copy)]
@@ -53,18 +40,25 @@ struct Look {
 
 impl LyricsPreview {
     pub(in crate::screens::settings) fn new(_cx: &mut Context<SettingsView>) -> Self {
-        Self
+        Self {
+            started: Instant::now(),
+        }
     }
 }
 
-/// The Lyrics page's preview: the sample lines as Now playing draws them at its text size, over
-/// the ambient field while that is on.
+/// The Lyrics page's preview: sample lines singing on a live continuous loop,
+/// dynamically showcasing word-rise, held swell, bloom, wave lift, or plain sweep
+/// depending on the selected preset.
 pub(in crate::screens::settings) fn preview(
-    _state: &LyricsPreview,
+    state: &LyricsPreview,
     view: &SettingsView,
     window: &mut Window,
     cx: &mut Context<SettingsView>,
 ) -> Option<AnyElement> {
+    window.request_animation_frame();
+    let elapsed = state.started.elapsed();
+    let position = Duration::from_nanos((elapsed.as_nanos() % LOOP_DURATION.as_nanos()) as u64);
+
     let height = (Layout::of(window, cx).width * ASPECT).round();
     let field = view.settings.read(cx).ambient().then(|| {
         let cover = view.previews.playing_or_picked(cx).large_cover(cx);
@@ -93,25 +87,34 @@ pub(in crate::screens::settings) fn preview(
         .h(height)
         .bg(theme.background)
         .children(field)
-        .child(lines(look, sizes, height, &theme))
+        .child(lines(look, sizes, height, &theme, position))
         .when(!on, |sheet| sheet.opacity(super::DIMMED));
 
     Some(super::framed(sheet, cx).into_any_element())
 }
 
 /// The sample lines around the one being sung, drawn the way the sheet draws them at the verse
-/// and lane sizes in `sizes`, over the whole of a parent `height` tall. The one being sung starts
-/// at `ANCHOR` of the height whatever the sizes, so a large text size never pushes it out of view.
-fn lines(look: Look, sizes: (Pixels, Pixels), height: Pixels, theme: &Theme) -> Div {
+/// and lane sizes in `sizes`, over the whole of a parent `height` tall.
+fn lines(
+    look: Look,
+    sizes: (Pixels, Pixels),
+    height: Pixels,
+    theme: &Theme,
+    position: Duration,
+) -> Div {
     let lines = sample();
     let (size, lane) = sizes;
     let gap = verse_gap(size);
-    let position = lines[SUNG_LINE].start + SUNG.mul_f32(STILL);
+    let active_idx = lines
+        .iter()
+        .rposition(|line| line.start <= position)
+        .unwrap_or(0);
+
     let verse_at = |index: usize| {
-        let sung = index == SUNG_LINE;
-        let distance = index.abs_diff(SUNG_LINE) as f32;
+        let sung = index == active_idx;
+        let distance = (index as isize - active_idx as isize).abs() as f32;
         let haze = match look.blur && !sung {
-            true => (distance / AROUND as f32).min(1.).powf(HAZE),
+            true => (distance / 2.0).min(1.0).powf(HAZE),
             false => 0.,
         };
         verse(
@@ -148,7 +151,7 @@ fn lines(look: Look, sizes: (Pixels, Pixels), height: Pixels, theme: &Theme) -> 
                 .flex()
                 .flex_col()
                 .gap(gap)
-                .children((SUNG_LINE - AROUND..SUNG_LINE).map(verse_at)),
+                .children((0..active_idx).map(verse_at)),
         )
         .child(
             div()
@@ -160,59 +163,88 @@ fn lines(look: Look, sizes: (Pixels, Pixels), height: Pixels, theme: &Theme) -> 
                 .flex()
                 .flex_col()
                 .gap(gap)
-                .children((SUNG_LINE..lines.len()).map(verse_at)),
+                .children((active_idx..lines.len()).map(verse_at)),
         )
 }
 
-/// The sample lines, timed so the third is being sung and the ones before it are over.
+/// The sample lines modeled directly from Oto Android's PreviewLyrics,
+/// including a 900ms held note ("love") to showcase spring swell and bloom.
 fn sample() -> Vec<LyricsLine> {
-    SAMPLE
-        .iter()
-        .enumerate()
-        .map(|(index, key)| {
-            let text = i18n::lookup(key, None).to_string();
-            let start = SPACING * index as u32;
-            let romanized = (index == SUNG_LINE).then(|| RomanizedText {
-                text: i18n::lookup(ROMANIZED, None).to_string(),
-                writing_system: WritingSystem::Japanese,
-                tokens: Vec::new(),
-            });
-            LyricsLine {
-                start,
-                end: Some(start + SUNG),
-                words: Some(timed(&text, start)),
-                text,
-                romanized,
-                ..Default::default()
-            }
-        })
-        .collect()
+    vec![
+        preview_line(
+            Duration::from_millis(0),
+            Duration::from_millis(1800),
+            "if i am a stone",
+            &[(0, 400), (400, 800), (800, 1200), (1200, 1400), (1400, 1800)],
+            Voice::Lead,
+        ),
+        preview_line(
+            Duration::from_millis(2000),
+            Duration::from_millis(4400),
+            "would you still love me?",
+            &[
+                (2000, 2400),
+                (2400, 2800),
+                (2800, 3200),
+                (3200, 4100),
+                (4100, 4400),
+            ],
+            Voice::Lead,
+        ),
+        preview_line(
+            Duration::from_millis(4600),
+            Duration::from_millis(7200),
+            "of course, what do you mean my love",
+            &[
+                (4600, 4900),
+                (4900, 5400),
+                (5400, 5800),
+                (5800, 6100),
+                (6100, 6400),
+                (6400, 6800),
+                (6800, 7000),
+                (7000, 7200),
+            ],
+            Voice::Duet,
+        ),
+    ]
 }
 
-/// Splits a line into words sung one after another across `SUNG`, by its spaces where it has
-/// them and letter by letter where it has none, each word taking time for its length.
-fn timed(text: &str, start: Duration) -> Vec<LyricsWord> {
-    let words: Vec<String> = match text.contains(char::is_whitespace) {
-        true => text.split_whitespace().map(str::to_owned).collect(),
-        false => text.chars().map(String::from).collect(),
-    };
-    let letters = words
-        .iter()
-        .map(|word| word.chars().count())
-        .sum::<usize>()
-        .max(1);
-    let mut at = start;
-    words
+fn preview_line(
+    start: Duration,
+    end: Duration,
+    text: &str,
+    windows: &[(u64, u64)],
+    voice: Voice,
+) -> LyricsLine {
+    let raw_words: Vec<&str> = text.split_whitespace().collect();
+    let word_count = raw_words.len();
+    let words = raw_words
         .into_iter()
-        .map(|word| {
-            let length = SUNG.mul_f32(word.chars().count() as f32 / letters as f32);
-            let timed = LyricsWord {
-                start: at,
-                end: at + length,
-                text: word,
+        .enumerate()
+        .map(|(i, w)| {
+            let (s_ms, e_ms) = windows.get(i).copied().unwrap_or((
+                start.as_millis() as u64,
+                end.as_millis() as u64,
+            ));
+            let trailing_space = if i + 1 < word_count {
+                format!("{w} ")
+            } else {
+                w.to_owned()
             };
-            at += length;
-            timed
+            LyricsWord {
+                start: Duration::from_millis(s_ms),
+                end: Duration::from_millis(e_ms),
+                text: trailing_space,
+            }
         })
-        .collect()
+        .collect();
+    LyricsLine {
+        start,
+        end: Some(end),
+        words: Some(words),
+        text: text.to_owned(),
+        voice,
+        ..Default::default()
+    }
 }

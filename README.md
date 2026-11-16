@@ -82,6 +82,8 @@
 > - **Soloist Headless Daemon Integration**: Native support for pairing with `soloistd`, upstream's headless playback daemon. Offload Spotify and audio decoding to a lightweight background daemon and control playback seamlessly without GUI overhead.
 > - **Automix Crossfade**: Smart transition blending with dynamic DJ bass dip (high-pass filter sweep) and leading silence trimming.
 > - **KuGou, NetEase & Word-by-Word Furigana Karaoke**: Native out-of-the-box support for KuGou & NetEase karaoke lyrics, word-by-word karaoke sweep sync on furigana (Japanese Kanji + Ruby annotation sublane), smart twin-timestamp `.lrc` pairing, and GPU-optimized silky 60+ FPS fullscreen lyrics.
+> - **Oto Android Lyrics Motion Presets & Real-time Live Preview**: 4 selectable animation presets (Style 1 Motion, Style 2 Legacy, Boring, Plain) directly ported from Oto Android. Features independent syllable rises, traveling sine-wave motion, held-note spring bloom, duet vocal alignments, and a continuous 60/120fps live singing preview loop in Settings.
+> - **Expanded Volume Control & Instant Mute**: Universal `Ctrl + Up`/`Down` shortcuts that work anywhere in the app, global `Ctrl + Scroll` mouse wheel volume adjustment, and one-key `Ctrl + M` mute toggle.
 > - **Lyrics Provider Switcher & Local Precedence**: Live lyrics source switcher (`[ ⇅ Switch ]`) with hit indicators (Karaoke, Line synced, In use) and strict local synced lyrics precedence over scrapers.
 > - **Flexible Lyrics Save & Export**: One-click minimalist floating lyrics download directly beside local audio files, with configurable export formats in Settings (Standard `.lrc`, Enhanced Karaoke `.lrc` with word timestamps, or Provider Native decoded `.krc`).
 > - **Local Song Details & Lyrics Overview**: Quick overview of local song directory paths and `.lrc` sidecar file existence right on the song details screen.
@@ -99,7 +101,7 @@
 
 - **Streaming, Local & Headless**: Apple Music, Spotify, YouTube Music (including music videos), Deezer, Tidal (Hi-Res resolution & format tags), Subsonic/Navidrome plain downloads, offline local files, and pairing with headless `soloistd` daemon.
 - **Pure Native UI**: Rendered with GPUI (Zed's GPU-accelerated UI framework) — Wayland `ext-background-effect` blur, adaptive corner radius, hover glow transitions, player bar cut-off title tooltips, zero Electron, zero WebKit, ultra-low memory usage (~170 MB RSS).
-- **Karaoke & Synced Lyrics**: KuGou and NetEase enabled by default, on-the-fly lyrics provider switcher, millisecond-accurate local `.lrc` synchronization, configurable export (Standard/Enhanced/Native KRC), built-in LRC Studio editor, time-synced scrolling lyrics, background vocals, and word-by-word furigana/ruby annotations.
+- **Karaoke & Synced Lyrics**: KuGou and NetEase enabled by default, 4 selectable motion animation presets (Motion, Legacy wave, Boring, Plain) ported from Oto Android with live singing preview, on-the-fly lyrics provider switcher, millisecond-accurate local `.lrc` synchronization, configurable export (Standard/Enhanced/Native KRC), built-in LRC Studio editor, time-synced scrolling lyrics, background vocals, and word-by-word furigana/ruby annotations.
 - **Social Listening**: Real-time synchronized playback via Sonora Sessions (cross-service 6-digit room codes) and Spotify Jams with members sidebar.
 - **Audio Engine**: Automix crossfade with DJ bass dip, 5-second relative seek shortcuts (`Shift + Arrows`), gapless playback, PulseAudio leak prevention, audio loudness normalization, parametric equalizer, sleep timer, and unlimited cache option.
 - **Audio Scrobbler**: Built-in support for LastFM, LibreFM, Maloja, and ListenBrainz with custom server URL support and per-provider toggles.
@@ -118,9 +120,12 @@
 | <kbd>f</kbd> | Toggle Fullscreen Lyrics & Karaoke view |
 | <kbd>Shift</kbd> + <kbd>→</kbd> / <kbd>←</kbd> | Seek forward / backward by 5 seconds |
 | <kbd>Ctrl</kbd> + <kbd>→</kbd> / <kbd>←</kbd> | Next / Previous track |
-| <kbd>Ctrl</kbd> + <kbd>↑</kbd> / <kbd>↓</kbd> | Volume Up / Down |
+| <kbd>Ctrl</kbd> + <kbd>↑</kbd> / <kbd>↓</kbd> | Volume Up / Down (works anywhere) |
+| <kbd>Ctrl</kbd> + <kbd>Scroll</kbd> | Adjust Volume with mouse wheel |
+| <kbd>Ctrl</kbd> + <kbd>m</kbd> | Toggle Mute / Unmute |
 | <kbd>Ctrl</kbd> + <kbd>s</kbd> / <kbd>Ctrl</kbd> + <kbd>,</kbd> | Open Settings |
 | <kbd>Ctrl</kbd> + <kbd>k</kbd> | Focus Search bar |
+| <kbd>Ctrl</kbd> + <kbd>q</kbd> | Quit application completely |
 | <kbd>Escape</kbd> | Exit Fullscreen / Close modal dialog |
 
 ---

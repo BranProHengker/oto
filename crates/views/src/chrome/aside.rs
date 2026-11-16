@@ -2858,7 +2858,7 @@ fn karaoke_lane(
                 .unwrap_or_default();
             let is_long = dur >= std::time::Duration::from_millis(350);
             if reveal.share <= 0.0 {
-                (3.0, 1.0, 0.58, false)
+                (5.0, 1.0, 0.50, false)
             } else if reveal.share < 1.0 {
                 let through = reveal.share;
                 let word_rise = smoothstep(through / 0.85);
@@ -2868,25 +2868,25 @@ fn karaoke_lane(
                     let hold = smoothstep((dur.as_secs_f32() - 0.25) / 0.25);
                     let swell_target =
                         hold * smoothstep(through / 0.20) * smoothstep((1.0 - through) / 0.12);
-                    (swell_target * 2.5, 1.0 + swell_target * 0.075)
+                    (swell_target * 4.0, 1.0 + swell_target * 0.10)
                 } else {
                     (0.0, 1.0)
                 };
-                let y = 3.0 * (1.0 - rise_target) - lift;
+                let y = 5.0 * (1.0 - rise_target) - lift;
                 (y, swell, 1.0, is_long)
             } else {
                 (0.0, 1.0, 1.0, false)
             }
         } else if sung.preset.has_wave_lift() {
             if reveal.share > 0.0 && reveal.share < 1.0 {
-                let lift_y = -2.5 * (reveal.share * std::f32::consts::PI).sin();
-                let bell_zoom = 1.0 + 0.06 * (reveal.share * std::f32::consts::PI).sin();
+                let lift_y = -4.0 * (reveal.share * std::f32::consts::PI).sin();
+                let bell_zoom = 1.0 + 0.08 * (reveal.share * std::f32::consts::PI).sin();
                 (lift_y, bell_zoom, 1.0, false)
             } else {
-                (0.0, 1.0, if reveal.share > 0.0 { 1.0 } else { 0.58 }, false)
+                (0.0, 1.0, if reveal.share > 0.0 { 1.0 } else { 0.50 }, false)
             }
         } else {
-            (0.0, 1.0, if reveal.share > 0.0 { 1.0 } else { 0.58 }, false)
+            (0.0, 1.0, if reveal.share > 0.0 { 1.0 } else { 0.50 }, false)
         };
 
         div()
@@ -2945,7 +2945,7 @@ fn karaoke_lane(
         let ranges: Vec<Range<usize>> = if has_rows {
             plan.rows.clone()
         } else {
-            vec![0..fragments.len()]
+            std::iter::once(0..fragments.len()).collect()
         };
 
         div()
@@ -3141,10 +3141,10 @@ fn selected_romanization(
         .then(|| romanized.text.clone())
 }
 
-fn selected_romanization_tokens<'a>(
-    romanized: &'a Option<music::RomanizedText>,
+fn selected_romanization_tokens(
+    romanized: &Option<music::RomanizedText>,
     scripts: Option<RomanizationScripts>,
-) -> Option<&'a [(String, String)]> {
+) -> Option<&[(String, String)]> {
     let romanized = romanized.as_ref()?;
     let scripts = scripts?;
     if !scripts.contains(romanized.writing_system)
@@ -3174,14 +3174,14 @@ fn token_windows(
         if word.text.is_empty() {
             continue;
         }
-        if let Some(remainder) = line_text.get(cursor..) {
-            if let Some(rel) = remainder.find(&word.text) {
-                let start_byte = cursor + rel;
-                let end_byte = start_byte + word.text.len();
-                word_spans.push((start_byte..end_byte, word.start, word.end));
-                cursor = end_byte;
-                continue;
-            }
+        if let Some(remainder) = line_text.get(cursor..)
+            && let Some(rel) = remainder.find(&word.text)
+        {
+            let start_byte = cursor + rel;
+            let end_byte = start_byte + word.text.len();
+            word_spans.push((start_byte..end_byte, word.start, word.end));
+            cursor = end_byte;
+            continue;
         }
         word_spans.push((cursor..cursor, word.start, word.end));
     }
@@ -3230,6 +3230,7 @@ fn token_windows(
     token_ranges
 }
 
+#[allow(clippy::too_many_arguments)]
 fn ruby_lyrics_lane(
     tokens: &[(String, String)],
     line_text: &str,
@@ -3302,30 +3303,38 @@ fn ruby_lyrics_lane(
                         } else {
                             std::time::Duration::ZERO
                         };
-                        let is_long = dur >= std::time::Duration::from_millis(500);
+                        let is_long = dur >= std::time::Duration::from_millis(350);
                         if share <= 0.0 {
-                            (3.5, 1.0, 0.58)
+                            (5.0, 1.0, 0.50)
                         } else if share < 1.0 {
-                            let rise = (1.0 - (share * 1.6).min(1.0)) * 3.5;
-                            let swell = if is_long {
-                                1.0 + (share * std::f32::consts::PI).sin() * 0.08
+                            let through = share;
+                            let word_rise = smoothstep(through / 0.85);
+                            let letter_rise = smoothstep((through * 1.5).min(1.0));
+                            let rise_target = word_rise + (letter_rise - word_rise) * 0.55;
+                            let (lift, swell) = if is_long {
+                                let hold = smoothstep((dur.as_secs_f32() - 0.25) / 0.25);
+                                let swell_target = hold
+                                    * smoothstep(through / 0.20)
+                                    * smoothstep((1.0 - through) / 0.12);
+                                (swell_target * 4.0, 1.0 + swell_target * 0.10)
                             } else {
-                                1.0
+                                (0.0, 1.0)
                             };
-                            (rise, swell, 1.0)
+                            let y = 5.0 * (1.0 - rise_target) - lift;
+                            (y, swell, 1.0)
                         } else {
                             (0.0, 1.0, 1.0)
                         }
                     } else if active && sung.preset.has_wave_lift() {
                         if share > 0.0 && share < 1.0 {
-                            let lift_y = -2.5 * (share * std::f32::consts::PI).sin();
-                            let bell_zoom = 1.0 + 0.06 * (share * std::f32::consts::PI).sin();
+                            let lift_y = -4.0 * (share * std::f32::consts::PI).sin();
+                            let bell_zoom = 1.0 + 0.08 * (share * std::f32::consts::PI).sin();
                             (lift_y, bell_zoom, 1.0)
                         } else {
-                            (0.0, 1.0, if share > 0.0 { 1.0 } else { 0.58 })
+                            (0.0, 1.0, if share > 0.0 { 1.0 } else { 0.50 })
                         }
                     } else {
-                        (0.0, 1.0, if active && share <= 0.0 { 0.58 } else { 1.0 })
+                        (0.0, 1.0, if active && share <= 0.0 { 0.50 } else { 1.0 })
                     };
 
                     let kanji_text = SharedString::from(text.clone());

@@ -813,7 +813,7 @@ impl Default for Values {
             dual_preview: true,
             check_updates: cfg!(target_os = "windows") || updates_itself(),
             update_channel: String::new(),
-            close_to_tray: true,
+            close_to_tray: false,
             tray_icon: true,
             stay_awake: true,
             now_playing_on_file_open: true,
