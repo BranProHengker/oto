@@ -114,6 +114,7 @@ fn report(source: &str, lyrics: &Lyrics, title: &str, artist: &str, writers: &[S
         let side = match line.voice {
             Voice::Lead => "L",
             Voice::Counter => "R",
+            Voice::Duet => "C",
         };
         sides.push(side);
         if shown < 3 && line.words.is_some() {

@@ -875,7 +875,8 @@ fn read(line: &str) -> Vec<LyricsLine> {
     }
 
     let (rest, closed) = closed_at(rest);
-    let (mut text, mut words) = spoken(rest);
+    let (text, words) = spoken(rest);
+    let (voice, mut text, mut words) = parse_voice(text, words);
     let last = stamps.len().saturating_sub(1);
     stamps
         .into_iter()
@@ -893,10 +894,91 @@ fn read(line: &str) -> Vec<LyricsLine> {
                 romanized: None,
                 words: words.map(|words| shifted(words, start)),
                 secondary: Vec::new(),
-                voice: Voice::Lead,
+                voice,
             }
         })
         .collect()
+}
+
+/// Parses duet/agent tags like `{agent:v1}`, `{agent:v2}`, `{agent:both}` or `[v1]`/`[v2]`.
+fn parse_voice(
+    mut text: String,
+    mut words: Option<Vec<LyricsWord>>,
+) -> (Voice, String, Option<Vec<LyricsWord>>) {
+    let mut voice = Voice::Lead;
+    let trimmed = text.trim();
+    let mut matched_tag: Option<String> = None;
+
+    if let Some(rest) = trimmed.strip_prefix("{agent:v1}") {
+        voice = Voice::Lead;
+        matched_tag = Some("{agent:v1}".into());
+        text = rest.trim_start().to_string();
+    } else if let Some(rest) = trimmed.strip_prefix("{agent:v2}") {
+        voice = Voice::Counter;
+        matched_tag = Some("{agent:v2}".into());
+        text = rest.trim_start().to_string();
+    } else if let Some(rest) = trimmed
+        .strip_prefix("{agent:both}")
+        .or_else(|| trimmed.strip_prefix("{agent:v1,v2}"))
+        .or_else(|| trimmed.strip_prefix("{agent:all}"))
+    {
+        voice = Voice::Duet;
+        matched_tag = Some("{agent:both}".into());
+        text = rest.trim_start().to_string();
+    } else if let Some(rest) = trimmed.strip_prefix("[v1]") {
+        voice = Voice::Lead;
+        matched_tag = Some("[v1]".into());
+        text = rest.trim_start().to_string();
+    } else if let Some(rest) = trimmed.strip_prefix("[v2]") {
+        voice = Voice::Counter;
+        matched_tag = Some("[v2]".into());
+        text = rest.trim_start().to_string();
+    } else if let Some(rest) = trimmed.strip_prefix("(v1)") {
+        voice = Voice::Lead;
+        matched_tag = Some("(v1)".into());
+        text = rest.trim_start().to_string();
+    } else if let Some(rest) = trimmed.strip_prefix("(v2)") {
+        voice = Voice::Counter;
+        matched_tag = Some("(v2)".into());
+        text = rest.trim_start().to_string();
+    } else if let Some(rest) = trimmed.strip_prefix("v1:") {
+        voice = Voice::Lead;
+        matched_tag = Some("v1:".into());
+        text = rest.trim_start().to_string();
+    } else if let Some(rest) = trimmed.strip_prefix("v2:") {
+        voice = Voice::Counter;
+        matched_tag = Some("v2:".into());
+        text = rest.trim_start().to_string();
+    } else if let Some(start) = text.find("{agent:") {
+        if let Some(end) = text[start..].find('}') {
+            let tag = &text[start..start + end + 1];
+            if tag.contains("v2") && !tag.contains("v1") {
+                voice = Voice::Counter;
+            } else if tag.contains("both")
+                || tag.contains("all")
+                || (tag.contains("v1") && tag.contains("v2"))
+            {
+                voice = Voice::Duet;
+            } else {
+                voice = Voice::Lead;
+            }
+            matched_tag = Some(tag.to_string());
+            text = text.replace(tag, "").trim().to_string();
+        }
+    }
+
+    if let Some(ref tag) = matched_tag {
+        if let Some(ref mut word_list) = words {
+            word_list.retain_mut(|w| {
+                if w.text.contains(tag.as_str()) {
+                    w.text = w.text.replace(tag.as_str(), "").trim().to_string();
+                }
+                !w.text.is_empty()
+            });
+        }
+    }
+
+    (voice, text, words)
 }
 
 fn shifted(words: Vec<LyricsWord>, start: Duration) -> Vec<LyricsWord> {
