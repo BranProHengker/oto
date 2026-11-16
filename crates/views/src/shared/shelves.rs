@@ -1,14 +1,16 @@
 use gpui::accesskit::Role;
 use gpui::prelude::*;
 use gpui::{
-    AnyElement, App, Context, Div, ElementId, Entity, EntityId, Pixels, Point, ScrollHandle,
+    AnyElement, App, Axis, Context, Div, ElementId, Entity, EntityId, Pixels, Point, ScrollHandle,
     ScrollWheelEvent, SharedString, Stateful, WeakEntity, Window, div, point, px,
 };
 use std::rc::Rc;
 
 use music::{GenreItem, GenreSection};
 use state::Playback;
-use ui::{ActiveTheme as _, Button, Card, Deck, Glide, Mode, Skeleton, Text, heading, snapped};
+use ui::{
+    ActiveTheme as _, Button, Card, Deck, Glide, Hold, Mode, Skeleton, Text, heading, snapped,
+};
 
 use crate::shared::album_grid::CardGrid;
 use crate::shared::cards;
@@ -101,6 +103,7 @@ impl Shelves {
         let me = cx.entity().downgrade();
 
         let stack = Deck::new(self.tag("stack", 0))
+            .hold()
             .rows(heights)
             .gap(STACK_GAP)
             .draw(move |place, window, cx| {
@@ -187,6 +190,9 @@ impl Shelves {
             .into_any_element()
     }
 
+    /// A section's heading over its cards in a sideways scroller. The scroller reaches past the
+    /// content by the page inset on either side and fades its cards out across that inset, so
+    /// at rest the fades lie over empty room.
     fn rail(
         &self,
         place: usize,
@@ -206,6 +212,7 @@ impl Shelves {
         let drawn = me.clone();
         let card = layout.card;
         let tall = Card::tile_height(card, window, cx);
+        let inset = cx.theme().metrics.inset;
 
         div()
             .flex()
@@ -227,11 +234,16 @@ impl Shelves {
                         this.child(self.arrows(place, &handle, &glide, me))
                     }),
             )
-            .child(
+            .child(Hold::new(
+                (self.id, place),
+                Axis::Horizontal,
+                &handle,
                 div()
                     .id((self.id, place))
                     .w_full()
+                    .px(inset)
                     .h(tall)
+                    .fade_sides(inset, inset)
                     .overflow_x_scroll()
                     .restrict_scroll_to_axis()
                     .track_scroll(&handle)
@@ -249,6 +261,7 @@ impl Shelves {
                     .child(
                         Deck::new(self.tag("rail", place))
                             .across()
+                            .hold()
                             .rows(section.items.iter().map(|_| card))
                             .gap(RAIL_GAP)
                             .draw(move |index, _, cx| {
@@ -270,7 +283,7 @@ impl Shelves {
                                     .into_any_element()
                             }),
                     ),
-            )
+            ))
             .into_any_element()
     }
 
@@ -356,6 +369,7 @@ pub(crate) fn grid(
     let rows = genres.len().div_ceil(lanes);
 
     Deck::new(id)
+        .hold_items((0..rows).map(|row| row * lanes))
         .rows((0..rows).map(|_| row))
         .gap(LANE_GAP)
         .draw(move |place, _, cx| {
@@ -477,6 +491,7 @@ impl Rail {
             tabs,
         } = spec;
         let tall = Card::tile_height(tile, window, cx);
+        let inset = cx.theme().metrics.inset;
         let scrolled = self.scroll.clone();
         let glided = self.glide.clone();
         let arrows = match count > columns {
@@ -502,12 +517,16 @@ impl Rail {
                     ))
                     .children(arrows),
             )
-            .children(tabs)
-            .child(
+            .children(tabs.map(|tabs| div().px(inset).child(tabs)))
+            .child(Hold::new(
+                (tag, place),
+                Axis::Horizontal,
+                &self.scroll,
                 div()
                     .id((tag, place))
                     .w_full()
                     .h(tall)
+                    .fade_sides(inset, inset)
                     .overflow_x_scroll()
                     .restrict_scroll_to_axis()
                     .track_scroll(&self.scroll)
@@ -521,11 +540,12 @@ impl Rail {
                     .child(
                         Deck::new(SharedString::from(format!("{tag}-rail-{place}")))
                             .across()
+                            .hold()
                             .rows(std::iter::repeat_n(tile, count))
                             .gap(RAIL_GAP)
                             .draw(draw),
                     ),
-            )
+            ))
             .into_any_element()
     }
 
