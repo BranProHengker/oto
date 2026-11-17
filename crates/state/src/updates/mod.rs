@@ -13,16 +13,16 @@ use sha2::{Digest as _, Sha256};
 use crate::{AppSettings, Io, join};
 use install::Install;
 
-const RELEASES: &str = "https://api.github.com/repos/sonorahq/sonora/releases";
+const RELEASES: &str = "https://api.github.com/repos/BranProHengker/oto/releases";
 const SUMS: &str = "SHA256SUMS";
 /// What the nightly workflow puts before the version label in the nightly release's title.
 const NIGHTLY_TITLE: &str = "Nightly ";
 /// How many leading hex digits of a commit hash the version row shows, as `git` abbreviates it.
 const SHORT_COMMIT: usize = 7;
 const AGENT: &str = concat!(
-    "sonora/",
+    "oto/",
     env!("CARGO_PKG_VERSION"),
-    " (https://github.com/sonorahq/sonora)"
+    " (https://github.com/BranProHengker/oto)"
 );
 
 /// The builds Sonora updates to. Stable follows tagged releases, and Nightly follows the build
@@ -345,7 +345,7 @@ async fn download(
         .error_for_status()
         .context("the update is missing")?;
 
-    let path = std::env::temp_dir().join(format!("sonora-{version}-{}", package.name));
+    let path = std::env::temp_dir().join(format!("oto-{version}-{}", package.name));
     let mut file = std::fs::File::create(&path).context("cannot keep the update")?;
     let mut hasher = Sha256::new();
     while let Some(chunk) = response.chunk().await.context("cannot read the update")? {

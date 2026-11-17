@@ -680,7 +680,6 @@ impl SettingsView {
                         .flex()
                         .flex_col()
                         .gap(GROUPS)
-                        .child(this.team(cx))
                         .child(this.notice(cx))
                         .into_any_element()
                 })

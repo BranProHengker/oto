@@ -17,7 +17,7 @@ const ICON: Pixels = px(16.);
 const LEADING: f32 = 1.4;
 const REACH: Pixels = px(400.);
 /// Where the README says what to install alongside Sonora.
-const INSTALL: &str = "https://github.com/sonorahq/sonora#linux";
+const INSTALL: &str = "https://github.com/BranProHengker/oto#linux";
 
 type Handler = Box<dyn Fn(&ClickEvent, &mut Window, &mut App) + 'static>;
 
