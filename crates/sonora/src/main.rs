@@ -15,6 +15,8 @@ mod single;
 #[cfg(windows)]
 mod thumbbar;
 mod tray;
+#[cfg(windows)]
+mod window_title;
 #[cfg(target_os = "linux")]
 mod x11_icon;
 
@@ -25,9 +27,11 @@ use std::time::Duration;
 
 use cli::commands::CommandType;
 use gpui::{
-    App, AppContext as _, Bounds, DispatchPhase, Pixels, QuitMode, ScrollWheelEvent, Size,
-    TitlebarOptions, WindowBounds, WindowOptions, px, size,
+    App, AppContext as _, Bounds, Pixels, Size, TitlebarOptions, WindowBounds, WindowOptions, px,
+    size,
 };
+#[cfg(not(target_os = "linux"))]
+use gpui::QuitMode;
 use music::LyricsProvider;
 use music::link::Linked;
 use router::{Destination, Screen};
@@ -191,6 +195,7 @@ fn main() -> ExitCode {
         ui::Theme::init(look, &overrides, cx);
 
         let lingers = tray::install(show_window, toggle_window, cx);
+        #[cfg(not(target_os = "linux"))]
         if lingers {
             cx.set_quit_mode(QuitMode::Explicit);
         }
@@ -421,20 +426,9 @@ fn open_window(cx: &mut App) {
                 app_icon::install(handle);
                 thumbbar::install(window.window_handle().window_id(), handle, cx);
             }
+            #[cfg(windows)]
+            window_title::install(window.window_handle(), cx);
             state::remember_window(window, cx);
-            window.on_mouse_event(move |event: &ScrollWheelEvent, phase, window, cx| {
-                if phase == DispatchPhase::Capture
-                    && (event.modifiers.control || event.modifiers.platform)
-                {
-                    let delta = event.delta.pixel_delta(window.line_height()).y;
-                    if delta != Pixels::ZERO {
-                        cx.stop_propagation();
-                        let steps = if delta > Pixels::ZERO { 1 } else { -1 };
-                        let playback = Sonora::global(cx).playback.clone();
-                        playback.update(cx, |playback, cx| playback.nudge_volume(steps, cx));
-                    }
-                }
-            });
             cx.new(|cx| Root::new(session, library, playback, queue, window, cx))
         },
     )
