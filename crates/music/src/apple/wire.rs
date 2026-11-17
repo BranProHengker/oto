@@ -797,9 +797,9 @@ pub fn library_song(value: &Resource, root: &str) -> Option<Track> {
         .or_else(|| catalog(value)?.id.as_str());
     let id = catalog_id.or_else(|| value.id.as_str())?.to_owned();
     // The catalog copy is richer when it came along. Apple puts no date on a library song row,
-    // and the album's would group songs by album, so the song goes undated. The library lists
-    // its songs oldest first, which `Capabilities::song_arrival` says, so they still sort by
-    // when they were added.
+    // and the album's would group songs by album, so the song goes undated. The library listing
+    // asks Apple for its songs newest first, which `Capabilities::song_arrival` says, so they
+    // still sort by when they were added.
     let mut track = match catalog(value) {
         Some(found) => {
             let mut track = song_as(found, id, root)?;
@@ -892,8 +892,17 @@ pub fn album(value: &Resource) -> Option<Album> {
 }
 
 /// One library album, which opens through the catalog release it came from or its library id
-/// when not in the catalog.
+/// when not in the catalog. An album Apple says holds no songs and that has no catalog release
+/// is skipped. It is what stays behind after every song of it was removed, with a name and
+/// nothing else.
 pub fn library_album(value: &Resource) -> Option<Album> {
+    let emptied = value
+        .attributes
+        .as_ref()
+        .is_some_and(|attributes| attributes.track_count.as_u64() == Some(0));
+    if emptied && catalog(value).is_none() {
+        return None;
+    }
     let mut album = match catalog(value) {
         Some(found) => {
             let id = found.id.as_str()?;
@@ -945,6 +954,7 @@ pub fn playlist(value: &Resource) -> Option<Playlist> {
         cover: artwork(attributes, ART),
         track_count: value.relationships.tracks.rows().len() as u32,
         modified_at: moment(attributes.last_modified_date.as_str()),
+        read_only: false,
     })
 }
 
@@ -965,6 +975,7 @@ pub fn library_playlist(value: &Resource, owner: &str) -> Option<Playlist> {
         track_count: 0,
         modified_at: moment(attributes.last_modified_date.as_str())
             .or_else(|| moment(attributes.date_added.as_str())),
+        read_only: false,
     })
 }
 

@@ -13,7 +13,7 @@ use ui::{ActiveTheme as _, Copy, Cut, Look, Paste, SelectAll, Theme};
 /// How far one font size shortcut moves the size, the same step as the buttons in Settings.
 const FONT_STEP: f32 = 1.;
 
-pub fn register(lingers: bool, cx: &mut App) {
+pub fn register(_lingers: bool, cx: &mut App) {
     bind_keys(cx);
 
     cx.on_action(|_: &Quit, cx: &mut App| {
@@ -34,8 +34,12 @@ pub fn register(lingers: bool, cx: &mut App) {
         if !cx.windows().is_empty() {
             return;
         }
-        let close_to_tray = Sonora::global(cx).settings.read(cx).close_to_tray();
-        match lingers && close_to_tray {
+        #[cfg(target_os = "linux")]
+        let should_linger = false;
+        #[cfg(not(target_os = "linux"))]
+        let should_linger = _lingers && Sonora::global(cx).settings.read(cx).close_to_tray();
+
+        match should_linger {
             true => crate::dock::show(false),
             false => {
                 let tray = cx

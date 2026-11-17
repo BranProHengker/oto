@@ -195,8 +195,8 @@ const SHORTCUTS: &[Shortcut] = &[
         section: Section::Playback,
         scope: Scope::Anywhere,
         bind: bind::<ToggleShuffle>,
-        defaults: &[],
-        mac: &[],
+        defaults: &["r"],
+        mac: &["r"],
     },
     Shortcut {
         id: "toggle-repeat",

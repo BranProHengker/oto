@@ -411,6 +411,7 @@ impl Covers {
             public: false,
             track_count: item.child_count.or(item.song_count).unwrap_or(0),
             modified_at: None,
+            read_only: false,
         }
     }
 
