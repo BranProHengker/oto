@@ -1,5 +1,4 @@
 # common
-common-none = Tidak ada
 common-on = Aktif
 common-off = Nonaktif
 common-left = Kiri
@@ -17,6 +16,13 @@ common-previous = Sebelumnya
 common-next = Berikutnya
 common-dismiss = Tutup
 common-clear = Hapus
+option-variants = Varian dari { $name }
+table-sorted-ascending = Diurutkan secara naik
+table-sorted-descending = Diurutkan secara turun
+range-from = Dari
+range-to = Sampai
+rail-back = Gulir ke belakang
+rail-forward = Gulir ke depan
 number-group = { "," }
 
 # navigation
@@ -24,7 +30,9 @@ nav-history = Riwayat
 nav-home = Beranda
 nav-search = Cari
 nav-library = Koleksi Anda
+sidebar-library = Perpustakaan
 nav-settings = Pengaturan
+account-manage = Kelola akun
 nav-songs = Lagu
 nav-albums = Album
 nav-playlists = Playlist
@@ -32,13 +40,13 @@ nav-artists = Artis
 nav-local = Musik Lokal
 nav-back = Kembali
 nav-forward = Maju
+nav-trail = Riwayat navigasi
 nav-sidebar = Buka/tutup bilah sisi
 nav-sidebar-right = Tampilkan atau sembunyikan lirik dan antrean
 nav-pinned = Disematkan
 nav-unpin = Lepas sematan
 nav-pin-hint = Letakkan di sini untuk menyematkan
 library-liked-songs = Favorit
-library-play-liked-songs = Putar
 library-no-songs = Belum ada lagu favorit
 library-no-albums = Belum ada album tersimpan
 library-no-playlists = Belum ada playlist
@@ -60,6 +68,14 @@ library-local-unconfigured = Atur folder musik lokal Anda
 
 # app menu
 app-refresh = Muat ulang
+downloads-active = Sedang mengunduh
+downloads-left = { $count ->
+   *[other] { $count } lagu tersisa
+}
+downloads-eta = Sekitar { $minutes } menit lagi
+downloads-songs = Lagu
+downloads-cancel = Batalkan unduhan
+downloads-cancel-all = Batalkan semua unduhan
 app-sign-out = Keluar
 app-quit = Tutup Aplikasi
 app-settings = Pengaturan…
@@ -75,6 +91,8 @@ app-window = Jendela
 app-close-window = Tutup Jendela
 app-minimize = Minimalkan
 app-zoom = Perbesar
+window-maximize = Maksimalkan
+window-restore = Kembalikan
 
 # tray menu
 tray-show = Tampilkan Sonora
@@ -87,7 +105,9 @@ column-index = #
 column-title = Judul
 column-artist = Artis
 column-album = Album
+column-genre = Genre
 column-date-added = Tanggal Ditambahkan
+column-date-liked = Tanggal disukai
 column-added-by = Ditambahkan Oleh
 column-modified = Diubah
 column-length = Durasi
@@ -98,72 +118,91 @@ column-year = Tahun
 column-tracks = Trek
 
 # track menu
-menu-add-to-playlist = Tambahkan ke playlist
+menu-add-to-playlist = Tambahkan ke daftar putar
 menu-add-tracks-to-playlist = { $count ->
-    [one] Tambahkan { $count } lagu ke playlist
-   *[other] Tambahkan { $count } lagu ke playlist
+   *[other] Tambahkan { $count } trek ke daftar putar
 }
 menu-new-playlist = Playlist baru
+
+menu-new-smart-playlist = Daftar putar pintar baru
+menu-smart-playlist-rules = Aturan pintar
+smart-rules-create-title = Daftar putar pintar baru
+smart-rules-edit-title = Aturan pintar
+smart-rules-name-placeholder = Nama daftar putar
+smart-rules-loading = Membaca aturan dari server…
+smart-rules-saving = Menyimpan…
+smart-rules-failed-title = Aturan tidak dapat dibaca
+smart-rules-match-all = Cocokkan semua
+smart-rules-match-any = Cocokkan salah satu
+smart-rules-match-toggle = Cocokkan semua aturan ini, atau salah satunya
+smart-rules-of-following = dari yang berikut ini
+smart-rules-add-condition = Tambahkan kondisi
+smart-rules-add-group = Tambahkan grup
+smart-rules-remove-group = Hapus grup ini
+smart-rules-remove-condition = Hapus aturan ini
+smart-rules-empty-group = Belum ada aturan di sini
+smart-rules-field = Bidang
+smart-rules-operator = Operator
+smart-rules-value-placeholder = Nilai
+smart-rules-range-and = dan
+smart-rules-true = Ya
+smart-rules-false = Tidak
+smart-rules-unknown-note = Tetap seperti yang dikirim server
+smart-rules-synced-title = Daftar putar ini disinkronkan dari sebuah file
+smart-rules-synced-message = Pemindaian berikutnya dapat menimpa pengeditan yang dilakukan di sini.
+smart-rules-sort-label = Urutkan berdasarkan
+smart-rules-sort-placeholder = judul, tanggal disukai, acak…
+smart-rules-order-none = Tanpa arah
+smart-rules-order-asc = Menanjak
+smart-rules-order-desc = Menurun
+smart-rules-order-toggle = Arah penyortiran
+smart-rules-limit-label = Batas
+smart-rules-limit-placeholder = Semua yang cocok
+smart-rules-problem-empty-group = Grup ini tidak berisi aturan apa pun
+smart-rules-problem-missing-field = Kondisi ini tidak menyebutkan bidang apa pun
+smart-rules-problem-range = Rentang memerlukan batas bawah dan batas atas
+smart-rules-problem-days = Jumlah hari memerlukan angka
+smart-rules-problem-playlist = Aturan daftar putar memerlukan daftar putar
+smart-rules-problem-truth = Aturan memerlukan nilai kebenaran
+smart-rules-problem-compared = Nilai tidak sesuai dengan aturan
+smart-rules-problem-boolean = Bidang boolean memerlukan nilai kebenaran
+smart-rules-problem-bad-order = Urutannya adalah asc atau desc
 menu-import-playlist = Impor playlist…
-menu-import-playlist-link = Impor dari tautan…
-playlist-url-placeholder = Tempel tautan playlist (Spotify, YouTube, Apple, Deezer)...
 menu-edit-tags = Edit tag
 menu-no-playlists = Tidak ada playlist
 menu-search-playlists = Cari playlist
+menu-save-library = Perpustakaan
 menu-add-to-library = Tambahkan ke Favorit
-menu-add-tracks-to-library = { $count ->
-    [one] Tambahkan { $count } lagu ke Favorit
-   *[other] Tambahkan { $count } lagu ke Favorit
-}
 menu-remove-from-library = Hapus dari Favorit
-menu-remove-tracks-from-library = { $count ->
-    [one] Hapus { $count } lagu dari Favorit
-   *[other] Hapus { $count } lagu dari Favorit
-}
 menu-remove-from-playlist = Hapus dari playlist
 menu-remove-tracks-from-playlist = { $count ->
-    [one] Hapus { $count } lagu dari playlist
    *[other] Hapus { $count } lagu dari playlist
 }
 menu-remove-from-history = Hapus dari riwayat
 menu-remove-tracks-from-history = { $count ->
-    [one] Hapus { $count } lagu dari riwayat
    *[other] Hapus { $count } lagu dari riwayat
 }
 menu-delete-track-file = Hapus file lagu
 menu-delete-track-files = Hapus { $count } file lagu
 menu-download = Unduh
-menu-download-tracks = { $count ->
-    [one] Unduh { $count } lagu
-   *[other] Unduh { $count } lagu
-}
 menu-remove-download = Hapus unduhan
-menu-remove-downloads = { $count ->
-    [one] Hapus { $count } unduhan
-   *[other] Hapus { $count } unduhan
-}
 menu-downloading = Mengunduh. Klik untuk berhenti
 menu-play-next = Putar berikutnya
 menu-play-tracks-next = { $count ->
-    [one] Putar { $count } lagu berikutnya
    *[other] Putar { $count } lagu berikutnya
 }
 menu-add-to-queue = Tambahkan ke antrean
 menu-add-tracks-to-queue = { $count ->
-    [one] Tambahkan { $count } lagu ke antrean
    *[other] Tambahkan { $count } lagu ke antrean
 }
 menu-play-last = Putar terakhir
 menu-play-tracks-last = { $count ->
-    [one] Putar { $count } lagu terakhir
    *[other] Putar { $count } lagu terakhir
 }
-menu-go-to = Buka
-menu-artist = Artis
-menu-album = Album
-menu-radio = Radio
-menu-details = Detail
+menu-song-radio = Buka radio lagu
+menu-go-to-album = Buka album
 menu-go-to-artist = Buka artis
+menu-go-to-playlist = Buka daftar putar
 menu-view-details = Lihat detail
 menu-copy-link = Salin tautan
 menu-cut = Potong
@@ -176,16 +215,6 @@ menu-delete-playlist = Hapus playlist
 menu-export-playlist = Ekspor playlist…
 menu-add-playlist-to-library = Simpan ke Koleksi
 menu-remove-playlist-from-library = Hapus dari Koleksi
-menu-library-add = Tambahkan ke Koleksi
-menu-library-add-tracks = { $count ->
-    [one] Tambahkan { $count } lagu ke Koleksi
-   *[other] Tambahkan { $count } lagu ke Koleksi
-}
-menu-library-remove = Hapus dari Koleksi
-menu-library-remove-tracks = { $count ->
-    [one] Hapus { $count } lagu dari Koleksi
-   *[other] Hapus { $count } lagu dari Koleksi
-}
 menu-make-playlist-public = Jadikan publik
 menu-make-playlist-private = Jadikan privat
 menu-play-artist = Putar artis
@@ -193,12 +222,21 @@ menu-play-artist = Putar artis
 # playlist editor
 playlist-name-placeholder = Nama playlist
 playlist-create-title = Buat playlist
+playlist-create-shelf = Simpan ke
+playlist-create-local = File lokal
 playlist-edit-title = Edit playlist
 playlist-cover-choose = Pilih gambar
 playlist-cover-remove = Hapus sampul
 playlist-cover-unopenable = Sonora tidak bisa membuka file ini
 playlist-cover-too-large = Gambar ini lebih besar dari 40 MB
 playlist-cover-not-a-picture = File ini bukan gambar JPEG, PNG, atau WebP
+
+# cover viewer
+cover-view = Lihat sampul
+cover-zoom-in = Perbesar
+cover-zoom-out = Perkecil
+cover-zoom-fit = Sesuaikan dengan jendela
+
 playlist-delete-title = Hapus playlist
 playlist-delete-confirm = Hapus “{ $name }”? Tindakan ini tidak dapat dibatalkan.
 playlist-again-title = Tambahkan lagi?
@@ -265,6 +303,8 @@ player-previous = Lagu sebelumnya
 player-next = Lagu berikutnya
 player-fullscreen = Layar penuh
 player-fullscreen-leave = Keluar dari layar penuh
+player-time-left = -{ $time }
+player-time-left-spoken = Tersisa { $time }
 devices-this-computer = Komputer ini
 devices-jam-join = Gabung Jam…
 devices-jam-join-title = Gabung Jam
@@ -283,14 +323,39 @@ devices-jam-more = +{ $count }
 devices-jam-host = Host
 devices-jam-you = Anda
 devices-jam-remove = Keluarkan
+devices-jam-people = { $count ->
+   *[other] { $count } orang dalam Jam ini
+}
+devices-jam-remove-member = Hapus { $name }
 devices-jam-invite-title = Gabung Jam { $host }?
 devices-jam-invite-title-anonymous = Gabung Jam ini?
 devices-jam-invite-detail = { $count ->
-    [one] { $count } orang sudah ada di Jam ini.
    *[other] { $count } orang sudah ada di Jam ini.
 }
 devices-jam-invite-join = Gabung
+player-sessions = Sesi
+devices-spotify-jams = Spotify Jams
+members-title = Anggota
+members-empty = Mulai atau bergabung dengan Sesi untuk melihat siapa saja yang sedang mendengarkan bersama Anda
+devices-session-start = Mulai Sesi
+devices-session-join = Bergabung dengan Sesi…
+devices-session-join-title = Bergabung dengan Sesi
+devices-session-join-detail = Masukkan kode yang dibagikan teman Anda
+devices-session-join-confirm = Bergabung
+devices-session-code = Kode Sesi
+devices-session-code-menu = Tampilkan Kode Sesi
+devices-session-code-title = Kode Sesi Anda
+devices-session-code-detail = Siapa pun yang masuk ke { $provider } dapat bergabung dengan kode ini
+devices-session-code-close = Selesai
+devices-session-copy = Salin kode
+devices-session-leave = Keluar dari Sesi
+devices-session-end = Akhiri Sesi
+devices-session-reconnecting = Sedang menyambung ulang…
+devices-session-people = { $count ->
+   *[other] { $count } orang dalam Sesi ini
+}
 fullscreen-artwork = Sampul
+fullscreen-panels = Tampilan sedang diputar
 
 # filters
 filter-history = Filter riwayat pemutaran
@@ -305,19 +370,20 @@ filter-reset = Reset filter
 filter-duration = Durasi
 filter-year = Tahun
 filter-hide-explicit = Sembunyikan eksplisit
-filter-playable = Hanya yang bisa diputar
 filter-favorites = Hanya favorit
 filter-downloaded = Diunduh
 filter-owned = Dibuat oleh Anda
+filter-local-only = Hanya lokal
+filter-streaming-only = Hanya streaming
 
 # view
 view-list = Daftar
 view-cards = Kisi
 
 # toolbar
-tool-columns = Kolom
 tool-sort = Urutkan
 tool-filters = Filter
+tool-account = Akun
 
 # login
 login-signed-out = Masuk untuk memuat koleksi musik Anda
@@ -327,10 +393,13 @@ login-signed-in = Masuk sebagai { $name }
 login-failed-title = Gagal masuk
 login-problem-region = Spotify tidak mendukung sesi dari wilayah tempat Anda berada saat ini. Masuk dari negara asal Anda, atau ubah pengaturan negara di akun Spotify Anda.
 login-problem-credentials = Sesi Spotify yang tersimpan sudah tidak berlaku. Masuk kembali untuk melanjutkan.
+login-problem-password = Server tidak menerima nama pengguna dan kata sandi tersebut. Periksa kembali dan coba lagi.
 login-problem-network = Sonora tidak dapat terhubung ke layanan musik. Periksa koneksi internet Anda dan coba lagi.
 login-problem-cancelled = Halaman peramban ditutup sebelum otorisasi selesai. Silakan coba lagi.
 login-problem-refused = Spotify menolak permintaan masuk. Tunggu beberapa saat dan coba lagi.
 login-problem-premium = Sonora memerlukan akun Spotify Premium untuk streaming. Akun ini tidak memiliki langganan Premium. Masuk dengan akun Premium untuk melanjutkan.
+login-problem-subscription = Tidak ada langganan aktif pada Apple ID ini.
+login-subscription-check = Periksa Apple Music
 login-sign-in = Masuk dengan { $provider }
 login-connect-cookies = Tempel cookie manual
 login-cookie-open = Buka { $provider }
@@ -360,19 +429,27 @@ login-usage-consent = Bantu kami memperkirakan jumlah pengguna aktif Sonora.
 login-device-code = Masukkan kode ini di { $url }
 login-server-title = Hubungkan ke server Subsonic Anda
 login-server-detail = Masukkan alamat server Subsonic atau OpenSubsonic (Navidrome, Airsonic, Gonic, …), lalu masuk dengan nama pengguna dan kata sandi server Anda. Sesi hanya disimpan di perangkat ini.
+login-server-label = Alamat server
 login-server-hint = https://music.contoh.com
+login-jellyfin-title = Hubungkan ke Jellyfin
+login-jellyfin-detail = Masuk dengan akun Jellyfin Anda.
+login-quick-connect = Masuk dengan Quick Connect
 login-username-hint = Nama pengguna
 login-password-hint = Kata sandi
 login-server-submit = Hubungkan
 login-account-title = Pilih akun
 login-account-detail = Sesi ini terhubung ke lebih dari satu akun Google. Pilih akun yang ingin digunakan Sonora.
+login-profile-title = Pilih profil
+login-profile-detail = Akun ini memiliki lebih dari satu profil. Pilih profil yang akan digunakan Sonora.
 login-choose-title = Masuk ke { $provider }
-login-choose-detail = Pilih cara masuk ke { $provider }.
+login-choose-detail = Pilih cara untuk Masuk ke { $provider }.
+login-providers = Layanan musik
+login-welcome-title = Selamat datang di Sonora
+login-welcome-detail = Anda dapat menambahkan layanan lain nanti di Pengaturan.
+login-or = atau
 
 # album and playlist pages
 detail-playlist = Playlist
-detail-play-album = Putar album
-detail-play-playlist = Putar playlist
 
 # play button
 play-pause = Jeda
@@ -382,15 +459,20 @@ play-shuffle = Acak
 # artist page
 artist-eyebrow = Artis
 artist-monthly-listeners = { $count ->
-    [one] { $value } pendengar bulanan
    *[other] { $value } pendengar bulanan
 }
-artist-play = Putar sekarang
+artist-followers = { $count ->
+   *[other] { $value } pengikut
+}
 artist-popular = Populer
 artist-popular-eyebrow = Jelajahi karya artis ini
 artist-popular-empty = Belum ada lagu yang tersedia dari artis ini
 artist-popular-more = Tampilkan semua
 artist-popular-less = Tampilkan lebih sedikit
+artist-favorite-songs = Lagu-lagu favorit Anda
+artist-favorite-songs-count = { $count ->
+   *[other] { $count } lagu di Favorit Anda
+}
 artist-releases = Rilisan
 artist-releases-more = Tampilkan semua
 artist-releases-less = Tampilkan lebih sedikit
@@ -407,7 +489,6 @@ album-label = ℗ { $label }
 # user profile page
 user-eyebrow = Profil
 user-followers = { $count ->
-    [one] { $value } pengikut
    *[other] { $value } pengikut
 }
 user-following = { $count ->
@@ -429,16 +510,25 @@ release-meta = { $year } • { $kind }
 home-quick-picks = Pilihan cepat
 home-quick-picks-empty = Sukai beberapa lagu dan rekomendasinya akan muncul di sini
 home-recently-added = Baru ditambahkan
+home-recently-played = Baru diputar
+home-most-played = Paling sering diputar
 home-playlists = Playlist
 home-favorite-albums = Album favorit
 home-artists = Artis
 home-collection-albums = Album dari koleksi Anda
 
+# powerbar (quick search)
+powerbar-title = Pencarian cepat
+powerbar-placeholder = Apa yang ingin Anda dengarkan?
+powerbar-open = Buka
+powerbar-song = Buka lagu
+
 # search page
 search-placeholder = Apa yang ingin Anda dengarkan?
 search-browse = Jelajahi semua
 search-submit = Cari
-search-recent = Pencarian terkini
+search-open-link = Buka tautan di Sonora
+search-recent = Pencarian terbaru
 search-forget = Hapus dari riwayat
 genre-empty = Belum ada yang bisa ditampilkan di sini
 search-best-match = Hasil teratas
@@ -448,11 +538,9 @@ search-songs = Lagu
 search-artists = Artis
 search-albums-playlists = Album & playlist
 search-tag = { $kind } ·
-search-saved =
-    { $count ->
-        [one] { $count } lagu di Koleksi
-       *[other] { $count } lagu di Koleksi
-    }
+search-saved = { $count ->
+   *[other] { $count } lagu di Koleksi
+}
 kind-song = Lagu
 kind-artist = Artis
 kind-album = Album
@@ -460,7 +548,6 @@ kind-playlist = Playlist
 
 # song page
 song-eyebrow = Lagu
-song-play = Putar lagu
 song-view-album = Lihat album
 song-loading = Memuat informasi lagu…
 song-about = Tentang lagu ini
@@ -480,13 +567,13 @@ song-genres = Genre
 song-language = Bahasa
 song-content = Konten
 song-explicit = Eksplisit
+song-local = File lokal
 song-clean = Versi Bersih
-song-file-path = Lokasi berkas
-song-lyrics-file = Berkas lirik
 artist-about = Tentang artis
 artist-about-fallback = Jelajahi lagu populer dan rilisan dari artis ini.
 artist-about-open = Buka profil artis
 song-copyright = © { $notice }
+track-row-name = { $title } oleh { $artists }
 
 # song languages
 language-ar = Arab
@@ -506,16 +593,12 @@ language-zh = Mandarin
 language-zxx = Tanpa konten linguistik
 
 # counts
-count-songs =
-    { $count ->
-        [one] { $count } lagu
-       *[other] { $count } lagu
-    }
-count-tracks =
-    { $count ->
-        [one] { $count } trek
-       *[other] { $count } trek
-    }
+count-songs = { $count ->
+   *[other] { $count } lagu
+}
+count-tracks = { $count ->
+   *[other] { $count } trek
+}
 
 # running times
 runtime-seconds = { $seconds }d
@@ -560,6 +643,9 @@ settings-player-bar-surface = Permukaan
 settings-player-bar-transparent = Bilah pemutar transparan
 settings-player-bar-transparent-detail = Biarkan halaman dan bilah sisi bergulir di bawah bilah pemutar kaca buram
 settings-player-bar-transparent-needs-blur = Aktifkan Buramkan antarmuka agar halaman bisa bergulir di bawah bilah pemutar kaca buram
+settings-player-bar-time = Waktu
+settings-player-bar-time-left = Tampilkan sisa waktu
+settings-player-bar-time-left-detail = Hitung mundur sisa waktu lagu alih-alih menampilkan durasinya
 settings-page-now-playing = Sedang diputar
 settings-page-lyrics = Lirik
 settings-page-playback = Pemutaran
@@ -570,9 +656,42 @@ settings-page-scrobbling = Scrobbling
 settings-page-general = Umum
 settings-page-about = Tentang
 settings-tab-integrations = Integrasi
-settings-about-name = Oto
+settings-about-name = Sonora
 settings-page-lyrics-sources = Sumber lirik
 settings-page-music-folders = Folder musik
+settings-page-keybinds = Kombinasi tombol
+keybinds-group-playback = Pemutaran
+keybinds-group-navigation = Navigasi
+keybinds-group-view = Tampilan
+keybinds-change = Ubah pintasan untuk { $action }
+keybinds-recording = Tekan tombol…
+keybinds-none = Belum diatur
+keybinds-reset = Kembalikan ke pengaturan default
+keybinds-reset-all = Kembalikan semua pintasan
+keybinds-reset-all-button = Kembalikan
+keybind-toggle-playback = Putar atau jeda
+keybind-song-previous = Lagu sebelumnya
+keybind-song-next = Lagu berikutnya
+keybind-volume-up = Naikkan volume
+keybind-volume-down = Turunkan volume
+keybind-seek-back = Mundur
+keybind-seek-forward = Maju
+keybind-toggle-shuffle = Acak
+keybind-toggle-repeat = Ulang
+keybind-navigate-back = Kembali
+keybind-navigate-forward = Maju
+keybind-open-search = Cari
+keybind-toggle-powerbar = Pencarian cepat
+keybind-open-filter = Saring halaman
+keybind-open-settings = Buka pengaturan
+keybind-refresh = Segarkan
+keybind-toggle-fullscreen = Sedang diputar
+keybind-toggle-queue = Tampilkan antrian
+keybind-toggle-lyrics = Tampilkan lirik
+keybind-toggle-window-fullscreen = Jendela layar penuh
+keybind-increase-font-size = Teks lebih besar
+keybind-decrease-font-size = Teks lebih kecil
+keybind-reset-font-size = Ukuran teks default
 settings-group-services = Layanan streaming
 settings-group-local-files = File lokal
 settings-group-background = Latar belakang
@@ -601,9 +720,8 @@ key-backspace = Backspace
 key-delete = Delete
 settings-lyrics-sources = Sumber lirik
 settings-local-folder-count = { $count ->
-    [one] { $count } folder
    *[other] { $count } folder
-    }
+}
 settings-local-folder-none = Belum ada folder
 settings-license-short = GPL-3.0 atau yang lebih baru
 settings-theme = Tema
@@ -612,6 +730,11 @@ settings-opacity = Opasitas
 settings-opacity-detail = Atur tingkat transparansi latar belakang aplikasi
 settings-opacity-value = { $percent }%
 settings-theme-folder = Buka konfigurasi
+settings-theme-explore = Jelajah tema komunitas
+settings-theme-explore-detail = Temukan tema buatan orang lain dan pasang hanya dengan satu klik
+settings-theme-delete = Hapus tema
+settings-theme-delete-title = Hapus { $name }?
+settings-theme-delete-detail = Ini akan menghapusnya dari folder tema Anda. Tindakan ini tidak dapat dibatalkan.
 settings-theme-unavailable = Tema ini hanya dapat diterapkan saat tema adaptif dinonaktifkan
 settings-adaptive = Tema adaptif
 settings-adaptive-detail = Sesuaikan aksen warna tema dengan gambar sampul album yang sedang diputar
@@ -625,6 +748,9 @@ settings-visualizer-style-none = Nonaktif
 settings-visualizer-style-bars = Bilah
 settings-visualizer-style-wave = Gelombang
 settings-visualizer-style-both = Bilah dan gelombang
+settings-visualizer-screens = Tampilkan di
+settings-visualizer-screens-detail = Tampilan Sedang Diputar tempat spektrum ditampilkan
+settings-visualizer-screens-pick = Pilih tampilan
 settings-visualizer-absolute = Abaikan volume
 settings-visualizer-absolute-detail = Gambar spektrum sesuai level asli lagu, berapa pun volume Sonora
 settings-preview-title = Judul lagu
@@ -634,8 +760,6 @@ settings-fullscreen-controls-autohide = Sembunyikan kontrol layar penuh
 settings-fullscreen-controls-autohide-detail = Pudarkan kontrol pemutaran saat layar penuh sedang tidak digunakan
 settings-os-fullscreen = Gunakan layar penuh sistem
 settings-os-fullscreen-detail = Buat layar Sedang diputar memenuhi seluruh layar, seperti F11
-settings-dual-preview = Pratinjau panel ganda
-settings-dual-preview-detail = Tampilkan antrean dan lirik berdampingan saat keduanya dibuka
 settings-icons = Paket ikon
 settings-icons-detail = Pilih kumpulan ikon yang digunakan antarmuka
 settings-motion = Kurangi animasi
@@ -646,6 +770,10 @@ settings-saver = Batasi FPS jendela tidak aktif
 settings-saver-detail = Perubahan berlaku setelah Sonora dimulai ulang.
 settings-corners = Kelengkungan sudut
 settings-corners-detail = Atur kelengkungan sudut permukaan dan tombol pada aplikasi
+settings-page-width = Lebar halaman
+settings-page-width-detail = Atur seberapa lebar halaman membentang di jendela besar
+settings-page-width-centered = Di tengah
+settings-page-width-wide = Lebar
 settings-blur = Buramkan antarmuka
 settings-blur-detail = Beri efek kaca buram pada menu dan kontrol mengambang
 settings-blur-window = Buramkan jendela
@@ -653,9 +781,14 @@ settings-blur-window-detail = Tampilkan jendela di atas efek buram desktop. Meme
 settings-font = Ukuran font
 settings-font-detail = Ukuran teks dasar, elemen antarmuka lainnya akan menyesuaikan
 settings-font-value = { $size } px
+settings-font-smaller = Teks lebih kecil
+settings-font-larger = Teks lebih besar
 settings-startup = Buka saat memulai
 settings-startup-detail = Layar yang pertama dibuka saat Sonora dijalankan
-settings-startup-no-guest = Tidak tersedia di Mode Tamu
+settings-provider = Penyedia
+settings-provider-detail = Penyedia yang dibuka Sonora saat diluncurkan
+settings-provider-last-used = Terakhir dipakai
+settings-provider-unavailable = { $name } (tidak tersedia)
 settings-entries = Menu bilah sisi
 settings-entries-detail = Bagian-bagian yang ditampilkan di bilah sisi
 settings-entries-pick = Pilih menu
@@ -684,6 +817,10 @@ settings-close-to-tray = Tetap putar saat jendela ditutup
 settings-close-to-tray-detail = Simpan Sonora di baki sistem (tray) dan lanjutkan memutar musik setelah jendelanya ditutup
 settings-tray-icon = Tampilkan di baki sistem
 settings-tray-icon-detail = Letakkan ikon dengan kontrol pemutaran di baki sistem (tray)
+settings-now-playing-on-file-open = Tampilkan Sedang Diputar saat file dibuka
+settings-now-playing-on-file-open-detail = Beralih ke tampilan Sedang Diputar saat file dibuka dari pengelola file
+settings-taskbar-progress = Tampilkan progres di bilah tugas
+settings-taskbar-progress-detail = Isi tombol Sonora di bilah tugas sesuai bagian lagu yang sudah diputar. Matikan untuk menampilkan ikon aplikasi saja.
 settings-spotify-connect = Tampilkan sebagai perangkat Spotify
 settings-spotify-connect-name = Nama perangkat
 settings-spotify-connect-name-detail = Nama Sonora di daftar perangkat aplikasi Spotify
@@ -695,16 +832,18 @@ settings-spotify-connect-custom = Nama khusus
 settings-spotify-connect-custom-detail = Nama yang ditampilkan. Jika kosong, Sonora dan nama komputer akan digunakan
 settings-spotify-connect-custom-hint = Nama perangkat
 settings-spotify-connect-detail = Tampilkan Sonora di pemilih perangkat aplikasi Spotify, agar Anda bisa mengendalikannya dari ponsel dan Spotify menampilkan apa yang Anda putar
+settings-jellyfin-remote = Izinkan aplikasi Jellyfin mengendalikan Sonora
+settings-jellyfin-remote-detail = Tampilkan Sonora dalam daftar perangkat yang dapat dikendalikan oleh aplikasi dan dasbor Jellyfin, serta putar di aplikasi Jellyfin lainnya milikmu lewat menu perangkat
 settings-discord = Tampilkan di Discord
 settings-discord-detail = Tampilkan lagu yang sedang Anda putar pada status profil Discord Anda
 settings-discord-name = Nama status
-settings-discord-name-detail = Teks status yang muncul setelah tulisan "Listening to"
+settings-discord-name-detail = Teks status yang muncul setelah tulisan "Mendengarkan"
 settings-discord-name-sonora = Sonora
 settings-discord-name-provider = Layanan Musik
 settings-discord-name-music = Musik
 settings-discord-name-title = Judul Lagu
 settings-discord-name-artist = Artis
-settings-discord-name-album-artist = Artis Album
+settings-discord-name-album-artist = Artis album
 settings-discord-name-artist-title = Artis - Judul
 settings-discord-show-paused = Tampilkan saat dijeda
 settings-discord-show-paused-detail = Tetap tampilkan status di profil Discord saat lagu sedang dijeda
@@ -717,7 +856,9 @@ settings-discord-hide-on-connect-detail = Serahkan status ke Spotify saat Sonora
 settings-discord-buttons = Tombol
 settings-discord-buttons-detail = Tautan di bawah status yang bisa dibuka teman Anda, satu ke lagu di layanan asalnya dan satu lagi ke Sonora
 settings-discord-buttons-pick = Pilih tombol
-settings-discord-preview-listening = Listening to { $name }
+# what screen readers call the preview of the Discord status
+settings-discord-preview = Pratinjau status Discord
+settings-discord-preview-listening = Mendengarkan { $name }
 settings-discord-preview-music = Musik
 settings-discord-preview-elapsed = { $time } berlalu
 settings-discord-preview-listen-on = Dengarkan di { $provider }
@@ -730,10 +871,9 @@ settings-fullscreen-controls-autohide-always-shown = Selalu tampil
 settings-normalisation = Normalisasi volume
 settings-normalisation-detail = Menjaga volume suara trek tetap konsisten
 settings-gapless = Pemutaran tanpa jeda (Gapless)
+settings-sponsorblock = SponsorBlock
+settings-sponsorblock-detail = Memakai SponsorBlock untuk melewati bagian sponsor, promosi diri, dan bagian non-musik yang ditandai komunitas di YouTube Music
 settings-gapless-detail = Menyambungkan satu trek ke trek berikutnya tanpa jeda hening, sesuai urutan album asli
-settings-crossfade = Crossfade
-settings-crossfade-detail = Transisi halus antar lagu dengan memudarkan lagu yang berakhir dan memunculkan lagu berikutnya
-settings-crossfade-value = { $count } dtk
 settings-keep-tracks = Simpan lagu yang diputar
 settings-keep-tracks-detail = Menyimpan apa yang Anda putar, terkunci ke komputer ini, sehingga memutarnya lagi tidak perlu mengunduh apa pun. Menonaktifkannya akan menghapus simpanan ini tanpa menyentuh unduhan Anda. Spotify mengikuti perubahan ini saat Sonora dimulai berikutnya
 settings-cache-size = Ukuran cache
@@ -747,7 +887,7 @@ settings-downloads-used-detail = Ruang yang dipakai lagu unduhan Anda di kompute
 settings-offline-mode = Mode offline
 settings-offline-mode-detail = Tampilkan dan putar hanya yang sudah Anda unduh
 settings-downloads-open = Buka unduhan
-settings-downloads-open-detail = Buka folder tempat lagu yang diunduh disimpan sebagai file audio yang bisa dibuka pemutar lain
+settings-downloads-open-detail = Tampilkan folder tempat unduhanmu disimpan sebagai file audio yang bisa dibuka pemutar apa pun
 settings-downloads-remove = Hapus semua
 settings-size-gb = { $size } GB
 settings-size-mb = { $size } MB
@@ -775,6 +915,11 @@ settings-stream-bitrate-unlimited = Tanpa batas
 settings-stream-bitrate-value = { $kbps } kbps
 settings-stream-bitrate-hourly = Sekitar { $megabytes } MB per jam
 settings-stream-bitrate-unlimited-detail = Setiap file dengan bitrate aslinya
+settings-subsonic-library = Pustaka
+settings-subsonic-library-all = Semua pustaka
+settings-subsonic-library-unnamed = Pustaka { $id }
+settings-subsonic-library-unavailable = Sudah tidak ada di server ini
+settings-subsonic-library-retry = Coba lagi
 settings-output-device = Perangkat keluaran
 settings-output-device-detail = Perangkat audio tempat Sonora memutar musik
 settings-output-device-system = Bawaan sistem
@@ -783,22 +928,30 @@ settings-output-device-direct = Langsung ke perangkat keras
 settings-sample-rate = Sample rate
 settings-sample-rate-detail = Sample rate perangkat. Sonora mengonversi setiap lagu ke nilai ini
 settings-sample-rate-value = { $khz } kHz
+settings-sample-rate-lower = Sample rate lebih rendah
+settings-sample-rate-higher = Sample rate lebih tinggi
 settings-sample-rate-change = Ubah
 settings-buffer = Ukuran buffer
 settings-buffer-detail = Jumlah audio yang diberikan Sonora ke perangkat setiap kali
+settings-buffer-smaller = Buffer lebih kecil
+settings-buffer-larger = Buffer lebih besar
+settings-match-rate = Samakan sample rate
+settings-match-rate-detail = Memutar setiap lagu dengan sample rate aslinya
+settings-match-rate-direct-only = Memerlukan perangkat di bawah Langsung ke perangkat keras
 settings-output-idle = Tidak memutar
 settings-output-device-loading = Memuat perangkat…
 settings-output-failed = Perangkat tidak didukung
 settings-output-failed-detail = Galat: { $error }
 settings-signal-source = Sumber
 settings-signal-soloist = Soloist
-settings-signal-normalized = Loudness
+settings-signal-normalized = Kenyaringan
 settings-signal-gain = { $db } dB
 settings-signal-resampled = Resampling
 settings-signal-khz = { $khz } kHz
 settings-signal-kbps = { $kbps } kbps
 settings-signal-bits = { $depth }-bit
 settings-signal-source-detail = { $rate } · { $quality }
+settings-signal-path = Jalur sinyal
 settings-sleep = Pengatur waktu tidur
 settings-sleep-detail = Hentikan musik secara otomatis setelah waktu yang ditentukan
 settings-stay-awake = Tetap aktif saat memutar
@@ -821,50 +974,49 @@ settings-widevine-configured = Diatur oleh environment
 settings-widevine-fetch = Unduh
 settings-widevine-uninstall = Copot
 confirm-uninstall-widevine-title = Copot modul Widevine?
-confirm-uninstall-widevine = Oto akan menghapus salinan yang diunduhnya dari Google. Lagu Apple Music tidak dapat diputar sampai modul diunduh lagi.
+confirm-uninstall-widevine = Sonora akan menghapus salinan yang diunduhnya dari Google. Lagu Apple Music tidak dapat diputar sampai modul diunduh lagi.
 settings-soloist = Gunakan Soloist
-settings-soloist-detail = Soloist adalah pemutar resmi yang dirilis Spotify sendiri. Pemutar ini dapat memutar pada akun yang ditolak oleh pemutar bawaan, serta mendukung streaming lossless. Memerlukan Spotify Premium dan API key pribadi.
-settings-soloist-on-detail = Spotify memutar melalui Soloist, yang mengirimkan audio langsung ke keluaran sistem. Equalizer, visualizer, dan pengaturan keluaran hanya berlaku untuk file lokal, dan Oto menyerahkan daftar perangkat Spotify Connect ke Soloist.
-settings-soloist-looking = Mencari…
-settings-soloist-off = Belum disetel
-settings-soloist-setting-up = Menyetel…
+settings-soloist-detail = Soloist adalah pemutar yang dirilis oleh Spotify sendiri. Pemutar ini berfungsi pada akun yang tidak mendukung pemutar bawaan, serta dalam format lossless. Diperlukan langganan Spotify Premium dan kunci API milik Anda sendiri.
+settings-soloist-on-detail = Spotify diputar melalui Soloist, yang mengirimkan suara langsung ke output sistem. Equalizer, visualizer, dan pengaturan output hanya berlaku untuk file lokal, dan Sonora menyerahkan daftar perangkat Spotify Connect kepada Soloist.
+settings-soloist-looking = Sedang mencari…
+settings-soloist-off = Belum dikonfigurasi
+settings-soloist-setting-up = Sedang mengonfigurasi…
 settings-soloist-ready = Versi { $version }
-settings-soloist-unavailable = Tidak tersedia dengan Soloist
-settings-soloist-local-only = Hanya berlaku untuk file lokal selama Soloist memutar Spotify
-settings-soloist-setup = Pasang
+settings-soloist-unavailable = Tidak tersedia saat menggunakan Soloist
+settings-soloist-local-only = Hanya berlaku untuk file lokal saat Soloist memutar Spotify
+settings-soloist-setup = Atur
 settings-soloist-remove = Hapus
 confirm-remove-soloist-title = Hapus Soloist?
-confirm-remove-soloist = Oto akan menghapus program Soloist, API key Anda, dan data masuknya. Spotify akan kembali menggunakan pemutar bawaan.
-soloist-setup-title = Penyiapan Soloist
-soloist-offered = Spotify menolak memutar pada akun ini melalui pemutar bawaan. Soloist dapat memutarnya.
+confirm-remove-soloist = Sonora akan menghapus program Soloist, kunci API Anda, dan data masuknya. Spotify akan kembali ke pemutar bawaan.
+soloist-setup-title = Atur Soloist
+soloist-offered = Spotify menolak memutar di akun ini melalui pemutar bawaan. Soloist dapat memutar di akun ini.
 soloist-step-download = Unduh
-soloist-step-key = API key
-soloist-step-pair = Tautkan
-soloist-terms = Oto mengunduh Soloist dari Spotify. Menggunakannya berarti menyetujui ketentuan penggunaan Spotify.
-soloist-terms-open = Baca ketentuan
+soloist-step-key = Kunci API
+soloist-step-pair = Pasangkan
+soloist-terms = Sonora mengunduh Soloist dari Spotify. Menggunakannya berarti Anda menyetujui syarat dan ketentuan Spotify.
+soloist-terms-open = Baca syarat dan ketentuan
 soloist-download = Unduh
 soloist-later = Nanti saja
-soloist-downloading = Mengunduh dari Spotify…
-soloist-key-step-open = Buka halaman Soloist di dasbor developer Spotify
-soloist-key-step-generate = Setujui persyaratan di sana dan buat API key
-soloist-key-step-paste = Tempel kunci di bawah ini
+soloist-downloading = Sedang mengunduh dari Spotify…
+soloist-key-step-open = Buka halaman Soloist di dasbor pengembang Spotify
+soloist-key-step-generate = Setujui syarat dan ketentuan di sana, lalu buat kunci API
+soloist-key-step-paste = Tempelkan kunci di bawah ini
 soloist-key-open = Buka dasbor
-soloist-key-hint = API key
+soloist-key-hint = Kunci API
 soloist-continue = Lanjutkan
-soloist-pair-step-open = Buka Spotify di ponsel atau komputer dalam jaringan ini
-soloist-pair-step-play = Mulai putar lagu apa saja di sana
+soloist-pair-step-open = Buka Spotify di ponsel atau komputer yang terhubung ke jaringan ini
+soloist-pair-step-play = Putar lagu apa saja di sana
 soloist-pair-step-pick = Buka daftar perangkat dan pilih { $device }
-soloist-pair-waiting = Menunggu Spotify…
-soloist-pair-firewall = Tidak muncul? Firewall harus mengizinkan UDP 5353 dan TCP { $port } di komputer ini.
+soloist-pair-firewall = Tidak muncul? Firewall harus mengizinkan lalu lintas UDP 5353 dan TCP { $port } di komputer ini.
 soloist-back = Kembali
 soloist-problem-download = Soloist tidak dapat diunduh
 soloist-problem-key = Spotify tidak menerima kunci ini
-soloist-problem-key-detail = Periksa bahwa kunci disalin lengkap dan belum dicabut, lalu coba lagi.
-soloist-problem-account = Ditautkan dengan akun lain
-soloist-problem-account-detail = Aplikasi Spotify tersebut masuk sebagai { $name }, bukan akun yang digunakan Oto. Pilih perangkat dari aplikasi pada akun Anda sendiri.
+soloist-problem-key-detail = Pastikan kunci tersebut telah disalin secara utuh dan belum dicabut, lalu coba lagi.
+soloist-problem-account = Telah dipasangkan dengan akun lain
+soloist-problem-account-detail = Aplikasi Spotify tersebut masuk sebagai { $name }, bukan sebagai akun yang digunakan Sonora. Pilih perangkat dari aplikasi di akun Anda sendiri.
 soloist-problem-waited = Tidak ada yang memilih perangkat
-soloist-problem-waited-detail = Penautan menunggu selama sepuluh menit. Coba lagi dengan aplikasi Spotify siap di tangan.
-soloist-problem-pairing = Penautan gagal
+soloist-problem-waited-detail = Proses pemasangan menunggu selama sepuluh menit. Coba lagi dengan aplikasi Spotify yang tersedia.
+soloist-problem-pairing = Pemasangan gagal
 confirm-remove-downloads-title = Hapus semua unduhan?
 confirm-remove-downloads = Semua lagu yang Anda unduh dari semua layanan akan dihapus dari komputer ini. Lagu-lagu itu akan di-stream lagi sampai Anda mengunduhnya kembali.
 widevine-prompt-title = Modul Widevine
@@ -922,6 +1074,8 @@ equalizer-filters = Filter
 equalizer-no-filters = Belum ada filter. Tambahkan satu, pilih preset di atas, atau impor profil.
 equalizer-add-filter = Tambah filter
 equalizer-remove-filter = Hapus filter
+equalizer-filter = Filter { $number }
+equalizer-filter-kind = Jenis filter { $number }
 equalizer-kind-peak = Peak
 equalizer-kind-low-shelf = Low shelf
 equalizer-kind-high-shelf = High shelf
@@ -948,7 +1102,7 @@ equalizer-import-too-many = Tidak diimpor: { $count ->
        *[other] ada { $count } filter
     }, melebihi kapasitas profil
 equalizer-import-too-large = Tidak diimpor: teks lebih dari 1 MB, terlalu besar untuk profil ekualiser
-equalizer-filter-limit =Satu profil dapat memuat hingga { $max } filter.
+equalizer-filter-limit = Satu profil dapat memuat hingga { $max } filter.
 equalizer-paste-empty = Papan klip tidak berisi teks
 equalizer-copied = Profil disalin sebagai teks Equalizer APO
 equalizer-exported = Profil diekspor
@@ -975,6 +1129,19 @@ equalizer-rule-playing = Sedang memutar
 equalizer-rule-disconnected = Tidak terhubung
 equalizer-rule-replaces = Menggantikan aturannya
 equalizer-rule-choose-device = Pilih perangkat
+equalizer-mode = Mode
+equalizer-preamp-level = Tingkat preamp
+equalizer-no-gain-spoken = Tanpa penguatan
+equalizer-filter-frequency = Frekuensi filter { $number }
+equalizer-filter-gain = Filter { $number } gain
+equalizer-filter-width = Filter { $number } lebar
+equalizer-graph = Respons frekuensi
+equalizer-graph-detail = { $count ->
+    [0] Tidak ada filter
+    [one] satu filter
+   *[other] { $count } filter
+    }, preamp pada { $db } dB
+equalizer-rule-device = Perangkat
 equalizer-rule-choose-sound = Pilih suara
 equalizer-rule-add = Tambah aturan
 equalizer-rule-remove = Hapus aturan
@@ -1002,6 +1169,7 @@ equalizer-status-more = +{ $count }
 equalizer-status-equalized = EQ
 equalizer-status-volume = Volume
 equalizer-status-normalized = Dinormalisasi
+equalizer-status-direct = Dimainkan oleh Soloist, melewati Sonora
 equalizer-status-rate = { $from } → { $to } kHz
 equalizer-status-bits = { $from } → { $to } bit
 equalizer-status-float = Float → { $to } bit
@@ -1014,6 +1182,8 @@ equalizer-status-channels = { $from ->
     [2] stereo
    *[other] { $to } ch
 }
+settings-lyrics = Tampilkan lirik
+settings-lyrics-detail = Matikan untuk menyembunyikan lirik di mana pun dan berhenti mencarinya
 settings-panel-lyrics-size = Ukuran lirik (panel)
 settings-panel-lyrics-size-detail = Ukuran teks lirik pada panel samping, di atas ukuran font dasar
 settings-fullscreen-lyrics-size = Ukuran lirik (layar penuh)
@@ -1024,17 +1194,7 @@ settings-lyrics-for-local-files-detail = Gunakan metadata dari file lokal untuk 
 settings-artwork-for-local-files = Sampul untuk file lokal
 settings-artwork-for-local-files-detail = Gunakan metadata dari file lokal untuk mencari sampul di Deezer bagi status Discord Anda
 settings-discord-upload-covers = Unggah sampul
-settings-discord-upload-covers-detail = Unggah sampul dari server atau file lokal ke uguu.se selama 3 jam agar status menampilkan gambar tersebut, bukan gambar dari internet
-settings-lyrics-preset = Gaya motion lirik
-settings-lyrics-preset-detail = Preset animasi, pendaran cahaya, dan layout lirik tersinkronisasi
-settings-lyrics-preset-motion = Motion (Flagship)
-settings-lyrics-preset-motion-desc = Word rising spring, long note swell, cascading lines & pendaran GPU bloom
-settings-lyrics-preset-legacy = Legacy (Wave)
-settings-lyrics-preset-legacy-desc = Sapuan karaoke kontinu, kurva lonceng lift-and-zoom & wave glow
-settings-lyrics-preset-boring = Boring (Ringan)
-settings-lyrics-preset-boring-desc = Gerak sama seperti Motion tanpa GPU bloom untuk performa tinggi
-settings-lyrics-preset-plain = Plain (Flat)
-settings-lyrics-preset-plain-desc = Sapuan horizontal flat, bersih dan presisi tanpa lift atau glow
+settings-discord-upload-covers-detail = Unggah sampul dari server Anda atau file lokal ke uguu.se selama 3 jam agar status Anda menampilkan gambar tersebut, bukan gambar yang ditemukan di internet
 settings-karaoke-lyrics = Lirik karaoke
 settings-karaoke-lyrics-detail = Sorot lirik kata demi kata sesuai ketukan lagu jika tersedia
 settings-blur-lyrics = Buramkan lirik yang tidak aktif
@@ -1047,18 +1207,18 @@ settings-lyrics-sample-fourth = Semoga bahasa Jepangnya benar
 settings-lyrics-sample-fifth = Baris kelima
 settings-romanized-lyrics = Lirik romanisasi
 settings-romanized-lyrics-detail = Tampilkan panduan pelafalan latin untuk sistem aksara tertentu
-settings-romanization-ruby = Per kata (Furigana)
-settings-romanization-line = Baris penuh
 settings-romanization-writing-systems = Sistem aksara
 settings-lyrics-priority = Prioritas sumber
-settings-lyrics-priority-detail = Di antara lirik sejenis, Sonora menampilkan sumber yang lebih atas
+settings-lyrics-priority-detail = Sonora menampilkan lirik yang disinkronkan dari sumber dengan prioritas tertinggi yang memilikinya
+settings-lyrics-word-synced-first = Prioritaskan lirik yang disinkronkan per kata
+settings-lyrics-word-synced-first-detail = Tampilkan lirik yang disinkronkan per kata terlebih dahulu, bahkan dari sumber yang berada di urutan bawah dalam daftar
 settings-lyrics-providers-detail = Pilih layanan yang dicari untuk lirik
 settings-lyrics-providers-selected = { $count ->
-    [one] { $count } dipilih
    *[other] { $count } dipilih
-    }
+}
 settings-lyrics-provider-local = File lokal
 settings-lyrics-provider-subsonic = Subsonic
+settings-lyrics-provider-jellyfin = Jellyfin
 settings-lyrics-provider-spotify = Spotify
 settings-lyrics-provider-youtube = YouTube Music
 settings-lyrics-provider-apple-music = Apple Music
@@ -1078,6 +1238,13 @@ settings-group-text = Teks
 settings-group-motion = Animasi & Gerakan
 settings-group-streaming = Streaming
 settings-group-spotify-connect = Spotify Connect
+settings-group-jellyfin-remote = Remote control Jellyfin
+settings-group-sessions = Sessions
+settings-sessions-button = Tampilkan tombol Sessions
+settings-sessions-official = Gunakan server Sessions resmi Sonora
+settings-sessions-server = Alamat server
+settings-sessions-server-hint = wss://sessions.example.com
+settings-sessions-save = Simpan
 settings-adaptive-menu = Menu konteks adaptif
 settings-adaptive-menu-detail = Sembunyikan entri menu yang sudah ditampilkan oleh baris tersebut (seperti album atau artis)
 settings-accounts = Kelola akun
@@ -1090,11 +1257,11 @@ settings-lastfm = Last.fm
 settings-lastfm-detail = Sonora melakukan scrobble melalui akun API Last.fm milik Anda sendiri. Buat akun tersebut, lalu tempel key dan secret di sini.
 settings-librefm = Libre.fm
 settings-listenbrainz = ListenBrainz
-settings-listenbrainz-detail = Tempel token pengguna dari halaman pengaturan ListenBrainz Anda. Kosongkan alamat server kecuali Anda menjalankan server ListenBrainz sendiri.
+settings-listenbrainz-detail = Tempel token pengguna dari halaman pengaturan ListenBrainz Anda.
 settings-maloja = Maloja
-settings-maloja-detail = Arahkan Oto ke server Maloja Anda dan tempel salah satu API key-nya.
-settings-scrobble-provider = Scrobble pemutaran { $provider }
-settings-scrobble-provider-detail = Nonaktifkan ini jika { $provider } sudah melakukan scrobble ke Last.fm, agar tidak tercatat ganda
+settings-maloja-detail = Arahkan Sonora ke server Maloja Anda dan tempel salah satu API key-nya.
+settings-scrobble-provider = Kirim data pemutaran { $provider } ke Last.fm
+settings-scrobble-provider-detail = Nonaktifkan ini jika { $provider } sudah mengirim data pemutaran ke Last.fm, agar setiap pemutaran tidak dihitung dua kali
 settings-scrobble-off = Tidak terhubung
 settings-scrobble-on = Terhubung
 settings-scrobble-waiting = Menunggu peramban Anda…
@@ -1109,17 +1276,21 @@ settings-scrobble-key = API key
 settings-scrobble-secret = API secret
 settings-scrobble-token = Token pengguna
 settings-scrobble-server = Alamat server
+settings-scrobble-server-optional = Alamat server (opsional)
 settings-local-folder = Folder musik lokal
 settings-local-folder-empty = Belum diatur
 settings-choose-folder = Pilih folder…
 settings-add-folder = Tambah folder
 settings-remove-folder = Hapus folder
+settings-open-folder = Buka folder
 settings-rescan = Pindai ulang
 settings-scan-walking = Memindai…
 settings-scan-progress = { $percent }%
 settings-scan-done = Selesai dalam { $seconds } detik
 settings-version = Versi
-settings-version-detail = Versi build Oto yang sedang Anda jalankan
+settings-version-detail = Versi build Sonora yang sedang Anda jalankan
+# A nightly's version followed by the shortened hash of the commit it was built from.
+settings-version-commit = { $version } ({ $commit })
 settings-license = Lisensi
 settings-license-detail = GNU General Public License versi 3 atau yang lebih baru
 settings-source = Kode sumber
@@ -1128,13 +1299,16 @@ settings-team = Tim
 settings-role-lead-maintainer = Pemelihara Utama
 settings-role-maintainer = Pemelihara
 settings-role-contributor = Kontributor
-settings-notice = Hak cipta © 2026 Oto Contributors. Oto hadir tanpa jaminan apa pun. Ini adalah perangkat lunak bebas, dan Anda dipersilakan untuk mendistribusikannya kembali sesuai dengan ketentuan GNU General Public License versi 3 atau yang lebih baru. Oto bersifat tidak resmi dan tidak berafiliasi dengan Spotify AB.
+settings-notice = Hak cipta © 2026 Sonora Contributors. Sonora hadir tanpa jaminan apa pun. Ini adalah perangkat lunak bebas, dan Anda dipersilakan untuk mendistribusikannya kembali sesuai dengan ketentuan GNU General Public License versi 3 atau yang lebih baru. Sonora bersifat tidak resmi dan tidak berafiliasi dengan Spotify AB.
 
 # themes
 theme-system = System
 theme-dark = Dark
 theme-light = Light
 theme-unavailable = { $name } (tidak tersedia)
+theme-install-title = Pasang { $name }?
+theme-install-detail = Ini akan menambahkannya ke folder tema Anda.
+theme-install-confirm = Instal
 
 # corners
 corners-square = Square
@@ -1157,6 +1331,9 @@ toast-playlist-renamed = Nama playlist berhasil diubah
 toast-playlist-updated = Playlist diperbarui
 toast-playlist-cover-changed = Sampul playlist diganti
 toast-playlist-cover-removed = Sampul playlist dihapus
+toast-playlist-reorder-unsupported = Layanan ini tidak mengizinkan Sonora mengubah urutan daftar putar
+toast-playlist-reorder-ruled = Daftar putar ini diurutkan berdasarkan aturannya. Ubah urutannya di Aturan Cerdas
+toast-playlist-ruled = Daftar putar ini memilih lagunya sendiri berdasarkan aturannya
 toast-playlist-deleted = Playlist berhasil dihapus
 toast-local-delete-failed = Beberapa file lagu tidak dapat dihapus
 toast-playlist-added = Playlist ditambahkan ke koleksi Anda
@@ -1204,13 +1381,17 @@ toast-open-failed = { $name } tidak dapat dibuka
 toast-open-unsupported = { $name } bukan file audio yang dapat diputar Sonora
 toast-open-all-failed = { $count } file tidak dapat dibuka
 toast-open-some-failed = Beberapa file tidak dapat dibuka
-toast-keys-refused = Spotify tidak memberikan izin kunci pemutaran untuk akun ini
-toast-soloist-setup = Pasang Soloist
-toast-soloist-refused = Soloist tidak dapat masuk lagi
-toast-soloist-ready = Spotify sekarang memutar melalui Soloist
+toast-keys-error = Kunci putar gagal
+toast-keys-refused = Spotify mungkin gagal
+toast-why = Kenapa?
+toast-soloist-setup = Atur Soloist
+toast-soloist-refused = Soloist tidak dapat lagi masuk
+toast-soloist-ready = Spotify kini diputar melalui Soloist
 toast-soloist-remove-failed = Soloist tidak dapat dihapus
 toast-sign-in-to-play = { $name } hanya dapat diputar untuk pendengar yang sudah masuk akun
 toast-restore-failed = { $name } gagal masuk kembali, jadi Sonora berjalan tanpanya
+toast-session-invalidated = Sesi { $name } Anda telah dinonaktifkan
+toast-sign-in = Masuk
 toast-track-unplayable = { $name } tidak dapat diputar
 toast-playback-stopped = Pemutaran dihentikan karena beberapa lagu berturut-turut tidak dapat diputar
 toast-widevine-failed = Pemutaran gagal
@@ -1218,6 +1399,7 @@ toast-widevine-borrowed = Coba perbarui Widevine
 toast-open-settings = Pengaturan
 toast-throttled = { $name } sedang membatasi pemutaran. Mencoba lagi sebentar lagi
 toast-still-throttled = { $name } masih membatasi pemutaran. Tekan putar untuk mencoba lagi
+toast-subsonic-library-failed = Pilihan perpustakaan tidak dapat disimpan
 toast-library-add-failed = { $name } tidak dapat ditambahkan ke koleksi Anda
 toast-library-remove-failed = { $name } tidak dapat dihapus dari koleksi Anda
 toast-library-added = Ditambahkan ke koleksi Anda
@@ -1269,6 +1451,7 @@ lyrics-follow = Ikuti posisi lagu
 lyrics-source = Lirik dari { $source }
 lyrics-source-local = Lirik dari file lokal
 lyrics-writers = Ditulis oleh { $writers }
+lyrics-instrumental-break = Istirahat instrumental
 
 update-available = Sonora { $version } telah dirilis
 update-detail = Anda menggunakan versi { $running }. Baca perubahannya, atau perbarui sekarang.
@@ -1291,6 +1474,10 @@ requirement-web-engine = Pasang webkit2gtk-4.1 untuk masuk ke YouTube Music, Dee
 requirement-help = Apa yang perlu dipasang
 settings-check-updates = Periksa pembaruan
 settings-check-updates-detail = Periksa ke GitHub saat startup apakah ada versi baru. Sonora memasang pembaruan secara otomatis hanya di Windows; di sistem operasi lain, Anda akan diarahkan ke daftar perubahannya
+settings-update-channel = Saluran rilis
+settings-update-channel-detail = Saluran Stable mengikuti rilis. Saluran Nightly mengikuti build dari saluran utama yang dibuat setiap malam, yang menerima perubahan lebih dulu dan telah melalui pengujian yang lebih sedikit
+update-channel-stable = Stabil
+update-channel-nightly = Setiap malam
 settings-log = Berkas log
 settings-log-detail = Apa yang ditulis Sonora saat berjalan. Lampirkan ke laporan bug
 settings-log-open = Buka log
@@ -1321,6 +1508,8 @@ toast-tags-saved = Tag untuk { $name } berhasil disimpan
 toast-tags-failed = Tag tidak dapat disimpan
 toast-output-select-failed = Tidak dapat memilih { $name }
 toast-output-default-failed = Tidak dapat memilih perangkat bawaan sistem
+toast-output-direct-failed = Tidak dapat memutar langsung di perangkat
+toast-output-rate-failed = Tidak dapat mengganti sample rate perangkat
 
 nav-pin = Sematkan
 toast-library-pin-failed = Gagal memperbarui sematan di Spotify.
@@ -1330,6 +1519,23 @@ toast-jam-failed = Jam tidak dapat dimulai atau diikuti.
 toast-jam-ended = Jam berakhir
 toast-jam-left = Anda keluar dari Jam
 toast-jam-leave-failed = Jam tidak dapat diakhiri atau ditinggalkan.
+toast-session-needs-provider = Masuk ke layanan streaming untuk memulai Sesi.
+toast-session-not-found = Tidak ada Sesi yang mengikuti kode tersebut.
+toast-session-provider = Sesi ini diputar dari { $name }. Masuk ke { $name } untuk bergabung.
+toast-session-full = Sesi itu sudah penuh.
+toast-session-rate-limited = Terlalu banyak kode yang salah. Coba lagi dalam beberapa menit.
+toast-session-too-many = Jaringan Anda sudah menghosting Sesi sebanyak mungkin. Akhiri satu untuk memulai yang lain.
+toast-session-unreachable = Tidak dapat mencapai Sesi Sonora. Coba lagi nanti.
+toast-session-failed = Sesi tidak dapat dimulai atau diikuti.
+toast-session-lost = Kehilangan koneksi ke Sesi
+toast-session-ended = Sesi berakhir
+toast-session-left = Anda keluar dari Sesi
+toast-session-kicked = Tuan rumah mengeluarkan Anda dari Sesi
+toast-session-code-copied = Kode disalin
+toast-sessions-server-saved = Server sesi disimpan
+toast-sessions-server-empty = Ketik alamat server Anda terlebih dahulu
+toast-sessions-server-malformed = Itu tidak terbaca sebagai alamat server
+toast-sessions-server-silent = Tidak ada server Sonora Sessions yang menjawab di alamat ini, jadi tidak disimpan
 nav-nothing-pinned = Belum ada item yang disematkan
 nav-pins-alphabetical = Berdasarkan abjad
 nav-pins-kind = Berdasarkan jenis
@@ -1341,6 +1547,9 @@ trouble-offline = Tidak ada koneksi
 trouble-offline-detail = Periksa koneksi internet Anda dan coba lagi.
 trouble-not-loaded = Gagal memuat
 trouble-retry = Coba lagi
+trouble-busy = Layanan sedang sibuk
+trouble-busy-detail = Terlalu banyak permintaan yang keluar sekaligus. Tunggu sebentar dan coba lagi.
+trouble-failed-detail = Ada masalah di sisi layanan. Coba lagi sebentar lagi.
 toast-offline = Tidak ada koneksi. Tidak ada yang bisa di-stream sampai koneksi kembali.
 toast-offline-unsupported = { $name } hanya memutar unduhan saat online.
 toast-offline-mode = Anda sedang offline. Kembali online untuk memutar lagu ini.
@@ -1348,9 +1557,12 @@ offline-title = Anda sedang offline.
 offline-go-online = Kembali online
 toast-download-failed = Daftar lagu untuk diunduh tidak dapat dimuat.
 toast-percent = { $percent }%
+toast-download-started = Mulai mengunduh { $name }
+toast-downloads-started = { $count ->
+   *[other] Mulai mengunduh { $count } lagu
+}
 toast-download-cancelled = Unduhan { $name } dibatalkan
 toast-downloads-cancelled = { $count ->
-    [one] Unduhan { $count } lagu dibatalkan
    *[other] Unduhan { $count } lagu dibatalkan
 }
 toast-settings-broken = Perbaiki baris { $name } di settings.json untuk menyimpan perubahan
@@ -1358,7 +1570,11 @@ toast-tray-unavailable = Tidak ada baki sistem untuk menampilkan ikon
 toast-undo = Urungkan
 toast-link-copied = Tautan disalin
 toast-link-sign-in = Masuk ke { $name } untuk membuka tautan ini
+toast-keybind-taken = { $name } tidak lagi memiliki pintasan itu
 toast-link-unreadable = Tautan itu tidak mengarah ke apa pun yang bisa dibuka Sonora
+toast-theme-link-unreadable = Tautan tema tersebut rusak atau berisi sesuatu selain tema
+toast-theme-install-failed = Tidak dapat menginstal { $name }
+toast-theme-delete-failed = Tidak dapat menghapus { $name }
 toast-code-copied = Kode disalin
 menu-copy-link-none = Item ini tidak memiliki tautan untuk dibagikan
 menu-copy-link-local = Artis dan playlist lokal tidak memiliki tautan
@@ -1415,16 +1631,3 @@ response-graph-readout = { $frequency } · { $direction ->
         [down] -{ $gain }
        *[flat] { $gain }
     } dB
-shortcut-seek-forward = Maju 5 detik
-shortcut-seek-forward-detail = Lompat maju 5 detik
-shortcut-seek-backward = Mundur 5 detik
-shortcut-seek-backward-detail = Lompat mundur 5 detik
-
-# Lyrics save and LRC Studio
-lyrics-save-beside-song = Simpan file lirik
-toast-lyrics-saved = Berhasil menyimpan { $name }
-toast-lyrics-save-failed = Tidak dapat menyimpan file lirik
-lrc-studio-save-local = Simpan di sebelah lagu (.lrc)
-lrc-studio-download = Unduh .lrc
-lrc-studio-saved-toast = Lirik berhasil disimpan!
-keybind-toggle-mute = Bisukan suara

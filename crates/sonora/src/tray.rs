@@ -29,7 +29,6 @@ const COVER: u32 = 32;
 pub enum Event {
     Show,
     /// Show the window when it is hidden or minimized and hide it when it is visible.
-    #[cfg_attr(target_os = "linux", allow(dead_code))]
     Window,
     Song,
     Toggle,
@@ -136,10 +135,7 @@ impl Tray {
                         show(cx);
                         open(cx);
                     }
-                    Event::Quit => {
-                        cx.quit();
-                        std::process::exit(0);
-                    }
+                    Event::Quit => cx.quit(),
                     Event::Toggle
                     | Event::Previous
                     | Event::Next

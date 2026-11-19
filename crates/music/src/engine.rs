@@ -127,6 +127,12 @@ pub trait Fetch: Send + Sync + 'static {
         false
     }
 
+    /// Whether a failed load means the provider refuses the network the app connects from. The
+    /// engine reports that as blocked, since every other track would fail the same way.
+    fn blocked(&self, _error: &anyhow::Error) -> bool {
+        false
+    }
+
     /// What to call the file of a plain download of track `id`, such as its artist and title.
     /// `None` names it after a hash of the id. Only a provider whose shelf keeps plain files
     /// is asked.
@@ -214,7 +220,6 @@ enum Command {
     Pause,
     Seek(Duration),
     Gain(f32),
-    Crossfade(Duration),
     /// Fetch a whole track into the downloads without playing it, and say how that went.
     Download {
         id: String,
@@ -252,7 +257,6 @@ enum Job<F: Fetch> {
     /// Move within the track being decoded. The bytes are already arriving, so this is local.
     Seek(Duration),
     Gain(f32),
-    Crossfade(Duration),
 }
 
 struct Handle {
@@ -311,10 +315,6 @@ impl Player for Handle {
 
     fn set_gain(&self, gain: f32) {
         self.commands.send(Command::Gain(gain)).ok();
-    }
-
-    fn set_crossfade(&self, crossfade: Duration) {
-        self.commands.send(Command::Crossfade(crossfade)).ok();
     }
 
     fn spectrum(&self) -> Option<Spectrum> {
@@ -385,11 +385,56 @@ impl PlaybackEvents for Events {
     }
 }
 
+/// Owns the next track's load and cancels it when it is replaced or the engine ends.
+struct Preload {
+    id: String,
+    request: u64,
+    segue: bool,
+    task: tokio::task::AbortHandle,
+}
+
+impl Preload {
+    /// Reuses a pending load of the same track and remembers a later request to queue it.
+    /// The sequence must be shared by every preload in an engine.
+    fn request(
+        slot: &mut Option<Self>,
+        sequence: &mut u64,
+        id: String,
+        segue: bool,
+        start: impl FnOnce(u64) -> tokio::task::AbortHandle,
+    ) {
+        if let Some(pending) = slot.as_mut().filter(|pending| pending.id == id) {
+            pending.segue |= segue;
+            return;
+        }
+        *slot = None;
+        *sequence += 1;
+        *slot = Some(Self {
+            id,
+            request: *sequence,
+            segue,
+            task: start(*sequence),
+        });
+    }
+
+    /// Accepts only the active request's completion, even if an older request used the same id.
+    fn finish(slot: &mut Option<Self>, request: u64) -> Option<bool> {
+        let pending = slot.take_if(|pending| pending.request == request)?;
+        Some(pending.segue)
+    }
+}
+
+impl Drop for Preload {
+    fn drop(&mut self) {
+        self.task.abort();
+    }
+}
+
 /// What the fetch of one track came back with, and whether anything still wants it.
 struct Fetched<F: Fetch> {
     epoch: u64,
     id: String,
-    segue: bool,
+    preload: Option<u64>,
     result: Result<F::Loaded>,
 }
 
@@ -457,10 +502,10 @@ async fn engine_loop<F: Fetch>(
     let audio_fetch = fetch.clone();
     let interval = config.position_interval;
     let normalisation = config.normalisation;
-    let crossfade = config.crossfade;
     let spawned = std::thread::Builder::new()
         .name(format!("{}-audio", fetch.name()))
         .spawn(move || {
+            crate::output::raise_decoder_priority();
             audio_loop(
                 audio_fetch,
                 job_rx,
@@ -471,7 +516,6 @@ async fn engine_loop<F: Fetch>(
                 audio_events,
                 interval,
                 normalisation,
-                crossfade,
                 heard_audio,
             )
         });
@@ -486,6 +530,8 @@ async fn engine_loop<F: Fetch>(
     let mut awaited: Option<u64> = None;
     let mut inflight: Option<tokio::task::AbortHandle> = None;
     let mut ahead: Option<(String, F::Loaded)> = None;
+    let mut preloading: Option<Preload> = None;
+    let mut preload_sequence = 0u64;
     // the track the audio thread is decoding, as far as the engine knows: set by a load, then
     // moved on by the audio thread's own word when a track runs out
     let mut current: Option<String> = None;
@@ -513,7 +559,11 @@ async fn engine_loop<F: Fetch>(
                 match command {
                     Command::Load { id, at, play, seamless } => {
                         let joined = segued.as_deref() == Some(id.as_str());
+                        // Only an engine that is still sounding can be carried on from. A
+                        // silenced one holds a track paused where it stopped, and resuming it
+                        // would play that track instead of this one.
                         if seamless
+                            && wanted
                             && at.is_none()
                             && (current.as_deref() == Some(id.as_str()) || joined)
                         {
@@ -528,6 +578,7 @@ async fn engine_loop<F: Fetch>(
                         segued = None;
                         waiting = None;
                         epoch += 1;
+                        preloading = None;
                         if let Some(handle) = inflight.take() {
                             handle.abort();
                         }
@@ -573,7 +624,7 @@ async fn engine_loop<F: Fetch>(
                             None => {
                                 ahead = None;
                                 awaited = Some(epoch);
-                                inflight = Some(spawn(&fetch, id, epoch, false, &fetched));
+                                inflight = Some(spawn(&fetch, id, epoch, None, &fetched));
                             }
                         }
                     }
@@ -589,6 +640,7 @@ async fn engine_loop<F: Fetch>(
                             // Fetched already, as the next track is once the current one is
                             // all in. A segue only has to line it up.
                             Some(loaded) => {
+                                preloading = None;
                                 if !segue || segued.as_deref() == Some(id.as_str()) {
                                     continue;
                                 }
@@ -601,7 +653,9 @@ async fn engine_loop<F: Fetch>(
                                 }
                             }
                             None => {
-                                spawn(&fetch, id, epoch, segue, &fetched);
+                                Preload::request(&mut preloading, &mut preload_sequence, id.clone(), segue, |request| {
+                                    spawn(&fetch, id, epoch, Some(request), &fetched)
+                                });
                             }
                         }
                     }
@@ -636,9 +690,6 @@ async fn engine_loop<F: Fetch>(
                     Command::Gain(level) => {
                         jobs.send(Job::Gain(level)).ok();
                     }
-                    Command::Crossfade(crossfade) => {
-                        jobs.send(Job::Crossfade(crossfade)).ok();
-                    }
                     Command::Download { id, progress, done } => {
                         let fetch = fetch.clone();
                         tokio::spawn(async move {
@@ -655,28 +706,39 @@ async fn engine_loop<F: Fetch>(
                 }
             }
             arrival = arrivals.recv() => {
-                let Some(Fetched { epoch: at, id, segue, result }) = arrival else { break };
+                let Some(Fetched { epoch: at, id, preload, result }) = arrival else { break };
                 if at != epoch {
                     continue;
                 }
+                let current_load = preload.is_none() && awaited == Some(at) && current.as_deref() == Some(id.as_str());
+                let segue = match current_load {
+                    true => false,
+                    false => {
+                        let Some(requested_segue) = preload.and_then(|request| Preload::finish(&mut preloading, request)) else {
+                            continue;
+                        };
+                        requested_segue
+                    }
+                };
                 let loaded = match result {
                     Ok(loaded) => loaded,
                     Err(error) => {
                         log::warn!("playback: cannot load {id}: {error:#}");
-                        if awaited == Some(at) {
+                        if current_load {
                             awaited = None;
                             inflight = None;
                             announcing = None;
-                            let refusal = match fetch.gated(&error) {
-                                true => PlaybackEvent::Gated,
-                                false => PlaybackEvent::Unavailable { id: Some(id) },
+                            let refusal = match (fetch.gated(&error), fetch.blocked(&error)) {
+                                (true, _) => PlaybackEvent::Gated,
+                                (false, true) => PlaybackEvent::Blocked,
+                                (false, false) => PlaybackEvent::Unavailable { id: Some(id) },
                             };
                             events.send(refusal).ok();
                         }
                         continue;
                     }
                 };
-                if awaited == Some(at) && current.as_deref() == Some(id.as_str()) {
+                if current_load {
                     awaited = None;
                     inflight = None;
                     announce_length(&events, &id, fetch.length(&loaded));
@@ -854,11 +916,12 @@ fn queue_segue<F: Fetch>(
     }
 }
 
+/// Runs a cancellable provider load and tags its completion with its epoch and preload request.
 fn spawn<F: Fetch>(
     fetch: &Arc<F>,
     id: String,
     epoch: u64,
-    segue: bool,
+    preload: Option<u64>,
     fetched: &UnboundedSender<Fetched<F>>,
 ) -> tokio::task::AbortHandle {
     let fetch = fetch.clone();
@@ -869,7 +932,7 @@ fn spawn<F: Fetch>(
             .send(Fetched {
                 epoch,
                 id,
-                segue,
+                preload,
                 result,
             })
             .ok();
@@ -905,15 +968,6 @@ struct Playing<F: Fetch> {
     /// The track's normalisation gain, applied to every sample as it is decoded. Each track
     /// carries its own, so a gapless join changes it on the first sample of the next one.
     gain: f32,
-
-    /// How many frames have been decoded from this track.
-    decoded_frames: u64,
-
-    /// Total frames estimated from the track duration, if known.
-    total_frames: Option<u64>,
-
-    /// Buffered audio samples after trimming silence.
-    preloaded_samples: Vec<f32>,
 }
 
 impl<F: Fetch> Playing<F> {
@@ -947,11 +1001,6 @@ impl<F: Fetch> Playing<F> {
                 track,
             })
             .ok();
-        let total_frames = fetch
-            .length(&loaded)
-            .filter(|d| !d.is_zero())
-            .map(|d| (d.as_secs_f64() * f64::from(rate)).round() as u64);
-        let decoded_frames = (base.as_secs_f64() * f64::from(rate)).round() as u64;
         Some(Self {
             id: id.to_owned(),
             channels,
@@ -961,40 +1010,7 @@ impl<F: Fetch> Playing<F> {
             base,
             offset,
             gain,
-            decoded_frames,
-            total_frames,
-            preloaded_samples: Vec::new(),
         })
-    }
-
-    /// Skips leading silent frames (up to `max_frames`) so the track's sound begins immediately.
-    fn trim_leading_silence(&mut self, max_frames: usize) {
-        let channels = usize::from(self.channels).max(1);
-        let max_samples = max_frames * channels;
-        let mut skipped_samples = 0;
-        let mut buffered = Vec::new();
-
-        while skipped_samples < max_samples {
-            let Some(sample) = self.source.by_ref().next() else {
-                break;
-            };
-            skipped_samples += 1;
-            if sample.abs() > 0.003 {
-                buffered.push(sample * self.gain);
-                for _ in 1..channels {
-                    if let Some(ch_sample) = self.source.by_ref().next() {
-                        buffered.push(ch_sample * self.gain);
-                        skipped_samples += 1;
-                    }
-                }
-                break;
-            }
-        }
-
-        if skipped_samples > 0 {
-            self.decoded_frames += (skipped_samples / channels) as u64;
-        }
-        self.preloaded_samples = buffered;
     }
 
     /// Where this track's sound is read from, given `rate`, the device's, which is what the queue
@@ -1018,36 +1034,10 @@ impl<F: Fetch> Playing<F> {
     /// `None` means the track ended.
     fn take(&mut self, frames: usize, mut samples: Vec<f32>) -> Option<Vec<f32>> {
         let wanted = self.samples(frames);
-        let start = samples.len();
-        if !self.preloaded_samples.is_empty() {
-            let take_len = self.preloaded_samples.len().min(wanted);
-            samples.extend(self.preloaded_samples.drain(..take_len));
+        for sample in self.source.by_ref().take(wanted) {
+            samples.push(sample * self.gain);
         }
-        let remaining = wanted.saturating_sub(samples.len() - start);
-        if remaining > 0 {
-            for sample in self.source.by_ref().take(remaining) {
-                samples.push(sample * self.gain);
-            }
-        }
-        let added = samples.len() - start;
-        if added > 0 {
-            self.decoded_frames += (added / usize::from(self.channels).max(1)) as u64;
-            Some(samples)
-        } else {
-            None
-        }
-    }
-
-    /// Whether this track is within `crossfade` duration of its expected end.
-    fn near_end(&self, crossfade: Duration) -> bool {
-        if crossfade.is_zero() {
-            return false;
-        }
-        let Some(total) = self.total_frames else {
-            return false;
-        };
-        let fade_frames = (crossfade.as_secs_f64() * f64::from(self.rate)).round() as u64;
-        total > fade_frames && total.saturating_sub(self.decoded_frames) <= fade_frames
+        (!samples.is_empty()).then_some(samples)
     }
 }
 
@@ -1105,15 +1095,6 @@ struct Join<F: Fetch> {
     at: u64,
 }
 
-/// A track that is fading out while the next track fades in.
-struct Fading<F: Fetch> {
-    outgoing: Playing<F>,
-    step: u64,
-    total: u64,
-    prev_in: [f32; 2],
-    prev_out: [f32; 2],
-}
-
 /// Decodes and writes until told otherwise. Every wait here is on the queue draining or on a
 /// command, never on the network: the bytes are already arriving in the background.
 #[allow(clippy::too_many_arguments)]
@@ -1127,7 +1108,6 @@ fn audio_loop<F: Fetch>(
     events: UnboundedSender<PlaybackEvent>,
     interval: Duration,
     normalise: bool,
-    mut crossfade: Duration,
     heard: Heard,
 ) {
     let mut paced = match Paced::open(cue.clone(), chain, changed.clone()) {
@@ -1145,7 +1125,6 @@ fn audio_loop<F: Fetch>(
     };
 
     let mut current: Option<Playing<F>> = None;
-    let mut fading: Option<Fading<F>> = None;
     let mut written = 0u64;
     let mut joining: Option<Join<F>> = None;
     let mut queued: Option<(String, F::Loaded)> = None;
@@ -1224,7 +1203,6 @@ fn audio_loop<F: Fetch>(
                 } => {
                     queued = None;
                     joining = None;
-                    fading = None;
                     written = 0;
                     current = Playing::open(fetch.as_ref(), &id, loaded, at, 0, normalise, &events);
                     heard.set(current.as_ref().map(|held| held.mark(paced.rate())));
@@ -1252,7 +1230,6 @@ fn audio_loop<F: Fetch>(
                     current = None;
                     queued = None;
                     joining = None;
-                    fading = None;
                     heard.set(None);
                     written = 0;
                     playing = false;
@@ -1288,7 +1265,6 @@ fn audio_loop<F: Fetch>(
                     // The decoder has run past the end of the track still being heard, onto the
                     // one queued behind it or onto nothing. The seek is in the heard track, so
                     // that track reopens and the next one goes back in the queue.
-                    fading = None;
                     let Some(join) = joining.take() else { continue };
                     if let Some(next) = current.take() {
                         queued = Some((next.id, next.loaded));
@@ -1350,18 +1326,14 @@ fn audio_loop<F: Fetch>(
                             }
                             held.base = position;
                             held.offset = 0;
-                            held.decoded_frames =
-                                (position.as_secs_f64() * f64::from(held.rate)).round() as u64;
                         }
                     }
-                    fading = None;
                     joining = None;
                     written = 0;
                     heard.set(current.as_ref().map(|held| held.mark(paced.rate())));
                     cue.arm();
                 }
                 Job::Gain(level) => paced.set_volume(level),
-                Job::Crossfade(fade) => crossfade = fade,
             }
             continue;
         }
@@ -1371,66 +1343,8 @@ fn audio_loop<F: Fetch>(
             continue;
         }
 
-        if fading.is_none() && !crossfade.is_zero() && held.near_end(crossfade) && queued.is_some()
-        {
-            let (next_id, next_loaded) = queued.take().unwrap();
-            let next_duration = fetch.length(&next_loaded);
-            if let Some(mut next_playing) = Playing::open(
-                fetch.as_ref(),
-                &next_id,
-                next_loaded,
-                Duration::ZERO,
-                written + paced.held_back() as u64,
-                normalise,
-                &events,
-            ) {
-                if next_playing.channels == held.channels && next_playing.rate == held.rate {
-                    next_playing.trim_leading_silence(next_playing.rate as usize * 2);
-                    let outgoing = current.take().unwrap();
-                    let ended_id = outgoing.id.clone();
-                    let remaining = outgoing
-                        .total_frames
-                        .and_then(|t| t.checked_sub(outgoing.decoded_frames))
-                        .unwrap_or_else(|| {
-                            (crossfade.as_secs_f64() * f64::from(outgoing.rate)).round() as u64
-                        });
-                    let target_fade =
-                        (crossfade.as_secs_f64() * f64::from(outgoing.rate)).round() as u64;
-                    let fade_frames = remaining.min(target_fade).max(1);
-                    fading = Some(Fading {
-                        outgoing,
-                        step: 0,
-                        total: fade_frames,
-                        prev_in: [0.0; 2],
-                        prev_out: [0.0; 2],
-                    });
-                    joins
-                        .send(Joined {
-                            ended: ended_id.clone(),
-                            next: Some(next_id.clone()),
-                        })
-                        .ok();
-                    events
-                        .send(PlaybackEvent::Ended { id: Some(ended_id) })
-                        .ok();
-                    heard.set(Some(next_playing.mark(paced.rate())));
-                    announce_length(&events, &next_id, next_duration);
-                    events
-                        .send(PlaybackEvent::Playing {
-                            id: Some(next_id),
-                            at: Duration::ZERO,
-                        })
-                        .ok();
-                    current = Some(next_playing);
-                } else {
-                    queued = Some((next_id, next_playing.loaded));
-                }
-            }
-        }
-
-        let Some(held) = &mut current else { continue };
         let buffer = paced.buffer(held.samples(CHUNK));
-        let Some(mut samples) = held.take(CHUNK, buffer) else {
+        let Some(samples) = held.take(CHUNK, buffer) else {
             // the decoder is done, but its last samples are still queued
             let Some(Playing {
                 id: ended, loaded, ..
@@ -1474,57 +1388,6 @@ fn audio_loop<F: Fetch>(
             });
             continue;
         };
-
-        if let Some(fade) = &mut fading {
-            let channels = usize::from(held.channels).max(1);
-            let frames_wanted = samples.len() / channels;
-            let old_samples = fade
-                .outgoing
-                .take(frames_wanted, Vec::with_capacity(samples.len()))
-                .unwrap_or_default();
-            let old_frames = old_samples.len() / channels;
-            let sample_rate = held.rate as f32;
-
-            for f in 0..frames_wanted {
-                if fade.step < fade.total {
-                    let frac = (fade.step as f32 / fade.total as f32).clamp(0.0, 1.0);
-                    let angle = frac * std::f32::consts::FRAC_PI_2;
-                    let gain_in = angle.sin();
-                    let gain_out = angle.cos();
-                    fade.step += 1;
-
-                    // DJ Bass Dip: cutoff frequency ramps from 20 Hz to 400 Hz over the first 40% of the fade
-                    let dip_progress = (frac / 0.4).min(1.0);
-                    let cutoff = 20.0 + dip_progress * 380.0;
-                    let rc = 1.0 / (2.0 * std::f32::consts::PI * cutoff);
-                    let dt = 1.0 / sample_rate;
-                    let alpha = rc / (rc + dt);
-
-                    for c in 0..channels {
-                        let idx = f * channels + c;
-                        let raw_old = if f < old_frames {
-                            old_samples[idx]
-                        } else {
-                            0.0
-                        };
-
-                        let ch_idx = c.min(1);
-                        let hp_old =
-                            alpha * (fade.prev_out[ch_idx] + raw_old - fade.prev_in[ch_idx]);
-                        fade.prev_in[ch_idx] = raw_old;
-                        fade.prev_out[ch_idx] = hp_old;
-
-                        samples[idx] = samples[idx] * gain_in + hp_old * gain_out;
-                    }
-                } else {
-                    break;
-                }
-            }
-
-            if fade.step >= fade.total || old_frames == 0 {
-                fading = None;
-            }
-        }
 
         let Some(chunk) = packet(samples, held.channels, held.rate) else {
             continue;
@@ -1618,6 +1481,89 @@ async fn unseal<F: Fetch>(fetch: &F, ids: Vec<String>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Keeps a resource alive until a pending provider load is cancelled.
+    fn pending_load() -> (tokio::task::AbortHandle, tokio::sync::oneshot::Receiver<()>) {
+        let (held, dropped) = tokio::sync::oneshot::channel();
+        let task = tokio::spawn(async move {
+            let _held = held;
+            std::future::pending::<()>().await;
+        });
+        (task.abort_handle(), dropped)
+    }
+
+    #[tokio::test]
+    async fn superseded_preloads_release_their_pending_resources() {
+        let (first, dropped) = pending_load();
+        let mut slot = None;
+        let mut sequence = 0;
+        Preload::request(&mut slot, &mut sequence, "one".to_owned(), false, |_| first);
+        let (next, next_dropped) = pending_load();
+        Preload::request(&mut slot, &mut sequence, "two".to_owned(), false, |_| next);
+        assert!(
+            tokio::time::timeout(Duration::from_secs(1), dropped)
+                .await
+                .unwrap()
+                .is_err()
+        );
+        drop(slot);
+        assert!(
+            tokio::time::timeout(Duration::from_secs(1), next_dropped)
+                .await
+                .unwrap()
+                .is_err()
+        );
+    }
+
+    #[tokio::test]
+    async fn a_segue_request_reuses_the_pending_preload() {
+        let (task, dropped) = pending_load();
+        let mut slot = None;
+        let mut sequence = 0;
+        Preload::request(&mut slot, &mut sequence, "one".to_owned(), false, |_| task);
+        Preload::request(&mut slot, &mut sequence, "one".to_owned(), true, |_| {
+            panic!("load restarted")
+        });
+        assert!(slot.as_ref().unwrap().segue);
+        drop(slot);
+        assert!(
+            tokio::time::timeout(Duration::from_secs(1), dropped)
+                .await
+                .unwrap()
+                .is_err()
+        );
+    }
+
+    #[tokio::test]
+    async fn stale_same_track_completions_preserve_the_replacement_preload() {
+        let mut slot = None;
+        let mut sequence = 0;
+        let (first, _) = pending_load();
+        Preload::request(&mut slot, &mut sequence, "a".to_owned(), false, |_| first);
+        let stale = slot.as_ref().unwrap().request;
+        let (second, _) = pending_load();
+        Preload::request(&mut slot, &mut sequence, "b".to_owned(), false, |_| second);
+        let (replacement, mut dropped) = pending_load();
+        Preload::request(&mut slot, &mut sequence, "a".to_owned(), true, |_| {
+            replacement
+        });
+        let active = slot.as_ref().unwrap().request;
+        assert_ne!(active, stale);
+        assert_eq!(Preload::finish(&mut slot, stale), None);
+        assert_eq!(slot.as_ref().unwrap().request, active);
+        assert!(
+            tokio::time::timeout(Duration::from_millis(20), &mut dropped)
+                .await
+                .is_err()
+        );
+        assert_eq!(Preload::finish(&mut slot, active), Some(true));
+        assert!(
+            tokio::time::timeout(Duration::from_secs(1), dropped)
+                .await
+                .unwrap()
+                .is_err()
+        );
+    }
 
     fn measured(lufs: f32, peak: Option<f32>) -> Option<Loudness> {
         Some(Loudness { lufs, peak })

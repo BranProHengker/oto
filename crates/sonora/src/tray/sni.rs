@@ -6,8 +6,8 @@ use tokio::sync::mpsc::UnboundedSender;
 
 use super::{Art, Event, Shown};
 
-const ID: &str = "oto";
-const ICON_NAME: &str = "oto";
+const ID: &str = "sonora";
+const ICON_NAME: &str = "sonora";
 /// Flatpak writes this file into every sandbox it starts.
 const FLATPAK_INFO: &str = "/.flatpak-info";
 const WATCHER: &str = "org.kde.StatusNotifierWatcher";
@@ -88,14 +88,6 @@ impl Icon {
     }
 }
 
-impl Drop for Icon {
-    fn drop(&mut self) {
-        if let Some(handle) = self.handle.take() {
-            drop(handle.shutdown());
-        }
-    }
-}
-
 fn spawn(item: Item) -> Result<Handle<Item>> {
     // A sandbox cannot own `org.kde.StatusNotifierItem-<pid>-<n>`, and a manifest cannot
     // grant it: flatpak's own-name wildcard only matches a `.*` suffix. The watcher
@@ -148,7 +140,7 @@ impl ksni::Tray for Item {
     }
 
     fn title(&self) -> String {
-        "Oto".to_owned()
+        "Sonora".to_owned()
     }
 
     fn icon_name(&self) -> String {
@@ -161,7 +153,7 @@ impl ksni::Tray for Item {
 
     fn tool_tip(&self) -> ToolTip {
         ToolTip {
-            title: "Oto".to_owned(),
+            title: "Sonora".to_owned(),
             description: self
                 .shown
                 .as_ref()
@@ -172,7 +164,7 @@ impl ksni::Tray for Item {
     }
 
     fn activate(&mut self, _x: i32, _y: i32) {
-        self.send(Event::Show);
+        self.send(Event::Window);
     }
 
     fn secondary_activate(&mut self, _x: i32, _y: i32) {
@@ -230,7 +222,7 @@ fn sandboxed() -> bool {
 }
 
 /// The themed icon to ask the host for, or none when the host's theme cannot be counted on to
-/// have it. A Flatpak or AppImage install puts no `sonora` icon where the host looks, and hosts
+/// have it. A Flatpak, AppImage or Snap install puts no `sonora` icon where the host looks, and hosts
 /// such as Quickshell draw a placeholder for a name they cannot find rather than the pixmap.
 fn icon_name(sandboxed: bool) -> String {
     let packaged =

@@ -7,6 +7,22 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.0.7] - 2026-11-19
+
+### Added
+
+- Click the tray icon on Linux to toggle window visibility (hide into tray / restore).
+- Wide page layout option under Settings > Appearance > Page width.
+- Remaining time countdown in fullscreen player when Show time left is enabled.
+
+### Fixed
+
+- Seamless transition in queues mixing local audio files and streaming tracks (cross-engine segue fix).
+- Window blur remains active on Linux / Hyprland at 100% opacity when dimmed by compositor rules.
+- Clicking search dropdown recommendations now navigates directly to the track/album.
+- YouTube Music library artist pagination reads all pages.
+- Soloist / Spotify Connect fixes (Repeat all, Play Next / Play Last queue, radio continuation).
+
 ## [2.0.0] - 2026-11-15
 
 ### Added

@@ -93,6 +93,10 @@ fn main() -> ExitCode {
         single::Instance::Running => return ExitCode::SUCCESS,
         single::Instance::Failed => exit(1),
     }
+    // Only the instance that owns the socket may replace Sonora, never a hand-off to one that runs.
+    if state::start_staged(!args.is_empty()) {
+        return ExitCode::SUCCESS;
+    }
     // Two rustls backends are compiled in: librespot, oauth2 and ytmusic still ask for ring,
     // while reqwest 0.13 and opensubsonic ask for aws-lc-rs. rustls refuses to guess between
     // them, so one is picked here. A second install only means another crate got there first.
@@ -337,14 +341,32 @@ fn toggle_window(cx: &mut App) {
         .first()
         .and_then(|window| window.update(cx, |_, window, _| window.is_visible()).ok());
     match window_action(visible) {
-        WindowAction::Show => show_window(cx),
-        WindowAction::Hide => {
-            if let Some(window) = cx.windows().first() {
-                window
-                    .update(cx, |_, window, _| window.minimize_window())
-                    .ok();
-            }
-        }
+        WindowAction::Show => reveal_window(visible, cx),
+        WindowAction::Hide => hide_window(cx),
+    }
+}
+
+/// Brings the window back from the tray. Linux reopens a window that is there but hidden, since a
+/// Wayland compositor raises a window only for an activation token the tray never hands over.
+fn reveal_window(visible: Option<bool>, cx: &mut App) {
+    if cfg!(target_os = "linux") && visible == Some(false) {
+        hide_window(cx);
+    }
+    show_window(cx);
+}
+
+/// Linux closes the window into the tray, since a Wayland compositor may not minimize at all.
+#[cfg(target_os = "linux")]
+fn hide_window(cx: &mut App) {
+    actions::hide_to_tray(cx);
+}
+
+#[cfg(not(target_os = "linux"))]
+fn hide_window(cx: &mut App) {
+    if let Some(window) = cx.windows().first() {
+        window
+            .update(cx, |_, window, _| window.minimize_window())
+            .ok();
     }
 }
 

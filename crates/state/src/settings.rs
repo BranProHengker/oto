@@ -577,6 +577,9 @@ struct Values {
     dual_preview: bool,
     adaptive_menu: bool,
     check_updates: bool,
+    /// Whether a release found is downloaded in the background and installed the next time
+    /// Sonora starts, rather than only offered.
+    auto_update: bool,
     /// The release channel chosen in settings, by its id. Empty follows the running build's own
     /// channel, and a copy a package manager installed ignores it.
     update_channel: String,
@@ -657,6 +660,42 @@ impl PlayerBarLayout {
     }
 }
 
+/// How wide pages stretch on a wide window. `Centered` caps a page at `metrics.page` and stands
+/// it in the middle of the content area, `Wide` lets it fill the whole content area.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum PageWidth {
+    #[default]
+    Centered,
+    Wide,
+}
+
+impl PageWidth {
+    pub const ALL: [Self; 2] = [Self::Centered, Self::Wide];
+
+    pub fn id(self) -> &'static str {
+        match self {
+            Self::Centered => "centered",
+            Self::Wide => "wide",
+        }
+    }
+
+    /// The label's Fluent key, resolved by the view when it renders the option cards.
+    pub fn key(self) -> &'static str {
+        match self {
+            Self::Centered => "settings-page-width-centered",
+            Self::Wide => "settings-page-width-wide",
+        }
+    }
+
+    /// Reads a saved width id, keeping the centred layout for missing or unknown choices.
+    pub fn from_id(id: &str) -> Self {
+        match id {
+            "wide" => Self::Wide,
+            _ => Self::Centered,
+        }
+    }
+}
+
 /// The `appearance` block of `settings.json`. Fixed choices are stored by id, removed variant
 /// falls back to the default instead of failing the parse.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -678,6 +717,8 @@ struct Appearance {
     player_bar_time_left: bool,
     icons: String,
     rounding: String,
+    /// How wide pages stretch on a wide window, by its id. See `PageWidth`.
+    page_width: String,
     /// Whether the app paints its frosted treatments. The key kept its old name, which stood
     /// for a blurred desktop behind the window, so a stored preference carries over.
     blur: bool,
@@ -815,6 +856,7 @@ impl Default for Values {
             adaptive_menu: false,
             dual_preview: true,
             check_updates: cfg!(target_os = "windows") || updates_itself(),
+            auto_update: true,
             update_channel: String::new(),
             close_to_tray: false,
             tray_icon: true,
@@ -1000,6 +1042,7 @@ impl Default for Appearance {
             player_bar_time_left: false,
             icons: icons::BASE.to_owned(),
             rounding: Rounding::Rounded.id().to_owned(),
+            page_width: PageWidth::default().id().to_owned(),
             blur: true,
             blur_window: true,
             font_size: DEFAULT_FONT_SIZE,
@@ -1400,6 +1443,10 @@ impl AppSettings {
         self.values.check_updates
     }
 
+    pub fn auto_update(&self) -> bool {
+        self.values.auto_update
+    }
+
     pub fn close_to_tray(&self) -> bool {
         self.values.close_to_tray
     }
@@ -1646,6 +1693,11 @@ impl AppSettings {
 
     pub fn rounding(&self) -> &str {
         &self.values.appearance.rounding
+    }
+
+    /// How wide pages stretch on a wide window. An unknown saved id reads as centred.
+    pub fn page_width(&self) -> PageWidth {
+        PageWidth::from_id(&self.values.appearance.page_width)
     }
 
     /// Whether the app paints its frosted treatments. See `ui::blurring`.
@@ -2104,6 +2156,11 @@ impl AppSettings {
 
     pub fn set_check_updates(&mut self, check_updates: bool, cx: &mut Context<Self>) {
         self.values.check_updates = check_updates;
+        self.schedule_save(cx);
+    }
+
+    pub fn set_auto_update(&mut self, auto_update: bool, cx: &mut Context<Self>) {
+        self.values.auto_update = auto_update;
         self.schedule_save(cx);
     }
 
@@ -2635,6 +2692,16 @@ impl AppSettings {
 
     pub fn set_rounding(&mut self, rounding: impl Into<String>, cx: &mut Context<Self>) {
         self.values.appearance.rounding = rounding.into();
+        self.schedule_save(cx);
+    }
+
+    /// Saves the page width and redraws every window, since each page reads it while rendering.
+    pub fn set_page_width(&mut self, width: PageWidth, cx: &mut Context<Self>) {
+        if self.page_width() == width {
+            return;
+        }
+        self.values.appearance.page_width = width.id().to_owned();
+        cx.refresh_windows();
         self.schedule_save(cx);
     }
 
