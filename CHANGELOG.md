@@ -7,6 +7,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.0.8] - 2026-11-20
+
+### Fixed
+
+- Hyprland / Caelestia status bar tray icon glitch and missing rendering by properly broadcasting `oto` SNI id, icon name, and theme paths.
+- Local lyrics auto-fill and hot-reload upon saving lyrics files beside tracks or into music library.
+- Windows CI build failure on GitHub Actions by providing missing `Win32_System_Registry` and `Win32_System_Threading` features.
+
 ## [2.0.7] - 2026-11-19
 
 ### Added

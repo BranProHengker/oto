@@ -151,6 +151,8 @@ fn find_local_track(query: &LyricsQuery) -> Option<PathBuf> {
     let dirs = [dirs::audio_dir(), dirs::download_dir()];
     for dir in dirs.into_iter().flatten() {
         let candidates = [
+            format!("{} - {}.ttml", query.artist, query.title),
+            format!("{}.ttml", query.title),
             format!("{} - {}.lrc", query.artist, query.title),
             format!("{}.lrc", query.title),
         ];

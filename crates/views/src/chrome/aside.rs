@@ -1030,6 +1030,9 @@ impl Aside {
                     state::Toast::new(state::Outcome::Done, "toast-lyrics-saved").name(filename),
                     cx,
                 );
+                self.lyrics.update(cx, |lyrics, cx| {
+                    lyrics.reload_local(cx);
+                });
             }
             Err(err) => {
                 log::warn!("lyrics: cannot save {}: {err}", target.display());

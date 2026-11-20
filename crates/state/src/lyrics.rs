@@ -175,6 +175,23 @@ impl Lyrics {
         cx.notify();
     }
 
+    /// Re-evaluates local lyrics from disk immediately for the current track and selects them.
+    pub fn reload_local(&mut self, cx: &mut Context<Self>) {
+        let shown = self.playback.read(cx).shown_track(cx);
+        let Some(track) = shown.as_ref() else {
+            return;
+        };
+        let Some(id) = track.id.as_deref() else {
+            return;
+        };
+        let query = self.query(track, id, cx);
+        let Some(local_provider) = self.providers.iter().find(|p| p.name() == LOCAL).cloned() else {
+            return;
+        };
+        self.local_revision = local_provider.revision(&query);
+        self.reload_local_lyrics(id.to_owned(), query, cx);
+    }
+
     pub fn active_line(&self, cx: &Context<Self>) -> Option<usize> {
         let music::Lyrics::Synced { lines } = &self.current()?.lyrics else {
             return None;
@@ -239,7 +256,9 @@ impl Lyrics {
                 self.reload_local_lyrics(id.to_owned(), query.clone(), cx);
             }
         } else {
+            log::info!("lyrics: local file discovered, loading local lyrics");
             self.local_revision = Some(current_rev);
+            self.reload_local_lyrics(id.to_owned(), query.clone(), cx);
         }
     }
 
@@ -286,7 +305,9 @@ impl Lyrics {
                     entry.1.hits.extend(found);
                 }
 
-                if this.chosen >= this.hits.len() {
+                if let Some(local_idx) = this.hits.iter().position(|hit| hit.source == LOCAL) {
+                    this.chosen = local_idx;
+                } else if this.chosen >= this.hits.len() {
                     this.chosen = 0;
                 }
 

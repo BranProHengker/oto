@@ -19,39 +19,39 @@ const APP_ICON_SVG: &[u8] = include_bytes!("../../../assets/linux/oto.svg");
 pub const LINUX_ICONS: &[(u32, &[u8])] = &[
     (
         16,
-        include_bytes!("../../../assets/linux/icons/hicolor/16x16/apps/sonora.png"),
+        include_bytes!("../../../assets/linux/icons/hicolor/16x16/apps/oto.png"),
     ),
     (
         22,
-        include_bytes!("../../../assets/linux/icons/hicolor/22x22/apps/sonora.png"),
+        include_bytes!("../../../assets/linux/icons/hicolor/22x22/apps/oto.png"),
     ),
     (
         24,
-        include_bytes!("../../../assets/linux/icons/hicolor/24x24/apps/sonora.png"),
+        include_bytes!("../../../assets/linux/icons/hicolor/24x24/apps/oto.png"),
     ),
     (
         32,
-        include_bytes!("../../../assets/linux/icons/hicolor/32x32/apps/sonora.png"),
+        include_bytes!("../../../assets/linux/icons/hicolor/32x32/apps/oto.png"),
     ),
     (
         48,
-        include_bytes!("../../../assets/linux/icons/hicolor/48x48/apps/sonora.png"),
+        include_bytes!("../../../assets/linux/icons/hicolor/48x48/apps/oto.png"),
     ),
     (
         64,
-        include_bytes!("../../../assets/linux/icons/hicolor/64x64/apps/sonora.png"),
+        include_bytes!("../../../assets/linux/icons/hicolor/64x64/apps/oto.png"),
     ),
     (
         128,
-        include_bytes!("../../../assets/linux/icons/hicolor/128x128/apps/sonora.png"),
+        include_bytes!("../../../assets/linux/icons/hicolor/128x128/apps/oto.png"),
     ),
     (
         256,
-        include_bytes!("../../../assets/linux/icons/hicolor/256x256/apps/sonora.png"),
+        include_bytes!("../../../assets/linux/icons/hicolor/256x256/apps/oto.png"),
     ),
     (
         512,
-        include_bytes!("../../../assets/linux/icons/hicolor/512x512/apps/sonora.png"),
+        include_bytes!("../../../assets/linux/icons/hicolor/512x512/apps/oto.png"),
     ),
 ];
 
