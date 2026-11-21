@@ -1016,7 +1016,7 @@ impl Aside {
                 let dest_dir = self
                     .settings
                     .read(cx)
-                    .local_folders
+                    .local_folders()
                     .first()
                     .map(std::path::PathBuf::from)
                     .filter(|p| p.is_dir())
@@ -2884,10 +2884,7 @@ fn karaoke_lane(
                 .into_iter()
                 .map(|ch| {
                     if ch.is_whitespace() {
-                        return div()
-                            .whitespace_pre()
-                            .child(SharedString::from(ch.to_string()))
-                            .into_any_element();
+                        return div().w(px(6.)).into_any_element();
                     }
                     let k = audible_idx;
                     audible_idx += 1;
@@ -3489,10 +3486,7 @@ fn ruby_lyrics_lane(
                             .into_iter()
                             .map(|ch| {
                                 if ch.is_whitespace() {
-                                    return div()
-                                        .whitespace_pre()
-                                        .child(SharedString::from(ch.to_string()))
-                                        .into_any_element();
+                                    return div().w(px(6.)).into_any_element();
                                 }
                                 let k = audible_idx;
                                 audible_idx += 1;
