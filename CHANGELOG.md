@@ -7,6 +7,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.0.9] - 2026-11-21
+
+### Added
+
+- Per-character undulating wave ripple animation for karaoke and ruby lyrics, smoothly lifting and popping glyphs in sequence instead of entire word containers.
+
+### Fixed
+
+- Local lyrics search and auto-selection for configured music folders and Japanese titles.
+- Save lyrics destination prioritizing the user's primary local music directory.
+
 ## [2.0.8] - 2026-11-20
 
 ### Fixed

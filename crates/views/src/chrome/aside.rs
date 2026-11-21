@@ -1013,7 +1013,14 @@ impl Aside {
                 let filename = format!("{} - {}.{}", track.artists, track.name, ext);
                 let safe_filename =
                     filename.replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], "_");
-                let dest_dir = dirs::audio_dir()
+                let dest_dir = self
+                    .settings
+                    .read(cx)
+                    .local_folders
+                    .first()
+                    .map(std::path::PathBuf::from)
+                    .filter(|p| p.is_dir())
+                    .or_else(dirs::audio_dir)
                     .or_else(dirs::download_dir)
                     .unwrap_or_else(|| std::path::PathBuf::from("."));
                 dest_dir.join(&safe_filename)
@@ -2855,12 +2862,170 @@ fn karaoke_lane(
             )
     };
     let lit = |text: SharedString, reveal: Reveal, word_idx: usize| {
+        let chars: Vec<char> = text.chars().collect();
+        let audible_count = chars.iter().filter(|c| !c.is_whitespace()).count();
+        let dur = windows
+            .get(word_idx)
+            .map(|&(s, e, _)| e.saturating_sub(s))
+            .unwrap_or_default();
+        let is_long = dur >= std::time::Duration::from_millis(350);
+
+        if audible_count > 1 && (sung.preset.is_word_rising() || sung.preset.has_wave_lift()) {
+            let n = audible_count as f32;
+            let w = 1.0 / n;
+            let s = reveal.share;
+            let lift_amp = if is_long { 5.5 } else { 4.5 };
+            let scale_amp = if is_long { 0.18 } else { 0.14 };
+            let is_rising = sung.preset.is_word_rising();
+            let has_wave = sung.preset.has_wave_lift();
+
+            let mut audible_idx = 0usize;
+            let char_elements: Vec<gpui::AnyElement> = chars
+                .into_iter()
+                .map(|ch| {
+                    if ch.is_whitespace() {
+                        return div()
+                            .whitespace_pre()
+                            .child(SharedString::from(ch.to_string()))
+                            .into_any_element();
+                    }
+                    let k = audible_idx;
+                    audible_idx += 1;
+
+                    let t_start = k as f32 / n;
+                    let t_end = (k + 1) as f32 / n;
+                    let c_k = (k as f32 + 0.5) / n;
+
+                    let pop = if s > 0.0 && s < 1.0 {
+                        let d = (s - c_k).abs() / w;
+                        if d < 1.0 {
+                            (d * std::f32::consts::FRAC_PI_2).cos().powi(2)
+                        } else {
+                            0.0
+                        }
+                    } else {
+                        0.0
+                    };
+
+                    let through = ((s - t_start) / w).clamp(0.0, 1.0);
+
+                    let (y_offset, char_scale, char_opacity) = if is_rising {
+                        if s <= 0.0 {
+                            (4.0, 1.0, 0.50)
+                        } else if s >= 1.0 {
+                            (0.0, 1.0, 1.0)
+                        } else {
+                            let base_y = 4.0 * (1.0 - smoothstep(through));
+                            let y = base_y - lift_amp * pop;
+                            let scale = 1.0 + scale_amp * pop;
+                            let opacity = 0.50 + 0.50 * through;
+                            (y, scale, opacity)
+                        }
+                    } else if has_wave {
+                        if s <= 0.0 {
+                            (0.0, 1.0, 0.50)
+                        } else if s >= 1.0 {
+                            (0.0, 1.0, 1.0)
+                        } else {
+                            let y = -lift_amp * pop;
+                            let scale = 1.0 + scale_amp * pop;
+                            let opacity = 0.50 + 0.50 * through;
+                            (y, scale, opacity)
+                        }
+                    } else {
+                        (0.0, 1.0, if s > 0.0 { 1.0 } else { 0.50 })
+                    };
+
+                    let ch_str = SharedString::from(ch.to_string());
+
+                    let char_div = if s <= t_start {
+                        div()
+                            .relative()
+                            .whitespace_nowrap()
+                            .when(y_offset.abs() > 0.001, |this| {
+                                this.layer_translate(gpui::point(px(0.), px(y_offset)))
+                            })
+                            .when(char_scale != 1.0, |this| {
+                                this.layer_scale(char_scale)
+                                    .layer_scale_origin(gpui::point(0.5, 0.5))
+                            })
+                            .opacity(char_opacity)
+                            .child(ch_str)
+                    } else if s >= t_end {
+                        div()
+                            .relative()
+                            .whitespace_nowrap()
+                            .when(y_offset.abs() > 0.001, |this| {
+                                this.layer_translate(gpui::point(px(0.), px(y_offset)))
+                            })
+                            .when(char_scale != 1.0, |this| {
+                                this.layer_scale(char_scale)
+                                    .layer_scale_origin(gpui::point(0.5, 0.5))
+                            })
+                            .text_color(sung.karaoke_tint)
+                            .child(ch_str)
+                    } else {
+                        let char_share = through;
+                        div()
+                            .relative()
+                            .whitespace_nowrap()
+                            .when(y_offset.abs() > 0.001, |this| {
+                                this.layer_translate(gpui::point(px(0.), px(y_offset)))
+                            })
+                            .when(char_scale != 1.0, |this| {
+                                this.layer_scale(char_scale)
+                                    .layer_scale_origin(gpui::point(0.5, 0.5))
+                            })
+                            .child(
+                                div().opacity(0.50).child(ch_str.clone()),
+                            )
+                            .when(sung.preset.has_glow() && effects(), |this| {
+                                let glow_opacity = if is_long { 0.90 } else { 0.65 };
+                                this.child(
+                                    div()
+                                        .absolute()
+                                        .left_0()
+                                        .top_0()
+                                        .bottom_0()
+                                        .w(relative(char_share))
+                                        .overflow_hidden()
+                                        .text_color(sung.karaoke_tint.opacity(glow_opacity))
+                                        .blur(px(4.0))
+                                        .child(
+                                            div().whitespace_nowrap().child(ch_str.clone()),
+                                        ),
+                                )
+                            })
+                            .child(
+                                div()
+                                    .absolute()
+                                    .left_0()
+                                    .top_0()
+                                    .bottom_0()
+                                    .w(relative(char_share))
+                                    .overflow_hidden()
+                                    .text_color(sung.karaoke_tint)
+                                    .child(
+                                        div().whitespace_nowrap().child(ch_str),
+                                    ),
+                            )
+                    };
+
+                    char_div.into_any_element()
+                })
+                .collect();
+
+            return div()
+                .relative()
+                .flex_none()
+                .whitespace_nowrap()
+                .flex()
+                .flex_row()
+                .items_baseline()
+                .children(char_elements);
+        }
+
         let (y_offset, word_scale, word_opacity, is_held) = if sung.preset.is_word_rising() {
-            let dur = windows
-                .get(word_idx)
-                .map(|&(s, e, _)| e.saturating_sub(s))
-                .unwrap_or_default();
-            let is_long = dur >= std::time::Duration::from_millis(350);
             if reveal.share <= 0.0 {
                 (5.0, 1.0, 0.50, false)
             } else if reveal.share < 1.0 {
@@ -3300,6 +3465,191 @@ fn ruby_lyrics_lane(
                     } else {
                         sung.theme.muted_foreground
                     };
+
+                    let chars: Vec<char> = text.chars().collect();
+                    let audible_count = chars.iter().filter(|c| !c.is_whitespace()).count();
+                    let dur = if let Some(&(start, end)) = windows.get(index) {
+                        end.saturating_sub(start)
+                    } else {
+                        std::time::Duration::ZERO
+                    };
+                    let is_long = dur >= std::time::Duration::from_millis(350);
+
+                    if active && audible_count > 1 && (sung.preset.is_word_rising() || sung.preset.has_wave_lift()) {
+                        let n = audible_count as f32;
+                        let w = 1.0 / n;
+                        let s = share;
+                        let lift_amp = if is_long { 5.5 } else { 4.5 };
+                        let scale_amp = if is_long { 0.18 } else { 0.14 };
+                        let is_rising = sung.preset.is_word_rising();
+                        let has_wave = sung.preset.has_wave_lift();
+
+                        let mut audible_idx = 0usize;
+                        let kanji_children: Vec<gpui::AnyElement> = chars
+                            .into_iter()
+                            .map(|ch| {
+                                if ch.is_whitespace() {
+                                    return div()
+                                        .whitespace_pre()
+                                        .child(SharedString::from(ch.to_string()))
+                                        .into_any_element();
+                                }
+                                let k = audible_idx;
+                                audible_idx += 1;
+
+                                let t_start = k as f32 / n;
+                                let t_end = (k + 1) as f32 / n;
+                                let c_k = (k as f32 + 0.5) / n;
+
+                                let pop = if s > 0.0 && s < 1.0 {
+                                    let d = (s - c_k).abs() / w;
+                                    if d < 1.0 {
+                                        (d * std::f32::consts::FRAC_PI_2).cos().powi(2)
+                                    } else {
+                                        0.0
+                                    }
+                                } else {
+                                    0.0
+                                };
+
+                                let through = ((s - t_start) / w).clamp(0.0, 1.0);
+
+                                let (y_offset, char_scale, char_opacity) = if is_rising {
+                                    if s <= 0.0 {
+                                        (4.0, 1.0, 0.50)
+                                    } else if s >= 1.0 {
+                                        (0.0, 1.0, 1.0)
+                                    } else {
+                                        let base_y = 4.0 * (1.0 - smoothstep(through));
+                                        let y = base_y - lift_amp * pop;
+                                        let scale = 1.0 + scale_amp * pop;
+                                        let opacity = 0.50 + 0.50 * through;
+                                        (y, scale, opacity)
+                                    }
+                                } else if has_wave {
+                                    if s <= 0.0 {
+                                        (0.0, 1.0, 0.50)
+                                    } else if s >= 1.0 {
+                                        (0.0, 1.0, 1.0)
+                                    } else {
+                                        let y = -lift_amp * pop;
+                                        let scale = 1.0 + scale_amp * pop;
+                                        let opacity = 0.50 + 0.50 * through;
+                                        (y, scale, opacity)
+                                    }
+                                } else {
+                                    (0.0, 1.0, if s > 0.0 { 1.0 } else { 0.50 })
+                                };
+
+                                let ch_str = SharedString::from(ch.to_string());
+
+                                let char_div = if s <= t_start {
+                                    div()
+                                        .relative()
+                                        .whitespace_nowrap()
+                                        .line_height(relative(1.0))
+                                        .when(y_offset.abs() > 0.001, |this| {
+                                            this.layer_translate(gpui::point(px(0.), px(y_offset)))
+                                        })
+                                        .when(char_scale != 1.0, |this| {
+                                            this.layer_scale(char_scale)
+                                                .layer_scale_origin(gpui::point(0.5, 0.5))
+                                        })
+                                        .opacity(char_opacity)
+                                        .child(ch_str)
+                                } else if s >= t_end {
+                                    div()
+                                        .relative()
+                                        .whitespace_nowrap()
+                                        .line_height(relative(1.0))
+                                        .when(y_offset.abs() > 0.001, |this| {
+                                            this.layer_translate(gpui::point(px(0.), px(y_offset)))
+                                        })
+                                        .when(char_scale != 1.0, |this| {
+                                            this.layer_scale(char_scale)
+                                                .layer_scale_origin(gpui::point(0.5, 0.5))
+                                        })
+                                        .text_color(sung.karaoke_tint)
+                                        .child(ch_str)
+                                } else {
+                                    let char_share = through;
+                                    div()
+                                        .relative()
+                                        .whitespace_nowrap()
+                                        .line_height(relative(1.0))
+                                        .when(y_offset.abs() > 0.001, |this| {
+                                            this.layer_translate(gpui::point(px(0.), px(y_offset)))
+                                        })
+                                        .when(char_scale != 1.0, |this| {
+                                            this.layer_scale(char_scale)
+                                                .layer_scale_origin(gpui::point(0.5, 0.5))
+                                        })
+                                        .child(
+                                            div().opacity(0.50).child(ch_str.clone()),
+                                        )
+                                        .when(sung.preset.has_glow() && effects(), |this| {
+                                            let glow_opacity = if is_long { 0.90 } else { 0.65 };
+                                            this.child(
+                                                div()
+                                                    .absolute()
+                                                    .left_0()
+                                                    .top_0()
+                                                    .bottom_0()
+                                                    .w(relative(char_share))
+                                                    .overflow_hidden()
+                                                    .text_color(sung.karaoke_tint.opacity(glow_opacity))
+                                                    .blur(px(4.0))
+                                                    .child(
+                                                        div().whitespace_nowrap().line_height(relative(1.0)).child(ch_str.clone()),
+                                                    ),
+                                            )
+                                        })
+                                        .child(
+                                            div()
+                                                .absolute()
+                                                .left_0()
+                                                .top_0()
+                                                .bottom_0()
+                                                .w(relative(char_share))
+                                                .overflow_hidden()
+                                                .text_color(sung.karaoke_tint)
+                                                .child(
+                                                    div().whitespace_nowrap().line_height(relative(1.0)).child(ch_str),
+                                                ),
+                                        )
+                                };
+
+                                char_div.into_any_element()
+                            })
+                            .collect();
+
+                        let kanji = div()
+                            .relative()
+                            .whitespace_nowrap()
+                            .line_height(relative(1.0))
+                            .flex()
+                            .flex_row()
+                            .items_baseline()
+                            .children(kanji_children);
+
+                        return div()
+                            .flex()
+                            .flex_col()
+                            .items_center()
+                            .child(kanji)
+                            .when(!ruby.is_empty(), |this| {
+                                this.child(
+                                    div()
+                                        .mt(px(3.))
+                                        .text_size(lane_size)
+                                        .line_height(relative(1.0))
+                                        .font_weight(FontWeight::NORMAL)
+                                        .text_color(ruby_color)
+                                        .child(SharedString::from(ruby.clone())),
+                                )
+                            })
+                            .into_any_element();
+                    }
 
                     let (y_offset, word_scale, word_opacity) = if active && sung.preset.is_word_rising() {
                         let dur = if let Some(&(start, end)) = windows.get(index) {

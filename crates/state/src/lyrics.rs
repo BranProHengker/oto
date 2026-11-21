@@ -335,6 +335,11 @@ impl Lyrics {
         self.task = None;
         self.settled = true;
         self.hits = ordered(query, hits, &priority);
+        if let Some(local_idx) = self.hits.iter().position(|hit| hit.source == LOCAL) {
+            self.chosen = local_idx;
+        } else if self.chosen >= self.hits.len() {
+            self.chosen = 0;
+        }
         self.state = state_for(&self.hits, instrumental);
         cx.notify();
         self.prefetch(cx);

@@ -143,13 +143,35 @@ fn find_local_track(query: &LyricsQuery) -> Option<PathBuf> {
             }
         }
 
-        if title_matches && artist_matches && sidecar(&path).is_some() {
+        let title_strong = crate::lyrics::titles_alike(stem, &query.title)
+            || (query.title.chars().count() >= 4
+                && (stem.to_lowercase().contains(&query.title.to_lowercase())
+                    || query.title.to_lowercase().contains(&stem.to_lowercase())));
+
+        if (title_matches && artist_matches || title_strong) && sidecar(&path).is_some() {
             return Some(path);
         }
     }
 
-    let dirs = [dirs::audio_dir(), dirs::download_dir()];
-    for dir in dirs.into_iter().flatten() {
+    let settings = storage::State::standard()
+        .open()
+        .ok()
+        .and_then(|conn| {
+            let mut stmt = conn.prepare("SELECT value FROM settings WHERE key = 'app'").ok()?;
+            let val: String = stmt.query_row([], |r| r.get(0)).ok()?;
+            serde_json::from_str::<serde_json::Value>(&val).ok()
+        });
+    let configured_folders: Vec<PathBuf> = settings
+        .and_then(|s| s.get("local_folders").cloned())
+        .and_then(|v| serde_json::from_value::<Vec<String>>(v).ok())
+        .unwrap_or_default()
+        .into_iter()
+        .map(PathBuf::from)
+        .collect();
+
+    let mut search_dirs = configured_folders;
+    search_dirs.extend([dirs::audio_dir(), dirs::download_dir()].into_iter().flatten());
+    for dir in search_dirs {
         let candidates = [
             format!("{} - {}.ttml", query.artist, query.title),
             format!("{}.ttml", query.title),
