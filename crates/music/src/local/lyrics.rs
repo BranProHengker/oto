@@ -153,14 +153,10 @@ fn find_local_track(query: &LyricsQuery) -> Option<PathBuf> {
         }
     }
 
-    let settings = storage::State::standard()
-        .open()
-        .ok()
-        .and_then(|conn| {
-            let mut stmt = conn.prepare("SELECT value FROM settings WHERE key = 'app'").ok()?;
-            let val: String = stmt.query_row([], |r| r.get(0)).ok()?;
-            serde_json::from_str::<serde_json::Value>(&val).ok()
-        });
+    let settings = dirs::config_dir()
+        .map(|c| c.join("sonora").join("settings.json"))
+        .and_then(|p| std::fs::read_to_string(p).ok())
+        .and_then(|s| serde_json::from_str::<serde_json::Value>(&s).ok());
     let configured_folders: Vec<PathBuf> = settings
         .and_then(|s| s.get("local_folders").cloned())
         .and_then(|v| serde_json::from_value::<Vec<String>>(v).ok())
