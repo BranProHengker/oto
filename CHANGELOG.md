@@ -7,6 +7,22 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-11-21
+
+### Added
+
+- Instant deletion with undo toast: removing songs, albums, artists, or playlists from your library, songs from a playlist, or plays from history runs immediately without confirmation dialogs, while an Undo action on the toast restores them.
+- Multi-disc track numbering: albums that span multiple discs count tracks by disc (e.g. `1.12`, `2.1`) on streaming shelves and local shelves alike.
+- Sub-vocal / backing vocal preservation on lyrics download: saving lyrics beside tracks or into library now preserves secondary vocal lines and parenthetical backing lyrics in `.lrc`.
+- Smart multi-artist lyrics search fallback: searches that return no hits for combined artist tags automatically retry using the primary artist, resolving lyrics for collaborative tracks and game/anime soundtracks like "Last Surprise".
+- Word-synced lyrics prioritized ahead of line-synced lyrics by default.
+
+### Fixed
+
+- With a light theme, the rest of the workspace no longer turns dark while the fullscreen player opens or closes.
+- Queue properly wraps to the first playable song on Repeat All even when tracks at the end of the queue are unavailable.
+- Follow track-level cover art for multi-artist albums and compilation tracks.
+
 ## [2.0.9] - 2026-11-21
 
 ### Added

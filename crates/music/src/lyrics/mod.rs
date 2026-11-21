@@ -498,6 +498,21 @@ pub fn to_standard_lrc(lyrics: &Lyrics) -> String {
                     "[{:02}:{:02}.{:02}] {}\n",
                     minutes, seconds, centis, line.text
                 ));
+                for sec in &line.secondary {
+                    let sec_min = sec.start.as_secs() / 60;
+                    let sec_sec = sec.start.as_secs() % 60;
+                    let sec_cs = sec.start.subsec_millis() / 10;
+                    let trimmed = sec.text.trim();
+                    let text = if trimmed.starts_with('(') && trimmed.ends_with(')') {
+                        trimmed.to_string()
+                    } else {
+                        format!("({})", trimmed)
+                    };
+                    out.push_str(&format!(
+                        "[{:02}:{:02}.{:02}] {}\n",
+                        sec_min, sec_sec, sec_cs, text
+                    ));
+                }
                 if let Some(romanized) = &line.romanized {
                     if !romanized.text.trim().is_empty() {
                         out.push_str(&format!(
@@ -542,6 +557,47 @@ pub fn to_enhanced_lrc(lyrics: &Lyrics) -> String {
                             "[{:02}:{:02}.{:02}] {}\n",
                             line_min, line_sec, line_cs, line.text
                         ));
+                    }
+                }
+                for sec in &line.secondary {
+                    let sec_min = sec.start.as_secs() / 60;
+                    let sec_sec = sec.start.as_secs() % 60;
+                    let sec_cs = sec.start.subsec_millis() / 10;
+                    match &sec.words {
+                        Some(words) if !words.is_empty() => {
+                            let mut line_buf =
+                                format!("[{:02}:{:02}.{:02}]", sec_min, sec_sec, sec_cs);
+                            let needs_bracket = !sec.text.trim_start().starts_with('(');
+                            if needs_bracket {
+                                line_buf.push('(');
+                            }
+                            for word in words {
+                                let w_min = word.start.as_secs() / 60;
+                                let w_sec = word.start.as_secs() % 60;
+                                let w_cs = word.start.subsec_millis() / 10;
+                                line_buf.push_str(&format!(
+                                    "<{:02}:{:02}.{:02}>{}",
+                                    w_min, w_sec, w_cs, word.text
+                                ));
+                            }
+                            if needs_bracket {
+                                line_buf.push(')');
+                            }
+                            out.push_str(&line_buf);
+                            out.push('\n');
+                        }
+                        _ => {
+                            let trimmed = sec.text.trim();
+                            let text = if trimmed.starts_with('(') && trimmed.ends_with(')') {
+                                trimmed.to_string()
+                            } else {
+                                format!("({})", trimmed)
+                            };
+                            out.push_str(&format!(
+                                "[{:02}:{:02}.{:02}] {}\n",
+                                sec_min, sec_sec, sec_cs, text
+                            ));
+                        }
                     }
                 }
                 if let Some(romanized) = &line.romanized {

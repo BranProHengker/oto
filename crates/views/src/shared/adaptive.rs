@@ -115,6 +115,12 @@ impl Adaptive {
                 self.apply(palette, instant, cx);
             }
             None => {
+                let kind = self.kind(cx);
+                let redress = instant && self.worn != Some(kind);
+                if redress {
+                    self.apply(self.painted, true, cx);
+                }
+                let instant = instant && !redress;
                 let palette = ui::palette(cover, cx);
                 self.task = Some(cx.spawn(async move |this, cx| {
                     let palette = palette.await;

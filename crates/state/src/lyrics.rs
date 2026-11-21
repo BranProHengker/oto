@@ -856,7 +856,7 @@ async fn gather(
         let query = query.clone();
         tasks.spawn(async move {
             let name = provider.name();
-            let found = provider
+            let mut found = provider
                 .search(&query)
                 .await
                 .inspect_err(|error| log::warn!("lyrics: {name} did not answer: {error:#}"))
@@ -867,6 +867,18 @@ async fn gather(
                     found.retain(|hit| music::lyrics::matched(&query, hit));
                     found
                 });
+            if found.as_ref().map_or(true, |v| v.is_empty()) && name != music::lyrics::LOCAL {
+                if let Some(primary) = primary_artist(&query.artist) {
+                    let mut fallback = query.clone();
+                    fallback.artist = primary.to_string();
+                    if let Ok(mut hits) = provider.search(&fallback).await {
+                        hits.retain(|hit| music::lyrics::matched(&fallback, hit));
+                        if !hits.is_empty() {
+                            found = Some(hits);
+                        }
+                    }
+                }
+            }
             (name, found)
         });
     }
@@ -887,6 +899,18 @@ async fn gather(
         }
     }
     Ok(answered)
+}
+
+fn primary_artist(artist: &str) -> Option<&str> {
+    for sep in [",", "/", ";", " feat. ", " ft. ", " & "] {
+        if let Some((first, _)) = artist.split_once(sep) {
+            let trimmed = first.trim();
+            if !trimmed.is_empty() && trimmed != artist {
+                return Some(trimmed);
+            }
+        }
+    }
+    None
 }
 
 #[cfg(test)]
