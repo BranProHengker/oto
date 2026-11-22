@@ -501,15 +501,16 @@ impl Aside {
         }
     }
 
-    fn sweep_karaoke(&mut self, window: &Window, cx: &mut Context<Self>) {
+    fn sweep_karaoke(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if window.is_window_active() {
+            window.request_animation_frame();
+            return;
+        }
         if self.sweeping.is_some() {
             return;
         }
-        let saved = match window.is_window_active() {
-            true => None,
-            false => self.settings.read(cx).saver().interval(),
-        };
-        let interval = KARAOKE_FRAME.max(saved.unwrap_or_default());
+        let saved = self.settings.read(cx).saver().interval();
+        let interval = saved.unwrap_or(KARAOKE_FRAME);
         let wait = interval.saturating_sub(self.swept_frame.elapsed());
         self.sweeping = Some(cx.spawn(async move |this, cx| {
             cx.background_executor().timer(wait).await;
@@ -2874,17 +2875,18 @@ fn karaoke_lane(
             let n = audible_count as f32;
             let w = 1.0 / n;
             let s = reveal.share;
-            let lift_amp = if is_long { 5.5 } else { 4.5 };
-            let scale_amp = if is_long { 0.18 } else { 0.14 };
+            let lift_amp = if is_long { 3.2 } else { 2.4 };
+            let scale_amp = if is_long { 0.08 } else { 0.05 };
             let is_rising = sung.preset.is_word_rising();
             let has_wave = sung.preset.has_wave_lift();
+            let wave_radius = 1.8 * w;
 
             let mut audible_idx = 0usize;
             let char_elements: Vec<gpui::AnyElement> = chars
                 .into_iter()
                 .map(|ch| {
                     if ch.is_whitespace() {
-                        return div().w(px(6.)).into_any_element();
+                        return div().w(px(5.)).into_any_element();
                     }
                     let k = audible_idx;
                     audible_idx += 1;
@@ -2894,7 +2896,7 @@ fn karaoke_lane(
                     let c_k = (k as f32 + 0.5) / n;
 
                     let pop = if s > 0.0 && s < 1.0 {
-                        let d = (s - c_k).abs() / w;
+                        let d = (s - c_k).abs() / wave_radius;
                         if d < 1.0 {
                             (d * std::f32::consts::FRAC_PI_2).cos().powi(2)
                         } else {
@@ -2908,11 +2910,11 @@ fn karaoke_lane(
 
                     let (y_offset, char_scale, char_opacity) = if is_rising {
                         if s <= 0.0 {
-                            (4.0, 1.0, 0.50)
+                            (3.5, 1.0, 0.50)
                         } else if s >= 1.0 {
                             (0.0, 1.0, 1.0)
                         } else {
-                            let base_y = 4.0 * (1.0 - smoothstep(through));
+                            let base_y = 3.5 * (1.0 - smoothstep(through));
                             let y = base_y - lift_amp * pop;
                             let scale = 1.0 + scale_amp * pop;
                             let opacity = 0.50 + 0.50 * through;
@@ -2944,7 +2946,7 @@ fn karaoke_lane(
                             })
                             .when(char_scale != 1.0, |this| {
                                 this.layer_scale(char_scale)
-                                    .layer_scale_origin(gpui::point(0.5, 0.5))
+                                    .layer_scale_origin(gpui::point(0.5, 0.8))
                             })
                             .opacity(char_opacity)
                             .child(ch_str)
@@ -2957,7 +2959,7 @@ fn karaoke_lane(
                             })
                             .when(char_scale != 1.0, |this| {
                                 this.layer_scale(char_scale)
-                                    .layer_scale_origin(gpui::point(0.5, 0.5))
+                                    .layer_scale_origin(gpui::point(0.5, 0.8))
                             })
                             .text_color(sung.karaoke_tint)
                             .child(ch_str)
@@ -2971,7 +2973,7 @@ fn karaoke_lane(
                             })
                             .when(char_scale != 1.0, |this| {
                                 this.layer_scale(char_scale)
-                                    .layer_scale_origin(gpui::point(0.5, 0.5))
+                                    .layer_scale_origin(gpui::point(0.5, 0.8))
                             })
                             .child(
                                 div().opacity(0.50).child(ch_str.clone()),
@@ -3476,17 +3478,18 @@ fn ruby_lyrics_lane(
                         let n = audible_count as f32;
                         let w = 1.0 / n;
                         let s = share;
-                        let lift_amp = if is_long { 5.5 } else { 4.5 };
-                        let scale_amp = if is_long { 0.18 } else { 0.14 };
+                        let lift_amp = if is_long { 3.2 } else { 2.4 };
+                        let scale_amp = if is_long { 0.08 } else { 0.05 };
                         let is_rising = sung.preset.is_word_rising();
                         let has_wave = sung.preset.has_wave_lift();
+                        let wave_radius = 1.8 * w;
 
                         let mut audible_idx = 0usize;
                         let kanji_children: Vec<gpui::AnyElement> = chars
                             .into_iter()
                             .map(|ch| {
                                 if ch.is_whitespace() {
-                                    return div().w(px(6.)).into_any_element();
+                                    return div().w(px(5.)).into_any_element();
                                 }
                                 let k = audible_idx;
                                 audible_idx += 1;
@@ -3496,7 +3499,7 @@ fn ruby_lyrics_lane(
                                 let c_k = (k as f32 + 0.5) / n;
 
                                 let pop = if s > 0.0 && s < 1.0 {
-                                    let d = (s - c_k).abs() / w;
+                                    let d = (s - c_k).abs() / wave_radius;
                                     if d < 1.0 {
                                         (d * std::f32::consts::FRAC_PI_2).cos().powi(2)
                                     } else {
@@ -3510,11 +3513,11 @@ fn ruby_lyrics_lane(
 
                                 let (y_offset, char_scale, char_opacity) = if is_rising {
                                     if s <= 0.0 {
-                                        (4.0, 1.0, 0.50)
+                                        (3.5, 1.0, 0.50)
                                     } else if s >= 1.0 {
                                         (0.0, 1.0, 1.0)
                                     } else {
-                                        let base_y = 4.0 * (1.0 - smoothstep(through));
+                                        let base_y = 3.5 * (1.0 - smoothstep(through));
                                         let y = base_y - lift_amp * pop;
                                         let scale = 1.0 + scale_amp * pop;
                                         let opacity = 0.50 + 0.50 * through;
@@ -3547,7 +3550,7 @@ fn ruby_lyrics_lane(
                                         })
                                         .when(char_scale != 1.0, |this| {
                                             this.layer_scale(char_scale)
-                                                .layer_scale_origin(gpui::point(0.5, 0.5))
+                                                .layer_scale_origin(gpui::point(0.5, 0.8))
                                         })
                                         .opacity(char_opacity)
                                         .child(ch_str)
@@ -3561,7 +3564,7 @@ fn ruby_lyrics_lane(
                                         })
                                         .when(char_scale != 1.0, |this| {
                                             this.layer_scale(char_scale)
-                                                .layer_scale_origin(gpui::point(0.5, 0.5))
+                                                .layer_scale_origin(gpui::point(0.5, 0.8))
                                         })
                                         .text_color(sung.karaoke_tint)
                                         .child(ch_str)
@@ -3576,7 +3579,7 @@ fn ruby_lyrics_lane(
                                         })
                                         .when(char_scale != 1.0, |this| {
                                             this.layer_scale(char_scale)
-                                                .layer_scale_origin(gpui::point(0.5, 0.5))
+                                                .layer_scale_origin(gpui::point(0.5, 0.8))
                                         })
                                         .child(
                                             div().opacity(0.50).child(ch_str.clone()),
