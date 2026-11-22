@@ -7,6 +7,21 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-11-22
+
+### Added
+
+- Native display VSync (60/120/144Hz) frame rate and continuous wave ripple physics for karaoke and ruby lyrics, matching Oto Android fluid motion without 45 FPS pulldown micro-stutter.
+- Internet Radio stations via Subsonic servers: browse and play internet radio streams directly from your server with a dedicated Radio view.
+- Deezer multi-disc album numbering by disc.
+
+### Fixed
+
+- Scrobbling secrets (Last.fm, ListenBrainz, Maloja) moved out of `settings.json` into secure storage.
+- Spotify Soloist queue synchronization across other Spotify devices and lyrics alignment on track start.
+- SponsorBlock opening skips allow going back directly to the music start.
+- Pinned Liked Songs play button works directly from sidebar and lists.
+
 ## [2.1.0] - 2026-11-21
 
 ### Added
