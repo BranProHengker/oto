@@ -1073,14 +1073,12 @@ impl Aside {
                 this.open_lyrics_menu(position, cx);
             }));
 
-        let save_btn = Button::new("lyrics-floating-save")
-            .ghost()
-            .small()
-            .icon("icons/download.svg")
-            .tooltip("lyrics-save-beside-song")
-            .on_click(cx.listener(|this, _, _, cx| {
-                this.save_current_lyrics_beside_song(cx);
-            }));
+        let is_active = self.lyrics_menu.is_some();
+        let idle_opacity = match (is_active, self.titled) {
+            (true, _) => 1.0,
+            (false, false) => 0.25,
+            (false, true) => 0.5,
+        };
 
         Some(
             div()
@@ -1090,19 +1088,16 @@ impl Aside {
                 .right_4()
                 .flex()
                 .items_center()
-                .gap_1()
-                .px_1p5()
+                .px_1()
                 .py(px(2.))
                 .rounded_full()
                 .bg(theme.popover.opacity(0.85))
                 .border_1()
                 .border_color(theme.border.opacity(0.6))
                 .shadow_md()
-                .opacity(0.75)
+                .opacity(idle_opacity)
                 .hover(|s| s.opacity(1.0).bg(theme.popover))
-                .child(switch_btn)
-                .child(div().h_3().w_px().bg(theme.border.opacity(0.5)))
-                .child(save_btn),
+                .child(switch_btn),
         )
     }
 
