@@ -206,7 +206,7 @@ impl Lyrics {
         let Some(track) = shown.as_ref() else {
             return self.forget(cx);
         };
-        let Some(id) = track.id.as_deref() else {
+        let Some(id) = track.id.as_deref().filter(|id| !music::is_station_id(id)) else {
             return self.forget(cx);
         };
         let query = self.query(track, id, cx);
@@ -473,7 +473,7 @@ impl Lyrics {
         let Some(track) = self.queue.read(cx).upcoming().next() else {
             return;
         };
-        let Some(id) = track.id.as_deref() else {
+        let Some(id) = track.id.as_deref().filter(|id| !music::is_station_id(id)) else {
             return;
         };
         if self.ahead_of.as_deref() == Some(id) || self.recalls(id) {

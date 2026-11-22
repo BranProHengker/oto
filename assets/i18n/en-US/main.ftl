@@ -1771,3 +1771,13 @@ lrc-studio-edit-placeholder = Type lyric line text here...
 lrc-studio-time-placeholder = mm:ss.xx
 lrc-studio-saved-toast = Lyrics saved successfully!
 
+
+
+nav-radio = Radio
+stations-empty = Radio stations added on your server will appear here.
+stations-not-loaded = Radio stations could not be loaded.
+count-stations =
+    { $count ->
+        [one] { $count } station
+       *[other] { $count } stations
+    }

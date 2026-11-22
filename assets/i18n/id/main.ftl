@@ -1631,3 +1631,9 @@ response-graph-readout = { $frequency } · { $direction ->
         [down] -{ $gain }
        *[flat] { $gain }
     } dB
+
+
+nav-radio = Radio
+stations-empty = Stasiun radio yang ditambahkan di server kamu akan muncul di sini.
+stations-not-loaded = Stasiun radio gagal dimuat.
+count-stations = { $count } stasiun
