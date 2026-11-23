@@ -11,7 +11,7 @@ use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Lyrics, LyricsHit, LyricsLine, LyricsQuery, LyricsWord};
+use crate::{Lyrics, LyricsHit, LyricsLine, LyricsQuery, LyricsWord, Voice};
 
 /// The provider that reads a local file's own tags.
 pub const LOCAL: &str = "Local";
@@ -565,8 +565,13 @@ pub fn to_standard_lrc(lyrics: &Lyrics) -> String {
                 let minutes = line.start.as_secs() / 60;
                 let seconds = line.start.as_secs() % 60;
                 let centis = line.start.subsec_millis() / 10;
+                let voice_tag = match line.voice {
+                    Voice::Counter => "{agent:v2}",
+                    Voice::Duet => "{agent:both}",
+                    Voice::Lead => "",
+                };
                 out.push_str(&format!(
-                    "[{:02}:{:02}.{:02}] {}\n",
+                    "[{:02}:{:02}.{:02}]{voice_tag} {}\n",
                     minutes, seconds, centis, line.text
                 ));
                 for sec in &line.secondary {
@@ -607,10 +612,15 @@ pub fn to_enhanced_lrc(lyrics: &Lyrics) -> String {
                 let line_min = line.start.as_secs() / 60;
                 let line_sec = line.start.as_secs() % 60;
                 let line_cs = line.start.subsec_millis() / 10;
+                let voice_tag = match line.voice {
+                    Voice::Counter => "{agent:v2}",
+                    Voice::Duet => "{agent:both}",
+                    Voice::Lead => "",
+                };
                 match &line.words {
                     Some(words) if !words.is_empty() => {
                         let mut line_buf =
-                            format!("[{:02}:{:02}.{:02}]", line_min, line_sec, line_cs);
+                            format!("[{:02}:{:02}.{:02}]{voice_tag}", line_min, line_sec, line_cs);
                         for word in words {
                             let w_min = word.start.as_secs() / 60;
                             let w_sec = word.start.as_secs() % 60;
@@ -625,7 +635,7 @@ pub fn to_enhanced_lrc(lyrics: &Lyrics) -> String {
                     }
                     _ => {
                         out.push_str(&format!(
-                            "[{:02}:{:02}.{:02}] {}\n",
+                            "[{:02}:{:02}.{:02}]{voice_tag} {}\n",
                             line_min, line_sec, line_cs, line.text
                         ));
                     }
