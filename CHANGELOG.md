@@ -7,6 +7,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- Compound and multilingual lyrics search fallback: titles with Japanese/English sub-titles, featured artists, or bracketed annotations automatically fall back to clean title candidates and primary artist on Kugou, LRCLIB, and NetEase.
+- Expire negative lyrics lookup cache: failed provider queries are no longer permanently locked out in the cache database when a track lacks timed lyrics.
+
 ## [2.2.0] - 2026-11-22
 
 ### Added

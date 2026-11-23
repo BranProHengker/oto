@@ -868,13 +868,36 @@ async fn gather(
                     found
                 });
             if found.as_ref().map_or(true, |v| v.is_empty()) && name != music::lyrics::LOCAL {
-                if let Some(primary) = primary_artist(&query.artist) {
-                    let mut fallback = query.clone();
-                    fallback.artist = primary.to_string();
+                let primary = primary_artist(&query.artist);
+                let title_candidates = music::lyrics::search_titles(&query.title);
+
+                let mut fallbacks = Vec::new();
+                if let Some(primary) = primary {
+                    let mut q = query.clone();
+                    q.artist = primary.to_string();
+                    fallbacks.push(q);
+                }
+                for title in title_candidates {
+                    if let Some(primary) = primary {
+                        let mut q = query.clone();
+                        q.title = title.clone();
+                        q.artist = primary.to_string();
+                        fallbacks.push(q);
+                    }
+                    let mut q = query.clone();
+                    q.title = title;
+                    fallbacks.push(q);
+                }
+
+                for fallback in fallbacks {
                     if let Ok(mut hits) = provider.search(&fallback).await {
-                        hits.retain(|hit| music::lyrics::matched(&fallback, hit));
+                        hits.retain(|hit| {
+                            music::lyrics::matched(&query, hit)
+                                || music::lyrics::matched(&fallback, hit)
+                        });
                         if !hits.is_empty() {
                             found = Some(hits);
+                            break;
                         }
                     }
                 }
@@ -902,7 +925,9 @@ async fn gather(
 }
 
 fn primary_artist(artist: &str) -> Option<&str> {
-    for sep in [",", "/", ";", " feat. ", " ft. ", " & "] {
+    for sep in [
+        ",", "/", ";", " feat. ", " ft. ", " feat ", " ft ", " & ", "、", "・",
+    ] {
         if let Some((first, _)) = artist.split_once(sep) {
             let trimmed = first.trim();
             if !trimmed.is_empty() && trimmed != artist {
