@@ -393,6 +393,77 @@ fn title_candidates<'a>(text: &'a str) -> Vec<&'a str> {
     candidates
 }
 
+/// Extracts plausible alternative title search queries from a potentially decorated or compound title.
+pub fn search_titles(title: &str) -> Vec<String> {
+    let mut candidates = Vec::new();
+
+    let stripped = strip_featured(title);
+    if !stripped.is_empty() && stripped != title {
+        candidates.push(stripped.clone());
+    }
+
+    for text in [title, &stripped] {
+        if text.is_empty() {
+            continue;
+        }
+        for sep in [" - ", " / "] {
+            if let Some((left, right)) = text.split_once(sep) {
+                let left = left.trim();
+                let right = right.trim();
+                if !left.is_empty() && left != title {
+                    candidates.push(left.to_owned());
+                    let left_strip = strip_featured(left);
+                    if !left_strip.is_empty() && left_strip != left && left_strip != title {
+                        candidates.push(left_strip);
+                    }
+                }
+                if !right.is_empty() && right != title {
+                    candidates.push(right.to_owned());
+                    let right_strip = strip_featured(right);
+                    if !right_strip.is_empty() && right_strip != right && right_strip != title {
+                        candidates.push(right_strip);
+                    }
+                }
+            }
+        }
+    }
+
+    for text in [title, &stripped] {
+        for open in ['(', '['] {
+            if let Some((before, _)) = text.split_once(open) {
+                let before = before.trim();
+                if !before.is_empty() && before != title {
+                    candidates.push(before.to_owned());
+                }
+            }
+        }
+    }
+
+    let mut seen = std::collections::HashSet::new();
+    seen.insert(title.to_owned());
+    candidates.retain(|c| seen.insert(c.clone()));
+    candidates
+}
+
+fn strip_featured(text: &str) -> String {
+    let mut result = text.to_owned();
+    let prefixes = [
+        "(feat.", "(feat ", "(ft.", "(ft ", "(with ", "[feat.", "[feat ", "[ft.", "[ft ", "[with ",
+    ];
+    for prefix in prefixes {
+        while let Some(start) = result.to_lowercase().find(prefix) {
+            let closer = if prefix.starts_with('(') { ')' } else { ']' };
+            if let Some(end) = result[start..].find(closer) {
+                result.replace_range(start..start + end + 1, "");
+            } else {
+                result.truncate(start);
+                break;
+            }
+        }
+    }
+    result.trim().to_owned()
+}
+
 #[allow(dead_code)]
 pub(crate) fn has_non_latin(text: &str) -> bool {
     text.chars().any(|c| {

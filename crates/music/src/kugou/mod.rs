@@ -222,39 +222,42 @@ impl LyricsProvider for Kugou {
     }
 
     async fn search(&self, query: &LyricsQuery) -> Result<Vec<LyricsHit>> {
-        let wanted = format!("{} - {}", query.title, query.artist);
-        let mut songs = self.songs(&wanted).await.unwrap_or_default();
-        if songs.is_empty() {
-            let fallback = format!("{} {}", query.artist, query.title);
-            songs = self.songs(&fallback).await.unwrap_or_default();
+        let mut candidates = Vec::new();
+        candidates.push(format!("{} - {}", query.title, query.artist));
+        candidates.push(format!("{} {}", query.artist, query.title));
+
+        let primary_artist = query
+            .artist
+            .split([',', '&', ';', '/', '、', '・'])
+            .next()
+            .unwrap_or("")
+            .trim();
+        if !primary_artist.is_empty() && primary_artist != query.artist {
+            candidates.push(format!("{} - {}", query.title, primary_artist));
+            candidates.push(format!("{} {}", query.title, primary_artist));
         }
-        if songs.is_empty() && !query.title.is_empty() {
-            songs = self.songs(&query.title).await.unwrap_or_default();
+        if !query.title.is_empty() {
+            candidates.push(query.title.clone());
         }
-        if songs.is_empty() {
-            let primary_artist = query
-                .artist
-                .split([',', '&', ';', '/', '、', '・'])
-                .next()
-                .unwrap_or("")
-                .trim();
-            if !primary_artist.is_empty() && primary_artist != query.artist {
-                let fallback = format!("{} - {}", query.title, primary_artist);
-                songs = self.songs(&fallback).await.unwrap_or_default();
+        if let Some(album) = query.album.as_deref() {
+            if !album.is_empty() && album != query.title {
+                candidates.push(format!("{album} {}", query.artist));
+                candidates.push(album.to_owned());
             }
         }
-        if songs.is_empty() {
-            if let Some(album) = query.album.as_deref() {
-                if !album.is_empty() && album != query.title {
-                    let fallback = format!("{album} {}", query.artist);
-                    songs = self.songs(&fallback).await.unwrap_or_default();
-                    if songs.is_empty() {
-                        songs = self.songs(album).await.unwrap_or_default();
-                    }
-                }
+
+        let mut songs = Vec::new();
+        for keyword in candidates {
+            if keyword.is_empty() {
+                continue;
+            }
+            let found = self.songs(&keyword).await.unwrap_or_default();
+            let matched = shortlist(found, query);
+            if !matched.is_empty() {
+                songs = matched;
+                break;
             }
         }
-        let songs = shortlist(songs, query);
 
         let mut tasks = JoinSet::new();
         for song in songs {

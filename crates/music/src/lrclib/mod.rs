@@ -99,7 +99,25 @@ impl LyricsProvider for LrcLib {
             .json()
             .await
             .context("cannot read the lrclib response")?;
-        Ok(found.into_iter().filter_map(hit).collect())
+        let mut hits: Vec<LyricsHit> = found.into_iter().filter_map(hit).collect();
+        if hits.is_empty() {
+            let q = format!("{} {}", query.title, query.artist);
+            if let Ok(response) = self
+                .http
+                .get(ENDPOINT)
+                .query(&[("q", q.as_str())])
+                .header("User-Agent", AGENT)
+                .send()
+                .await
+            {
+                if response.status().is_success() {
+                    if let Ok(found) = response.json::<Vec<Found>>().await {
+                        hits = found.into_iter().filter_map(hit).collect();
+                    }
+                }
+            }
+        }
+        Ok(hits)
     }
 }
 

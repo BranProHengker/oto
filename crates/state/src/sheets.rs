@@ -79,15 +79,22 @@ impl Sheets {
         let kept: Kept = serde_json::from_str(&value)
             .inspect_err(|error| log::warn!("lyrics: cannot read the cached sheet: {error}"))
             .ok()?;
+        let hits: Vec<LyricsHit> = kept
+            .hits
+            .into_iter()
+            .filter_map(|held| held.hit(known))
+            .collect();
         let answered = kept
             .answered
             .iter()
             .filter_map(|source| known.iter().copied().find(|name| name == source))
-            .collect();
-        let hits = kept
-            .hits
-            .into_iter()
-            .filter_map(|held| held.hit(known))
+            .filter(|name| {
+                let has_hit = hits.iter().any(|hit| hit.source == *name);
+                let has_timed = hits
+                    .iter()
+                    .any(|hit| hit.lyrics.synced() || hit.lyrics.worded());
+                has_hit || (has_timed && now().saturating_sub(kept.stored) < 86_400)
+            })
             .collect();
         Some((hits, answered))
     }
