@@ -13,10 +13,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - Native display VSync (60/120/144Hz) frame rate and continuous wave ripple physics for karaoke and ruby lyrics, matching Oto Android fluid motion without 45 FPS pulldown micro-stutter.
 - Internet Radio stations via Subsonic servers: browse and play internet radio streams directly from your server with a dedicated Radio view.
+- Filter albums by track count in the Library Albums tab (Single, EP, full album).
+- Split recently added from newest releases on Subsonic and Navidrome home shelves.
+- Automatic navigation to startup page when switching music provider.
 - Deezer multi-disc album numbering by disc.
 
 ### Fixed
 
+- Rapid timeline seeking merged into a single decoder jump to prevent audio stutter and backpressure lag.
+- Artist popular song order preserved when expanding the list.
+- Unreachable Apple Music playback edge CDN endpoints skipped immediately instead of waiting for 42s timeout.
+- Search panel opened only on direct click inside the search input.
+- Space preserved before decimal numbers in lyrics parser.
+- Floating lyric switcher cleaned up: removed duplicate download button and lowered idle opacity to 0.25 in fullscreen.
 - Scrobbling secrets (Last.fm, ListenBrainz, Maloja) moved out of `settings.json` into secure storage.
 - Spotify Soloist queue synchronization across other Spotify devices and lyrics alignment on track start.
 - SponsorBlock opening skips allow going back directly to the music start.
