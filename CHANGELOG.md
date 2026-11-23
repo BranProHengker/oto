@@ -7,10 +7,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.2.1] - 2026-11-23
+
+### Added
+
+- Duet and multi-voice tag export in lyrics: saving to `.lrc` writes `{agent:v2}` and `{agent:both}` tags for secondary vocalists, keeping the two-column duet layout when reloaded locally.
+
 ### Fixed
 
-- Compound and multilingual lyrics search fallback: titles with Japanese/English sub-titles, featured artists, or bracketed annotations automatically fall back to clean title candidates and primary artist on Kugou, LRCLIB, and NetEase.
-- Expire negative lyrics lookup cache: failed provider queries are no longer permanently locked out in the cache database when a track lacks timed lyrics.
+- Restored provider badge icons in Discord Rich Presence: YouTube Music, Local, and Subsonic badges now display correctly via direct Discord CDN URLs.
+- Compound and multilingual lyrics lookup fallbacks: songs with compound titles, Japanese/English sub-titles, or featured artist annotations fall back to clean title variants across Apple Music, Kugou, NetEase, and LRCLIB.
+- Expire negative lyrics lookup cache: failed provider queries no longer permanently lock out tracks from being searched again after provider updates.
 
 ## [2.2.0] - 2026-11-22
 
