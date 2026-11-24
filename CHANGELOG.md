@@ -15,6 +15,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Restored playback crossfade engine with DJ bass dip and silence trimming that was omitted during upstream sync.
 - Restored provider badge icons in Discord Rich Presence: YouTube Music, Local, and Subsonic badges now display correctly via direct Discord CDN URLs.
 - Compound and multilingual lyrics lookup fallbacks: songs with compound titles, Japanese/English sub-titles, or featured artist annotations fall back to clean title variants across Apple Music, Kugou, NetEase, and LRCLIB.
 - Expire negative lyrics lookup cache: failed provider queries no longer permanently lock out tracks from being searched again after provider updates.
