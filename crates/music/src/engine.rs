@@ -1041,32 +1041,38 @@ impl<F: Fetch> Playing<F> {
         })
     }
 
-    /// Skips leading silent frames (up to `max_frames`) so the track's sound begins immediately.
+    /// Skips leading silent frames (up to `max_frames`) so the track's sound begins immediately,
+    /// aligned strictly to full frames to prevent stereo phase and channel inversion.
     fn trim_leading_silence(&mut self, max_frames: usize) {
         let channels = usize::from(self.channels).max(1);
-        let max_samples = max_frames * channels;
-        let mut skipped_samples = 0;
+        let mut skipped_frames = 0;
         let mut buffered = Vec::new();
 
-        while skipped_samples < max_samples {
-            let Some(sample) = self.source.by_ref().next() else {
-                break;
-            };
-            skipped_samples += 1;
-            if sample.abs() > 0.003 {
-                buffered.push(sample * self.gain);
-                for _ in 1..channels {
-                    if let Some(ch_sample) = self.source.by_ref().next() {
-                        buffered.push(ch_sample * self.gain);
-                        skipped_samples += 1;
-                    }
+        while skipped_frames < max_frames {
+            let mut frame = Vec::with_capacity(channels);
+            for _ in 0..channels {
+                if let Some(sample) = self.source.by_ref().next() {
+                    frame.push(sample);
+                }
+            }
+            if frame.len() < channels {
+                for sample in frame {
+                    buffered.push(sample * self.gain);
                 }
                 break;
             }
+            let audible = frame.iter().any(|s| s.abs() > 0.001);
+            if audible {
+                for sample in frame {
+                    buffered.push(sample * self.gain);
+                }
+                break;
+            }
+            skipped_frames += 1;
         }
 
-        if skipped_samples > 0 {
-            self.decoded_frames += (skipped_samples / channels) as u64;
+        if skipped_frames > 0 {
+            self.decoded_frames += skipped_frames as u64;
         }
         self.preloaded_samples = buffered;
     }
@@ -1602,7 +1608,7 @@ fn audio_loop<F: Fetch>(
                 }
             }
 
-            if fade.step >= fade.total || old_frames == 0 {
+            if fade.step >= fade.total {
                 fading = None;
             }
         }

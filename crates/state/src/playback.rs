@@ -112,7 +112,7 @@ const MAX_GAIN: f32 = 1.35;
 /// A level this low counts as muted, matching the player's volume button.
 const MUTE_THRESHOLD: f32 = 0.001;
 /// The level a mute button restores when the volume was already zero.
-const DEFAULT_UNMUTE_VOLUME: f32 = 0.7;
+const DEFAULT_UNMUTE_VOLUME: f32 = 0.85;
 const SIMILAR_LIMIT: usize = 20;
 
 /// How few tracks may be left to play before radio asks for the next batch of suggestions.

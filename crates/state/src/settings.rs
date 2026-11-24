@@ -416,7 +416,7 @@ const RELOAD_DELAY: Duration = Duration::from_millis(150);
 const RELOAD_RETRY_DELAY: Duration = Duration::from_secs(1);
 const RELOAD_RETRIES: usize = 3;
 const THEMES_DIRECTORY: &str = "themes";
-const DEFAULT_VOLUME: f32 = 0.7;
+const DEFAULT_VOLUME: f32 = 0.85;
 /// How many chosen search results the history keeps, across every provider.
 const PICKS: usize = 40;
 const DEFAULT_SIDEBAR_WIDTH: f32 = 195.;
