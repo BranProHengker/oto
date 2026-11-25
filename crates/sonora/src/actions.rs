@@ -61,7 +61,8 @@ pub fn register(_lingers: bool, cx: &mut App) {
         #[cfg(target_os = "linux")]
         let should_linger = hiding;
         #[cfg(not(target_os = "linux"))]
-        let should_linger = hiding || (_lingers && Sonora::global(cx).settings.read(cx).close_to_tray());
+        let should_linger =
+            hiding || (_lingers && Sonora::global(cx).settings.read(cx).close_to_tray());
 
         match should_linger {
             true => crate::dock::show(false),

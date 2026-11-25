@@ -166,7 +166,11 @@ fn find_local_track(query: &LyricsQuery) -> Option<PathBuf> {
         .collect();
 
     let mut search_dirs = configured_folders;
-    search_dirs.extend([dirs::audio_dir(), dirs::download_dir()].into_iter().flatten());
+    search_dirs.extend(
+        [dirs::audio_dir(), dirs::download_dir()]
+            .into_iter()
+            .flatten(),
+    );
     for dir in search_dirs {
         let candidates = [
             format!("{} - {}.ttml", query.artist, query.title),

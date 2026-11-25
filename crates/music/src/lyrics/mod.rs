@@ -619,8 +619,10 @@ pub fn to_enhanced_lrc(lyrics: &Lyrics) -> String {
                 };
                 match &line.words {
                     Some(words) if !words.is_empty() => {
-                        let mut line_buf =
-                            format!("[{:02}:{:02}.{:02}]{voice_tag}", line_min, line_sec, line_cs);
+                        let mut line_buf = format!(
+                            "[{:02}:{:02}.{:02}]{voice_tag}",
+                            line_min, line_sec, line_cs
+                        );
                         for word in words {
                             let w_min = word.start.as_secs() / 60;
                             let w_sec = word.start.as_secs() % 60;

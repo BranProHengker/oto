@@ -26,12 +26,12 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use cli::commands::CommandType;
+#[cfg(not(target_os = "linux"))]
+use gpui::QuitMode;
 use gpui::{
     App, AppContext as _, Bounds, Pixels, Size, TitlebarOptions, WindowBounds, WindowOptions, px,
     size,
 };
-#[cfg(not(target_os = "linux"))]
-use gpui::QuitMode;
 use music::LyricsProvider;
 use music::link::Linked;
 use router::{Destination, Screen};

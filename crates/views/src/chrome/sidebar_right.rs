@@ -198,7 +198,9 @@ impl SidebarRight {
             self.open = true;
             match tab {
                 SideTab::Queue => self.queue_aside.update(cx, |aside, cx| aside.show(tab, cx)),
-                SideTab::Lyrics => self.lyrics_aside.update(cx, |aside, cx| aside.show(tab, cx)),
+                SideTab::Lyrics => self
+                    .lyrics_aside
+                    .update(cx, |aside, cx| aside.show(tab, cx)),
                 _ => {}
             }
             self.remember(cx);
@@ -240,7 +242,9 @@ impl SidebarRight {
 
         match tab {
             SideTab::Queue => self.queue_aside.update(cx, |aside, cx| aside.show(tab, cx)),
-            SideTab::Lyrics => self.lyrics_aside.update(cx, |aside, cx| aside.show(tab, cx)),
+            SideTab::Lyrics => self
+                .lyrics_aside
+                .update(cx, |aside, cx| aside.show(tab, cx)),
             _ => {}
         }
         self.remember(cx);
@@ -341,21 +345,9 @@ impl Render for SidebarRight {
                         .flex()
                         .flex_row()
                         .size_full()
-                        .child(
-                            div()
-                                .flex_1()
-                                .h_full()
-                                .min_w_0()
-                                .child(left_view),
-                        )
+                        .child(div().flex_1().h_full().min_w_0().child(left_view))
                         .child(div().w_px().h_full().bg(theme.border))
-                        .child(
-                            div()
-                                .flex_1()
-                                .h_full()
-                                .min_w_0()
-                                .child(right_view),
-                        )
+                        .child(div().flex_1().h_full().min_w_0().child(right_view))
                         .into_any_element()
                 }
                 [single] => self.render_tab(*single),

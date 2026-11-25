@@ -208,12 +208,7 @@ pub enum LyricsPreset {
 }
 
 impl LyricsPreset {
-    pub const ALL: [Self; 4] = [
-        Self::Motion,
-        Self::Legacy,
-        Self::Boring,
-        Self::Plain,
-    ];
+    pub const ALL: [Self; 4] = [Self::Motion, Self::Legacy, Self::Boring, Self::Plain];
 
     pub fn id(self) -> &'static str {
         match self {

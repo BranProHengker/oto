@@ -241,14 +241,11 @@ impl ArtworkSearch {
         };
         let terms = format!("{} {name}", query.artist);
         let country = if has_cjk(&terms) { Some("JP") } else { None };
-        let mut request = self
-            .http
-            .get(ITUNES)
-            .query(&[
-                ("term", terms.as_str()),
-                ("entity", entity),
-                ("limit", RESULTS),
-            ]);
+        let mut request = self.http.get(ITUNES).query(&[
+            ("term", terms.as_str()),
+            ("entity", entity),
+            ("limit", RESULTS),
+        ]);
         if let Some(c) = country {
             request = request.query(&[("country", c)]);
         }

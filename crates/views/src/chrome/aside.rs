@@ -16,10 +16,9 @@ use i18n::t;
 use music::{Contributor, RadioSeed, Shape, Track, Voice};
 use router::{Destination, LibraryTab, Link as _};
 use state::{
-    AppSettings, Lyrics, LyricsState, Network, Playback, PlaybackState, Queue, QueuePosition,
-    QueueSections as Sections, QueueSlot as Slot, QueueView, RomanizationScripts,
-    RomanizationStyle, LyricsPreset, Shelf, SideTab,
-    Sonora, Whence,
+    AppSettings, Lyrics, LyricsPreset, LyricsState, Network, Playback, PlaybackState, Queue,
+    QueuePosition, QueueSections as Sections, QueueSlot as Slot, QueueView, RomanizationScripts,
+    RomanizationStyle, Shelf, SideTab, Sonora, Whence,
 };
 use ui::{
     ActiveTheme as _, Avatar, Button, Card, DraggedPin, Edge, Glowing as _, Initials, Menu,
@@ -1012,25 +1011,24 @@ impl Aside {
         let format = self.settings.read(cx).lyrics_save_format();
         let (content, ext) = music::format_lyrics(&hit.lyrics, hit.source, format);
 
-        let target =
-            if let Some(local_path) = track_id.and_then(music::path_from_track_id) {
-                local_path.with_extension(ext)
-            } else {
-                let filename = format!("{} - {}.{}", track.artists, track.name, ext);
-                let safe_filename =
-                    filename.replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], "_");
-                let dest_dir = self
-                    .settings
-                    .read(cx)
-                    .local_folders()
-                    .first()
-                    .map(std::path::PathBuf::from)
-                    .filter(|p| p.is_dir())
-                    .or_else(dirs::audio_dir)
-                    .or_else(dirs::download_dir)
-                    .unwrap_or_else(|| std::path::PathBuf::from("."));
-                dest_dir.join(&safe_filename)
-            };
+        let target = if let Some(local_path) = track_id.and_then(music::path_from_track_id) {
+            local_path.with_extension(ext)
+        } else {
+            let filename = format!("{} - {}.{}", track.artists, track.name, ext);
+            let safe_filename =
+                filename.replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], "_");
+            let dest_dir = self
+                .settings
+                .read(cx)
+                .local_folders()
+                .first()
+                .map(std::path::PathBuf::from)
+                .filter(|p| p.is_dir())
+                .or_else(dirs::audio_dir)
+                .or_else(dirs::download_dir)
+                .unwrap_or_else(|| std::path::PathBuf::from("."));
+            dest_dir.join(&safe_filename)
+        };
 
         match std::fs::write(&target, &content) {
             Ok(_) => {
@@ -1618,7 +1616,8 @@ impl Aside {
                         || line_has_passed(line, position);
                     let is_active = Some(index) == active_line;
                     let is_upcoming = active_line.is_some_and(|active| index == active + 1);
-                    let is_past = active_line.is_some_and(|active| index < active) || line_has_ended;
+                    let is_past =
+                        active_line.is_some_and(|active| index < active) || line_has_ended;
                     let worded = karaoke_effects && line.worded() && line.words.is_some();
                     let (past_opacity, upcoming_opacity, default_opacity) = match lyrics_preset {
                         LyricsPreset::Plain => (0.30, 0.50, 0.40),
@@ -1686,12 +1685,16 @@ impl Aside {
                     };
 
                     let is_ruby = romanization_style == RomanizationStyle::Ruby
-                        && selected_romanization_tokens(&line.romanized, romanization_scripts).is_some();
+                        && selected_romanization_tokens(&line.romanized, romanization_scripts)
+                            .is_some();
                     let ruby_tokens = is_ruby
-                        .then(|| selected_romanization_tokens(&line.romanized, romanization_scripts))
+                        .then(|| {
+                            selected_romanization_tokens(&line.romanized, romanization_scripts)
+                        })
                         .flatten();
 
-                    let primary = match (ruby_tokens, primary_karaoke, line.words.as_ref(), wrapped) {
+                    let primary = match (ruby_tokens, primary_karaoke, line.words.as_ref(), wrapped)
+                    {
                         (Some(tokens), karaoke, _, _) => ruby_lyrics_lane(
                             tokens,
                             &line.text,
@@ -1806,17 +1809,18 @@ impl Aside {
                         .when(warmth > 0., |this| {
                             this.bg(theme.table_hover.opacity(warmth))
                         })
-                        .when(line.voice.duet(), |this| {
-                            this.items_center().text_center()
-                        })
-                        .when(!line.voice.duet() && hugs_end(line.voice, sung.mirrored), |this| {
-                            this.items_end().text_right()
-                        })
+                        .when(line.voice.duet(), |this| this.items_center().text_center())
+                        .when(
+                            !line.voice.duet() && hugs_end(line.voice, sung.mirrored),
+                            |this| this.items_end().text_right(),
+                        )
                         .child(primary)
                         .when(ruby_tokens.is_none(), |this| {
                             this.when_some(
                                 selected_romanization(&line.romanized, romanization_scripts),
-                                |this, text| this.child(romanized_lyrics_lane(text, lane_size, &theme)),
+                                |this, text| {
+                                    this.child(romanized_lyrics_lane(text, lane_size, &theme))
+                                },
                             )
                         })
                         .children(lanes)
@@ -1871,9 +1875,10 @@ impl Aside {
                         .w_full()
                         .flex()
                         .when(line.voice.duet(), |this| this.justify_center())
-                        .when(!line.voice.duet() && hugs_end(line.voice, sung.mirrored), |this| {
-                            this.justify_end()
-                        })
+                        .when(
+                            !line.voice.duet() && hugs_end(line.voice, sung.mirrored),
+                            |this| this.justify_end(),
+                        )
                         .when(traded, |this| this.mt(phrase_gap * 0.5))
                         .cursor_pointer()
                         .on_mouse_down(
@@ -1905,7 +1910,9 @@ impl Aside {
                             _ => this,
                         });
                     let verse_line = match (growing, shrinking, is_active) {
-                        (_, true, false) => verse_line.text_size(target_line_size).text_color(paint),
+                        (_, true, false) => {
+                            verse_line.text_size(target_line_size).text_color(paint)
+                        }
                         (true, _, _) | (_, _, true) => {
                             verse_line.text_size(active_size).text_color(paint)
                         }
@@ -2674,7 +2681,10 @@ pub(crate) fn verse(
             div()
                 .w_full()
                 .when(line.voice.duet(), |this| this.text_center())
-                .when(!line.voice.duet() && hugs_end(line.voice, mirrored), |this| this.text_right())
+                .when(
+                    !line.voice.duet() && hugs_end(line.voice, mirrored),
+                    |this| this.text_right(),
+                )
                 .child(SharedString::from(line.text.clone())),
             &sung,
         ),
@@ -2708,18 +2718,20 @@ pub(crate) fn verse(
             false => FontWeight::SEMIBOLD,
         })
         .when(line.voice.duet(), |this| this.text_center())
-        .when(!line.voice.duet() && hugs_end(line.voice, mirrored), |this| this.text_right())
+        .when(
+            !line.voice.duet() && hugs_end(line.voice, mirrored),
+            |this| this.text_right(),
+        )
         .child(
             div()
                 .flex()
                 .flex_col()
                 .gap_1()
-                .when(line.voice.duet(), |this| {
-                    this.items_center().text_center()
-                })
-                .when(!line.voice.duet() && hugs_end(line.voice, mirrored), |this| {
-                    this.items_end().text_right()
-                })
+                .when(line.voice.duet(), |this| this.items_center().text_center())
+                .when(
+                    !line.voice.duet() && hugs_end(line.voice, mirrored),
+                    |this| this.items_end().text_right(),
+                )
                 .child(primary)
                 .when(ruby_tokens.is_none(), |this| {
                     this.when_some(
@@ -2980,9 +2992,7 @@ fn karaoke_lane(
                                 this.layer_scale(char_scale)
                                     .layer_scale_origin(gpui::point(0.5, 0.8))
                             })
-                            .child(
-                                div().opacity(0.50).child(ch_str.clone()),
-                            )
+                            .child(div().opacity(0.50).child(ch_str.clone()))
                             .when(sung.preset.has_glow() && effects(), |this| {
                                 let glow_opacity = if is_long { 0.90 } else { 0.65 };
                                 this.child(
@@ -2995,9 +3005,7 @@ fn karaoke_lane(
                                         .overflow_hidden()
                                         .text_color(sung.karaoke_tint.opacity(glow_opacity))
                                         .blur(px(4.0))
-                                        .child(
-                                            div().whitespace_nowrap().child(ch_str.clone()),
-                                        ),
+                                        .child(div().whitespace_nowrap().child(ch_str.clone())),
                                 )
                             })
                             .child(
@@ -3009,9 +3017,7 @@ fn karaoke_lane(
                                     .w(relative(char_share))
                                     .overflow_hidden()
                                     .text_color(sung.karaoke_tint)
-                                    .child(
-                                        div().whitespace_nowrap().child(ch_str),
-                                    ),
+                                    .child(div().whitespace_nowrap().child(ch_str)),
                             )
                     };
 
@@ -3070,7 +3076,8 @@ fn karaoke_lane(
                 this.layer_translate(gpui::point(px(0.), px(y_offset)))
             })
             .when(word_scale != 1.0, |this| {
-                this.layer_scale(word_scale).layer_scale_origin(gpui::point(0.5, 0.5))
+                this.layer_scale(word_scale)
+                    .layer_scale_origin(gpui::point(0.5, 0.5))
             })
             .when(word_opacity < 1.0 && !reveal.shown, |this| {
                 this.opacity(word_opacity)
@@ -3132,9 +3139,10 @@ fn karaoke_lane(
                         .flex_wrap()
                         .when(rtl, |this| this.flex_row_reverse())
                         .when(voice.duet(), |this| this.justify_center())
-                        .when(!voice.duet() && (hugs_end(voice, sung.mirrored) != rtl), |this| {
-                            this.justify_end()
-                        })
+                        .when(
+                            !voice.duet() && (hugs_end(voice, sung.mirrored) != rtl),
+                            |this| this.justify_end(),
+                        )
                         .children(range.map(|index| {
                             let word_idx = spoken.get(index).copied().unwrap_or(index);
                             let share = sweep(word_idx);
@@ -3479,7 +3487,10 @@ fn ruby_lyrics_lane(
                     };
                     let is_long = dur >= std::time::Duration::from_millis(350);
 
-                    if active && audible_count > 1 && (sung.preset.is_word_rising() || sung.preset.has_wave_lift()) {
+                    if active
+                        && audible_count > 1
+                        && (sung.preset.is_word_rising() || sung.preset.has_wave_lift())
+                    {
                         let n = audible_count as f32;
                         let w = 1.0 / n;
                         let s = share;
@@ -3586,9 +3597,7 @@ fn ruby_lyrics_lane(
                                             this.layer_scale(char_scale)
                                                 .layer_scale_origin(gpui::point(0.5, 0.8))
                                         })
-                                        .child(
-                                            div().opacity(0.50).child(ch_str.clone()),
-                                        )
+                                        .child(div().opacity(0.50).child(ch_str.clone()))
                                         .when(sung.preset.has_glow() && effects(), |this| {
                                             let glow_opacity = if is_long { 0.90 } else { 0.65 };
                                             this.child(
@@ -3599,10 +3608,15 @@ fn ruby_lyrics_lane(
                                                     .bottom_0()
                                                     .w(relative(char_share))
                                                     .overflow_hidden()
-                                                    .text_color(sung.karaoke_tint.opacity(glow_opacity))
+                                                    .text_color(
+                                                        sung.karaoke_tint.opacity(glow_opacity),
+                                                    )
                                                     .blur(px(4.0))
                                                     .child(
-                                                        div().whitespace_nowrap().line_height(relative(1.0)).child(ch_str.clone()),
+                                                        div()
+                                                            .whitespace_nowrap()
+                                                            .line_height(relative(1.0))
+                                                            .child(ch_str.clone()),
                                                     ),
                                             )
                                         })
@@ -3616,7 +3630,10 @@ fn ruby_lyrics_lane(
                                                 .overflow_hidden()
                                                 .text_color(sung.karaoke_tint)
                                                 .child(
-                                                    div().whitespace_nowrap().line_height(relative(1.0)).child(ch_str),
+                                                    div()
+                                                        .whitespace_nowrap()
+                                                        .line_height(relative(1.0))
+                                                        .child(ch_str),
                                                 ),
                                         )
                                 };
@@ -3653,45 +3670,46 @@ fn ruby_lyrics_lane(
                             .into_any_element();
                     }
 
-                    let (y_offset, word_scale, word_opacity) = if active && sung.preset.is_word_rising() {
-                        let dur = if let Some(&(start, end)) = windows.get(index) {
-                            end.saturating_sub(start)
-                        } else {
-                            std::time::Duration::ZERO
-                        };
-                        let is_long = dur >= std::time::Duration::from_millis(350);
-                        if share <= 0.0 {
-                            (5.0, 1.0, 0.50)
-                        } else if share < 1.0 {
-                            let through = share;
-                            let word_rise = smoothstep(through / 0.85);
-                            let letter_rise = smoothstep((through * 1.5).min(1.0));
-                            let rise_target = word_rise + (letter_rise - word_rise) * 0.55;
-                            let (lift, swell) = if is_long {
-                                let hold = smoothstep((dur.as_secs_f32() - 0.25) / 0.25);
-                                let swell_target = hold
-                                    * smoothstep(through / 0.20)
-                                    * smoothstep((1.0 - through) / 0.12);
-                                (swell_target * 4.0, 1.0 + swell_target * 0.10)
+                    let (y_offset, word_scale, word_opacity) =
+                        if active && sung.preset.is_word_rising() {
+                            let dur = if let Some(&(start, end)) = windows.get(index) {
+                                end.saturating_sub(start)
                             } else {
-                                (0.0, 1.0)
+                                std::time::Duration::ZERO
                             };
-                            let y = 5.0 * (1.0 - rise_target) - lift;
-                            (y, swell, 1.0)
+                            let is_long = dur >= std::time::Duration::from_millis(350);
+                            if share <= 0.0 {
+                                (5.0, 1.0, 0.50)
+                            } else if share < 1.0 {
+                                let through = share;
+                                let word_rise = smoothstep(through / 0.85);
+                                let letter_rise = smoothstep((through * 1.5).min(1.0));
+                                let rise_target = word_rise + (letter_rise - word_rise) * 0.55;
+                                let (lift, swell) = if is_long {
+                                    let hold = smoothstep((dur.as_secs_f32() - 0.25) / 0.25);
+                                    let swell_target = hold
+                                        * smoothstep(through / 0.20)
+                                        * smoothstep((1.0 - through) / 0.12);
+                                    (swell_target * 4.0, 1.0 + swell_target * 0.10)
+                                } else {
+                                    (0.0, 1.0)
+                                };
+                                let y = 5.0 * (1.0 - rise_target) - lift;
+                                (y, swell, 1.0)
+                            } else {
+                                (0.0, 1.0, 1.0)
+                            }
+                        } else if active && sung.preset.has_wave_lift() {
+                            if share > 0.0 && share < 1.0 {
+                                let lift_y = -4.0 * (share * std::f32::consts::PI).sin();
+                                let bell_zoom = 1.0 + 0.08 * (share * std::f32::consts::PI).sin();
+                                (lift_y, bell_zoom, 1.0)
+                            } else {
+                                (0.0, 1.0, if share > 0.0 { 1.0 } else { 0.50 })
+                            }
                         } else {
-                            (0.0, 1.0, 1.0)
-                        }
-                    } else if active && sung.preset.has_wave_lift() {
-                        if share > 0.0 && share < 1.0 {
-                            let lift_y = -4.0 * (share * std::f32::consts::PI).sin();
-                            let bell_zoom = 1.0 + 0.08 * (share * std::f32::consts::PI).sin();
-                            (lift_y, bell_zoom, 1.0)
-                        } else {
-                            (0.0, 1.0, if share > 0.0 { 1.0 } else { 0.50 })
-                        }
-                    } else {
-                        (0.0, 1.0, if active && share <= 0.0 { 0.50 } else { 1.0 })
-                    };
+                            (0.0, 1.0, if active && share <= 0.0 { 0.50 } else { 1.0 })
+                        };
 
                     let kanji_text = SharedString::from(text.clone());
                     let kanji = div()
@@ -3745,7 +3763,8 @@ fn ruby_lyrics_lane(
                             this.layer_translate(gpui::point(px(0.), px(y_offset)))
                         })
                         .when(word_scale != 1.0, |this| {
-                            this.layer_scale(word_scale).layer_scale_origin(gpui::point(0.5, 0.5))
+                            this.layer_scale(word_scale)
+                                .layer_scale_origin(gpui::point(0.5, 0.5))
                         })
                         .when(word_opacity < 1.0 && share <= 0.0, |this| {
                             this.opacity(word_opacity)

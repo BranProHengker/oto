@@ -234,11 +234,7 @@ impl SongView {
             } else {
                 t!("common-none")
             };
-            facts.push((
-                "song-fact-lyrics-file",
-                t!("song-lyrics-file"),
-                lrc_val,
-            ));
+            facts.push(("song-fact-lyrics-file", t!("song-lyrics-file"), lrc_val));
         }
         InfoCard::new(t!("song-about"))
             .spoken("song-about-card")

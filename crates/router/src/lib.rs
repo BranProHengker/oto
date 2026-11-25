@@ -268,11 +268,9 @@ impl SettingsPage {
     /// The tab the page shows in. A drill-in belongs to its parent's tab.
     pub fn tab(self) -> SettingsTab {
         match self {
-            Self::Providers
-            | Self::MusicFolders
-            | Self::Accounts
-            | Self::General
-            | Self::About => SettingsTab::General,
+            Self::Providers | Self::MusicFolders | Self::Accounts | Self::General | Self::About => {
+                SettingsTab::General
+            }
             Self::Appearance | Self::PlayerBar | Self::NowPlaying => SettingsTab::Appearance,
             Self::Lyrics | Self::LyricsSources => SettingsTab::Lyrics,
             Self::Playback | Self::Sound | Self::Storage => SettingsTab::Playback,

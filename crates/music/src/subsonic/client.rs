@@ -250,7 +250,7 @@ impl SubsonicClient {
 
     /// The songs of a similar-songs answer that are in the chosen library, since those endpoints
     /// take no library. `None` when the library's albums cannot be read.
-    async fn held(&self, songs: Vec<submarine::data::Child>) -> Option<Vec<Track>> {
+    async fn held(&self, songs: Vec<Child>) -> Option<Vec<Track>> {
         let held = self.library_albums().await.ok()?;
         Some(
             songs

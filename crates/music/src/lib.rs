@@ -1185,7 +1185,10 @@ pub struct AccountChoices {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum SignInPrompt {
     Accounts(AccountChoices),
-    Code { code: String, url: String },
+    Code {
+        code: String,
+        url: String,
+    },
     Url(String),
     /// A page the provider's sign-in finishes on, which the app shows in a browser window. The
     /// provider notices the end of the sign-in itself, so nothing is handed back.

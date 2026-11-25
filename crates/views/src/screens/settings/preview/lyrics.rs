@@ -175,7 +175,13 @@ fn sample() -> Vec<LyricsLine> {
             Duration::from_millis(0),
             Duration::from_millis(1800),
             "if i am a stone",
-            &[(0, 400), (400, 800), (800, 1200), (1200, 1400), (1400, 1800)],
+            &[
+                (0, 400),
+                (400, 800),
+                (800, 1200),
+                (1200, 1400),
+                (1400, 1800),
+            ],
             Voice::Lead,
         ),
         preview_line(
@@ -223,10 +229,10 @@ fn preview_line(
         .into_iter()
         .enumerate()
         .map(|(i, w)| {
-            let (s_ms, e_ms) = windows.get(i).copied().unwrap_or((
-                start.as_millis() as u64,
-                end.as_millis() as u64,
-            ));
+            let (s_ms, e_ms) = windows
+                .get(i)
+                .copied()
+                .unwrap_or((start.as_millis() as u64, end.as_millis() as u64));
             let trailing_space = if i + 1 < word_count {
                 format!("{w} ")
             } else {

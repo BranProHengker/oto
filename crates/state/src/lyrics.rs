@@ -185,7 +185,8 @@ impl Lyrics {
             return;
         };
         let query = self.query(track, id, cx);
-        let Some(local_provider) = self.providers.iter().find(|p| p.name() == LOCAL).cloned() else {
+        let Some(local_provider) = self.providers.iter().find(|p| p.name() == LOCAL).cloned()
+        else {
             return;
         };
         self.local_revision = local_provider.revision(&query);
@@ -243,7 +244,8 @@ impl Lyrics {
         query: &LyricsQuery,
         cx: &mut Context<Self>,
     ) {
-        let Some(local_provider) = self.providers.iter().find(|p| p.name() == LOCAL).cloned() else {
+        let Some(local_provider) = self.providers.iter().find(|p| p.name() == LOCAL).cloned()
+        else {
             return;
         };
         let Some(current_rev) = local_provider.revision(query) else {
@@ -251,7 +253,9 @@ impl Lyrics {
         };
         if let Some(last_rev) = self.local_revision {
             if current_rev != last_rev {
-                log::info!("lyrics: local file changed (mtime changed), hot-reloading local lyrics");
+                log::info!(
+                    "lyrics: local file changed (mtime changed), hot-reloading local lyrics"
+                );
                 self.local_revision = Some(current_rev);
                 self.reload_local_lyrics(id.to_owned(), query.clone(), cx);
             }
@@ -262,13 +266,9 @@ impl Lyrics {
         }
     }
 
-    fn reload_local_lyrics(
-        &mut self,
-        id: String,
-        query: LyricsQuery,
-        cx: &mut Context<Self>,
-    ) {
-        let Some(local_provider) = self.providers.iter().find(|p| p.name() == LOCAL).cloned() else {
+    fn reload_local_lyrics(&mut self, id: String, query: LyricsQuery, cx: &mut Context<Self>) {
+        let Some(local_provider) = self.providers.iter().find(|p| p.name() == LOCAL).cloned()
+        else {
             return;
         };
         let settings = self.settings.read(cx);
