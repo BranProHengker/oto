@@ -7,6 +7,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-11-25
+
 ### Added
 
 - Plex Music provider support including TV/PIN sign-in, server & library selection, streams, and Plex lyrics lookup.

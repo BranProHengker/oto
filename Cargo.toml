@@ -4,7 +4,7 @@ members = ["crates/*"]
 exclude = ["vendor"]
 
 [workspace.package]
-version = "2.2.1"
+version = "2.3.0"
 edition = "2024"
 license = "GPL-3.0-or-later"
 repository = "https://github.com/BranProHengker/oto"
