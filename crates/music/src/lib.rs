@@ -27,6 +27,7 @@ pub mod musixmatch;
 pub mod netease;
 pub mod order;
 pub mod output;
+pub mod plex;
 pub mod potoken;
 pub mod progress;
 mod redact;
@@ -433,6 +434,18 @@ pub trait MusicApi: Send + Sync {
         from: Option<&str>,
     ) -> Result<(Vec<Track>, Option<String>)>;
 
+    /// The radio the provider builds from the whole `seed` collection `id`, paged the way
+    /// `track_radio` is. Only a provider that lists `seed` in [`Capabilities::collection_radio`]
+    /// is asked, and the app blends track radios of the collection's songs for any other.
+    async fn collection_radio(
+        &self,
+        _seed: RadioSeed,
+        _id: &str,
+        _from: Option<&str>,
+    ) -> Result<(Vec<Track>, Option<String>)> {
+        anyhow::bail!("this provider builds no radio from a collection")
+    }
+
     async fn search(&self, query: &str) -> Result<Vec<Track>>;
 
     async fn search_albums(&self, _query: &str) -> Result<Vec<Album>> {
@@ -746,8 +759,11 @@ pub enum PlaybackEvent {
     SteppedBack {
         id: Option<String>,
     },
+    /// Track `id` could not be loaded. `timed_out` says the host it came from never answered in
+    /// time, so the listener can be pointed at their connection rather than at the track.
     Unavailable {
         id: Option<String>,
+        timed_out: bool,
     },
     /// The provider turned the load down for now, as it does under a rate limit, so the same
     /// track may play after a wait.
@@ -928,6 +944,15 @@ impl Shape {
     }
 }
 
+/// A collection a radio can be started from, the way a track seeds one.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum RadioSeed {
+    Album,
+    Playlist,
+    Artist,
+}
+
 /// Whether the listener can change what a catalog holds.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Catalog {
@@ -953,6 +978,10 @@ pub struct Capabilities {
     pub follow_artists: bool,
     /// A track can seed a station, which is what fills the queue behind it.
     pub radio: bool,
+    /// The collections the provider builds a radio from itself, through
+    /// `MusicApi::collection_radio`. Any other collection's radio is blended from the track
+    /// radios of a few of its songs, so this only picks the better source where `radio` is on.
+    pub collection_radio: &'static [RadioSeed],
     /// Tracks carry a play count worth a column of its own.
     pub playcounts: bool,
     /// The provider keeps sidebar pins of its own, listed by `pin_targets` and changed
@@ -996,6 +1025,9 @@ pub struct Capabilities {
     /// The same, for the songs of a playlist the listener owns. Anyone else's playlist keeps
     /// the order its curator gave it.
     pub playlist_arrival: Option<Arrival>,
+    /// A playlist can be made public or private. A service whose playlists have no such setting
+    /// leaves this off, and the menu item that changes it is never shown.
+    pub playlist_visibility: bool,
 }
 
 impl Capabilities {
@@ -1006,6 +1038,7 @@ impl Capabilities {
     pub const ALL: Self = Self {
         follow_artists: true,
         radio: true,
+        collection_radio: &[],
         playcounts: true,
         pins: false,
         transcode: false,
@@ -1020,12 +1053,14 @@ impl Capabilities {
         download_gap: Duration::ZERO,
         song_arrival: None,
         playlist_arrival: None,
+        playlist_visibility: true,
     };
 
     /// Nothing beyond listing and playing.
     pub const NONE: Self = Self {
         follow_artists: false,
         radio: false,
+        collection_radio: &[],
         playcounts: false,
         pins: false,
         transcode: false,
@@ -1040,6 +1075,7 @@ impl Capabilities {
         download_gap: Duration::ZERO,
         song_arrival: None,
         playlist_arrival: None,
+        playlist_visibility: false,
     };
 }
 
@@ -1133,6 +1169,10 @@ pub enum AccountKind {
     Session,
     /// Profiles inside one account, such as the members of a family plan.
     Profile,
+    /// Servers one account can use.
+    Server,
+    /// Libraries one server has.
+    Library,
 }
 
 /// The accounts a sign-in asks the user to pick from.
@@ -1147,6 +1187,9 @@ pub enum SignInPrompt {
     Accounts(AccountChoices),
     Code { code: String, url: String },
     Url(String),
+    /// A page the provider's sign-in finishes on, which the app shows in a browser window. The
+    /// provider notices the end of the sign-in itself, so nothing is handed back.
+    Window(String),
     Secret,
 }
 
