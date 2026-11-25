@@ -7,6 +7,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Plex Music provider support including TV/PIN sign-in, server & library selection, streams, and Plex lyrics lookup.
+- teal.fm ATProto scrobbling support and clearer Last.fm Pro error explanations when API keys are refused.
+- Universal Collection Radio support across albums, playlists, and artists where supported by the active provider.
+- Floating island player bar layout option and updated rounded sheet chrome across workspace, fullscreen, and detail screens.
+- Redesigned Settings experience with side-named groups, toggle chips, inline editable Discord preview card, live search suggestions, and manual update status indicator.
+
+### Fixed
+
+- Silenced 44.1 kHz audio output idle bursts, handled Windows mix-format rate changes smoothly, kept Soloist API keys off the command line, and fixed Linux webview sign-in popups.
+- Prioritized explicit Tidal releases over clean duplicates and refined HiDPI taskbar skip/control icon rendering.
+
 ## [2.2.1] - 2026-11-23
 
 ### Added
