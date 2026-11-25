@@ -22,6 +22,11 @@ pub(crate) struct SidebarRight {
     width: Pixels,
     open: bool,
     order: Vec<SideTab>,
+    /// Whether the sidebar still slides away after closing, so it keeps drawing until it is gone.
+    lingering: bool,
+    /// How many times the listener has opened or closed the sidebar. The page springs aside only
+    /// when this moves, so a window resize never sets the sidebar sliding.
+    slides: usize,
 }
 
 impl SidebarRight {
@@ -82,11 +87,34 @@ impl SidebarRight {
             width,
             open,
             order,
+            lingering: false,
+            slides: 0,
         }
     }
 
     pub(crate) fn is_open(&self) -> bool {
         self.open && !self.order.is_empty()
+    }
+
+    pub(crate) fn slides(&self) -> usize {
+        self.slides
+    }
+
+    /// Keeps a closed sidebar drawn while it slides away beside the page.
+    pub(crate) fn linger(&mut self, lingering: bool, cx: &mut Context<Self>) {
+        if self.lingering != lingering {
+            self.lingering = lingering;
+            cx.notify();
+        }
+    }
+
+    /// How wide the sidebar is when it shows, whether or not it shows now.
+    pub(crate) fn breadth(&self) -> Pixels {
+        if self.order.len() > 1 {
+            self.width * 2.
+        } else {
+            self.width
+        }
     }
 
     pub(crate) fn available(window: &Window) -> bool {
@@ -127,6 +155,7 @@ impl SidebarRight {
     }
 
     pub(crate) fn toggle(&mut self, cx: &mut Context<Self>) {
+        self.slides += 1;
         if self.open && !self.order.is_empty() {
             self.close(cx);
         } else {
@@ -145,6 +174,9 @@ impl SidebarRight {
                 self.close(cx);
                 return;
             }
+            if !self.open {
+                self.slides += 1;
+            }
             self.order = vec![SideTab::Members];
             self.open = true;
             self.remember(cx);
@@ -158,6 +190,9 @@ impl SidebarRight {
             if self.open && self.order.contains(&tab) {
                 self.close(cx);
                 return;
+            }
+            if !self.open {
+                self.slides += 1;
             }
             self.order = vec![tab];
             self.open = true;
@@ -189,6 +224,9 @@ impl SidebarRight {
         self.order.retain(|&t| t != SideTab::Members);
 
         if self.order.is_empty() || !self.open {
+            if !self.open {
+                self.slides += 1;
+            }
             self.order = vec![tab];
             self.open = true;
         } else {
@@ -221,6 +259,9 @@ impl SidebarRight {
     pub(crate) fn close(&mut self, cx: &mut Context<Self>) {
         self.queue_aside.update(cx, |aside, cx| aside.dismiss(cx));
         self.lyrics_aside.update(cx, |aside, cx| aside.dismiss(cx));
+        if self.open {
+            self.slides += 1;
+        }
         self.open = false;
         self.order.clear();
         self.remember(cx);
@@ -267,7 +308,7 @@ impl SidebarRight {
 
 impl Render for SidebarRight {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        if !self.open || self.order.is_empty() || !Self::available(window) {
+        if (!self.is_open() && !self.lingering) || !Self::available(window) {
             return div().into_any_element();
         }
 
@@ -290,8 +331,8 @@ impl Render for SidebarRight {
                 this.persist(cx);
                 cx.notify();
             }))
-            .when(!theme.transparent, |this| this.bg(theme.background))
-            .border_color(theme.border)
+            .when(!theme.transparent, |this| this.bg(theme.sidebar))
+            .border_color(gpui::transparent_black())
             .child(match self.order.as_slice() {
                 [left, right, ..] => {
                     let left_view = self.render_tab(*left);

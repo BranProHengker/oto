@@ -14,7 +14,9 @@ pub(crate) fn choose_button(id: impl Into<ElementId>) -> Button {
 }
 
 pub(crate) fn unconfigured(id: impl Into<ElementId>) -> Vacancy {
+    let id: ElementId = id.into();
     Vacancy::new(t!("library-local-unconfigured"))
+        .spoken((id.clone(), "caption"))
         .icon("icons/folder-plus.svg")
         .action(choose_button(id).outline())
 }

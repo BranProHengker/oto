@@ -172,7 +172,8 @@ impl Render for RadioView {
         let note = self.note(cx);
 
         Scroller::new("radio-page", &self.scrollbar)
-            .bottom_inset(Chrome::bottom(cx))
+            .bottom_inset(Chrome::track_bottom(cx))
+            .top_inset(Chrome::sheet_corners(cx).top_right)
             .px(Chrome::margin(window, cx))
             .pt(inset)
             .pb(inset)

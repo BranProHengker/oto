@@ -13,7 +13,7 @@ use gpui::{
     div, ease_in_out, px, relative, size, svg, uniform_list,
 };
 use i18n::t;
-use music::{Contributor, Shape, Track, Voice};
+use music::{Contributor, RadioSeed, Shape, Track, Voice};
 use router::{Destination, LibraryTab, Link as _};
 use state::{
     AppSettings, Lyrics, LyricsState, Network, Playback, PlaybackState, Queue, QueuePosition,
@@ -394,6 +394,11 @@ impl Aside {
 
     pub(crate) fn strip(&mut self) {
         self.titled = false;
+    }
+
+    /// Whether a track menu is open over the panel, which keeps the fullscreen chrome awake.
+    pub(crate) fn menu_open(&self) -> bool {
+        self.context_menu.is_some()
     }
 
     /// Whether the pointer is parked on the panel's scrollbar. Fullscreen
@@ -2303,6 +2308,9 @@ impl Aside {
             Whence::Playlist => Destination::Playlist(id),
             Whence::Artist => Destination::Artist(id),
             Whence::Radio => Destination::Song(id),
+            Whence::CollectionRadio(RadioSeed::Album) => Destination::Album(id),
+            Whence::CollectionRadio(RadioSeed::Playlist) => Destination::Playlist(id),
+            Whence::CollectionRadio(RadioSeed::Artist) => Destination::Artist(id),
             Whence::Saved | Whence::Local => Destination::Library(LibraryTab::Songs),
         };
         let name = match origin.whence {
@@ -2311,7 +2319,9 @@ impl Aside {
                 Shape::Catalog(_) => t!("nav-songs"),
             },
             Whence::Local => t!("nav-local"),
-            Whence::Radio => t!("queue-from-radio", name = origin.name.as_deref()?),
+            Whence::Radio | Whence::CollectionRadio(_) => {
+                t!("queue-from-radio", name = origin.name.as_deref()?)
+            }
             Whence::Album | Whence::Playlist | Whence::Artist => origin.name.clone()?,
         };
 

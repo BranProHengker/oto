@@ -9,12 +9,13 @@ use gpui::{
 };
 use ui::TrafficLightControls;
 use ui::WindowControls;
-use ui::{ActiveTheme as _, Button, MenuItem, Picker, Popovers, Spin};
+use ui::{ActiveTheme as _, Badge, Button, MenuItem, Picker, Popovers, Spin};
 
 use crate::chrome::SidebarRight;
 use crate::chrome::downloads::DownloadsButton;
 use i18n::t;
 use input::Refresh;
+use music::SignIn;
 use router::{Destination, Navigation, Screen, SettingsPage, navigate, open_settings};
 use state::{AppSettings, Sonora};
 
@@ -48,6 +49,8 @@ pub(crate) struct TitleBarOptions {
     pub sidebar_open: bool,
     pub sidebar_right: Option<bool>,
     pub border: bool,
+    /// Gives the bar the chrome's colour, for a shell whose page lies on it as a sheet.
+    pub sheet: bool,
     pub content: Option<AnyView>,
     /// Lets the fullscreen ambient background show through behind the controls.
     pub transparent: bool,
@@ -60,6 +63,7 @@ impl Default for TitleBarOptions {
             sidebar_open: false,
             sidebar_right: None,
             border: true,
+            sheet: false,
             content: None,
             transparent: false,
         }
@@ -226,15 +230,15 @@ impl TitleBar {
             )
     }
 
-    /// The account button and the menu it opens: the connected services to switch between, a
-    /// way to manage them, then History and Settings. A guest session shows as guest mode, and
-    /// only while it is the one in use.
+    /// The account button and the menu it opens: the connected services to switch between,
+    /// guest mode when a provider offers it, a way to manage them, then History and Settings.
     fn account(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let session = Sonora::global(cx).session.clone();
-        let guest = session
-            .read(cx)
-            .providers()
-            .any(|info| info.active && info.guest);
+        let guest = session.read(cx).providers().find(|info| {
+            info.options
+                .iter()
+                .any(|option| matches!(option, SignIn::Anonymous))
+        });
         let mut services: Vec<MenuItem> = session
             .read(cx)
             .connected()
@@ -254,11 +258,29 @@ impl TitleBar {
                     })
             })
             .collect();
-        if guest {
+        if let Some(info) = guest {
+            let (slug, stored) = (info.slug, info.guest);
             services.push(
                 MenuItem::new("account-guest", t!("login-guest-title"))
                     .icon("icons/hat-glasses.svg")
-                    .selected(true),
+                    .selected(info.active && info.guest)
+                    .on_click(move |_, _, cx| {
+                        let before = session.read(cx).provider_slug();
+                        let idle = !session.read(cx).is_pending();
+                        session.update(cx, |session, cx| match stored {
+                            true => session.switch(slug, cx),
+                            false => session.sign_in(slug, SignIn::Anonymous, cx),
+                        });
+                        // an anonymous sign-in only takes over the provider once it lands, so a
+                        // started one counts as the switch
+                        let switched = match stored {
+                            true => session.read(cx).provider_slug() != before,
+                            false => idle && session.read(cx).is_pending() && before != Some(slug),
+                        };
+                        if switched {
+                            open_startup(cx);
+                        }
+                    }),
             );
         }
 
@@ -278,7 +300,7 @@ impl TitleBar {
                         MenuItem::new("account-manage", t!("account-manage"))
                             .icon("icons/user-round.svg")
                             .on_click(|_, _, cx| {
-                                navigate(Destination::Settings(SettingsPage::Providers), cx)
+                                navigate(Destination::Settings(SettingsPage::Accounts), cx)
                             }),
                     )
                     .item(MenuItem::separator("account-pages"))
@@ -374,7 +396,10 @@ impl Render for TitleBar {
             .flex_none()
             .when_some(radius, |this, radius| this.rounded_t(radius))
             .when(!self.options.transparent && !theme.transparent, |this| {
-                this.bg(theme.background)
+                this.bg(match self.options.sheet {
+                    true => theme.sidebar,
+                    false => theme.background,
+                })
             })
             // The height is a border box, so a bar that drops its border centres its controls
             // one pixel lower than one that keeps it. The edge is always an edge; only its
@@ -436,6 +461,7 @@ impl Render for TitleBar {
                     .gap_1()
                     .items_center()
                     .when(navigation, |this| this.child(self.history(window, cx)))
+                    .when(cfg!(debug_assertions), |this| this.child(dev_badge()))
                     .child(div().flex_1())
                     .when(navigation, |this| {
                         this.child(
@@ -525,12 +551,24 @@ fn traffic_lights_inset(settings: &AppSettings, height: Pixels) -> Option<Pixels
     None
 }
 
+/// The tag a debug build carries in its title bar, so it is never mistaken for a release.
+fn dev_badge() -> impl IntoElement {
+    div()
+        .id("dev-badge")
+        .role(Role::Label)
+        .aria_label(t!("app-dev-build"))
+        .flex_none()
+        .ml_1()
+        .child(Badge::text(t!("app-dev-badge")))
+}
+
 /// Opens the screen chosen as the startup page in Settings, where a newly switched provider lands.
 fn open_startup(cx: &mut App) {
     let startup = Sonora::global(cx).settings.read(cx).startup().to_owned();
     let screen = Screen::from_id(&startup).unwrap_or(Screen::Home);
     navigate(screen.destination(), cx);
 }
+
 fn window_controls(leading: bool, traffic_light: bool) -> AnyElement {
     match traffic_light {
         true => TrafficLightControls::new(leading).into_any_element(),

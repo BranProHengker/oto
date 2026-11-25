@@ -394,18 +394,24 @@ impl SearchView {
         cx.notify();
     }
 
-    /// Escape on the page: it puts the panel away first and lets go of the field second. An
-    /// escape with neither goes on to the workspace.
+    /// Escape in the field puts the panel away and lets go of the field in one press. An escape
+    /// outside the field goes on to the workspace.
     fn dismiss(&mut self, _: &Dismiss, window: &mut Window, cx: &mut Context<Self>) {
-        if self.panel_open(window, cx) {
-            self.close_panel(cx);
+        if !self.typing(window, cx) {
+            cx.propagate();
             return;
         }
-        if self.typing(window, cx) {
+        self.close_panel(cx);
+        window.focus(&self.focus, cx);
+    }
+
+    /// Moves the keyboard from the field to the page after a press started playback, so Space
+    /// pauses what it started instead of typing into the query. A press may already have left the
+    /// keyboard nowhere, so the page takes it then too. Losing the field puts the panel away.
+    fn leave_field(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.typing(window, cx) || !self.focus.contains_focused(window, cx) {
             window.focus(&self.focus, cx);
-            return;
         }
-        cx.propagate();
     }
 
     fn offer_row(
@@ -1072,7 +1078,8 @@ impl SearchView {
             .child(
                 Scroller::new("search-browse", &self.browsing)
                     .hold()
-                    .bottom_inset(crate::chrome::Chrome::bottom(cx))
+                    .bottom_inset(crate::chrome::Chrome::track_bottom(cx))
+                    .top_inset(crate::chrome::Chrome::sheet_corners(cx).top_right)
                     .fade_top(FADE)
                     .px(gutter)
                     .pb(pad)
@@ -1218,7 +1225,8 @@ impl SearchView {
             .when(leading, |this| this.mt(-FADE))
             .child(
                 Scroller::new(id, bar)
-                    .bottom_inset(crate::chrome::Chrome::bottom(cx))
+                    .bottom_inset(crate::chrome::Chrome::track_bottom(cx))
+                    .top_inset(crate::chrome::Chrome::sheet_corners(cx).top_right)
                     .fade_top(FADE)
                     .px(gutter)
                     .pb(theme.metrics.inset)
@@ -1281,12 +1289,14 @@ fn pressed(
     let me = me.clone();
     let hit = hit.clone();
 
-    move |_, _, cx| {
+    move |_, window, cx| {
         hit.remember(cx);
         me.update(cx, |this, cx| match &hit {
-            Hit::Song(track) => this
-                .playback
-                .update(cx, |playback, cx| playback.play_radio(track, cx)),
+            Hit::Song(track) => {
+                this.playback
+                    .update(cx, |playback, cx| playback.play_radio(track, cx));
+                this.leave_field(window, cx);
+            }
             Hit::Artist(artist) => {
                 if let Some(id) = &artist.id {
                     navigate(Destination::Artist(id.clone().into()), cx);

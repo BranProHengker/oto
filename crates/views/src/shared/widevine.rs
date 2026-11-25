@@ -1,6 +1,7 @@
 //! The two questions before Google's Widevine module is installed: whether to download it,
 //! then whether its terms are accepted. Both are `state::Drm`'s to ask; this only draws them.
 
+use gpui::accesskit::Role;
 use gpui::prelude::*;
 use gpui::{Context, Entity, FocusHandle, Render, Window, div};
 use i18n::t;
@@ -77,7 +78,7 @@ impl Render for WidevinePrompt {
         };
         let (detail, note, license, action) = match &state {
             CdmState::Wanted => (wanted, None, None, true),
-            CdmState::Offering => (wanted, Some(t!("widevine-prompt-downloading")), None, false),
+            CdmState::Offering => (wanted, Some(t!("settings-downloading")), None, false),
             CdmState::Offered(terms) => (
                 t!("widevine-prompt-terms", version = terms.version.as_str()),
                 None,
@@ -86,7 +87,7 @@ impl Render for WidevinePrompt {
             ),
             _ => (
                 t!("widevine-prompt-terms", version = ""),
-                Some(t!("widevine-prompt-installing")),
+                Some(t!("settings-installing")),
                 None,
                 false,
             ),
@@ -98,7 +99,7 @@ impl Render for WidevinePrompt {
         };
         let decline = match accepting {
             true => t!("widevine-prompt-decline"),
-            false => t!("widevine-prompt-later"),
+            false => t!("common-not-now"),
         };
 
         div()
@@ -115,11 +116,14 @@ impl Render for WidevinePrompt {
                 this.proceed(window, cx);
             }))
             .child(
-                Modal::new("widevine-prompt", t!("widevine-prompt-title"))
+                Modal::new("widevine-prompt", t!("settings-widevine"))
                     .detail(detail)
                     .when_some(license, |modal, license| {
                         modal.child(
                             div()
+                                .id("widevine-license")
+                                .role(Role::Paragraph)
+                                .aria_label(license.clone())
                                 .p(theme.metrics.pad)
                                 .rounded(theme.radius)
                                 .border_1()
@@ -133,6 +137,9 @@ impl Render for WidevinePrompt {
                     .when_some(note, |modal, note| {
                         modal.child(
                             div()
+                                .id("widevine-note")
+                                .role(Role::Status)
+                                .aria_label(note.clone())
                                 .text_size(small)
                                 .text_color(theme.muted_foreground)
                                 .child(note),

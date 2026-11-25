@@ -31,20 +31,19 @@ impl SettingsView {
         if !self.settings.read(cx).lyrics_enabled() {
             return groups;
         }
-        groups.push(
-            Group::new("settings-group-display", "icons/mic-vocal.svg").rows([
-                Slot::LyricsPreset,
-                Slot::Karaoke,
-                Slot::BlurLyrics,
-                Slot::Romanized,
-                Slot::PanelLyricsSize,
-                Slot::FullscreenLyricsSize,
-            ]),
-        );
-        groups.push(
-            Group::new("settings-group-sources", "icons/list-music.svg")
-                .rows([Slot::LyricsSources, Slot::LyricsForLocal, Slot::LyricsSaveFormat]),
-        );
+        groups.push(Group::new("settings-group-display").rows([
+            Slot::LyricsPreset,
+            Slot::Karaoke,
+            Slot::BlurLyrics,
+            Slot::Romanized,
+            Slot::PanelLyricsSize,
+            Slot::FullscreenLyricsSize,
+        ]));
+        groups.push(Group::new("settings-group-sources").rows([
+            Slot::LyricsSources,
+            Slot::LyricsForLocal,
+            Slot::LyricsSaveFormat,
+        ]));
         groups
     }
 
@@ -112,8 +111,7 @@ impl SettingsView {
     pub(super) fn lyrics_sources_groups(&self) -> Vec<Group> {
         vec![
             Group::untitled().rows([Slot::WordSyncedFirst]),
-            Group::new("settings-group-lyrics-order", "icons/arrow-up-down.svg")
-                .rows([Slot::LyricsPriority]),
+            Group::new("settings-group-lyrics-order").rows([Slot::LyricsPriority]),
         ]
     }
 
@@ -515,6 +513,7 @@ pub(super) fn source_name(provider: &str) -> SharedString {
         music::lyrics::LOCAL => "settings-lyrics-provider-local",
         "Subsonic" => "settings-lyrics-provider-subsonic",
         "Jellyfin" => "settings-lyrics-provider-jellyfin",
+        "Plex" => "settings-lyrics-provider-plex",
         "Spotify" => "settings-lyrics-provider-spotify",
         "YouTube Music" => "settings-lyrics-provider-youtube",
         "Apple Music" => "settings-lyrics-provider-apple-music",

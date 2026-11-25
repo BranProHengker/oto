@@ -1,5 +1,6 @@
 mod arrow_ring;
 mod artwork;
+mod badge;
 mod button;
 mod card;
 mod checkbox;
@@ -7,7 +8,6 @@ mod controls;
 mod deck;
 mod drag;
 mod dropdown;
-mod explicit;
 mod filters;
 mod flight;
 mod form;
@@ -71,6 +71,7 @@ pub use arrow_ring::ArrowRing;
 pub use artwork::{
     Artwork, Avatar, PREFETCH_REACH, Prefetch, artwork_usage, cover_palette, prefetch, prefetching,
 };
+pub use badge::Badge;
 pub use button::{Button, SMALL_INSET};
 pub use card::CARD_GROUP;
 pub use card::Card;
@@ -81,7 +82,6 @@ pub use controls::WindowFrame;
 pub use deck::Deck;
 pub use drag::{Edge, Ghost, drop_gap, drop_into, drop_marker, grip};
 pub use dropdown::Dropdown;
-pub use explicit::Badge;
 pub use filters::{
     Filter, FilterChange, FlagAxis, RangeAxis, RangeScrubber, RangeState, SortAxis, Unit,
 };
@@ -103,7 +103,7 @@ pub use input::{
 pub use kbd::Kbd;
 pub use label::{
     Tails, eyebrow, eyebrow_with, faint, heading, spoken, spoken_eyebrow, spoken_heading,
-    spoken_vacant, vacant,
+    spoken_steady, spoken_vacant, vacant,
 };
 pub use lattice::Lattice;
 pub use layout::{ALWAYS, MIN_CONTENT, ROOMY, Room, SNUG, VAST, WIDE};
@@ -111,7 +111,7 @@ pub use lazy::Lazy;
 pub use level_meter::LevelMeter;
 pub use linger::{Linger, lingers};
 pub use menu::{MENU_CONTEXT, Menu, MenuItem, MenuSearch, SubmenuState, close_menu};
-pub use metrics::{LEADING, Metrics, Rounding, Text, snapped, tucked};
+pub use metrics::{LEADING, Metrics, Rounding, Text, snapped, text_width, tucked};
 pub use modal::{Modal, corners};
 pub use motion::{
     Entrance, Fading, Glow, Glowed, Glowing, HoverFade, Motion, Motioned, PRESS_SCALE,
@@ -136,8 +136,7 @@ pub use response_graph::{
 };
 pub use response_sketch::ResponseSketch;
 pub use scrollbar::{
-    Scrollbar, cancel_middle_scroll, quantize, release_middle_scroll, scrolled,
-    update_middle_scroll,
+    Scrollbar, cancel_middle_scroll, release_middle_scroll, scrolled, update_middle_scroll,
 };
 pub use scroller::{Scroller, middle_scroll, perch_room, perched, return_to, return_top};
 pub use scrubber::{Scrubber, ScrubberState};
