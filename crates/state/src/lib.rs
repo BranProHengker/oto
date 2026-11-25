@@ -38,6 +38,7 @@ mod snapshot;
 mod soloist;
 mod song;
 mod sponsorblock;
+mod station;
 mod stations;
 mod tags;
 mod toast;

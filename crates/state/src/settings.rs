@@ -428,10 +428,11 @@ const DEFAULT_STARTUP: &str = "home";
 pub const SYSTEM_FONT: &str = "auto";
 /// Every lyrics source Sonora knows by the name its provider reports, in the order a fresh
 /// install prefers them.
-pub const LYRICS_SOURCES: [&str; 10] = [
+pub const LYRICS_SOURCES: [&str; 11] = [
     LOCAL,
     "Subsonic",
     "Jellyfin",
+    "Plex",
     "Spotify",
     "YouTube Music",
     "Apple Music",
@@ -554,6 +555,9 @@ struct Values {
     /// Set once Jellyfin has been added to a list saved before it existed, so a user who turns it
     /// off afterwards is not given it back.
     jellyfin_lyrics_offered: bool,
+    /// Set once Plex has been added to a list saved before it existed, so a user who turns it off
+    /// afterwards is not given it back.
+    plex_lyrics_offered: bool,
     /// Whether lyrics show anywhere and are looked up at all.
     lyrics_enabled: bool,
     lyrics_providers: Vec<String>,
@@ -645,16 +649,19 @@ pub enum PlayerBarLayout {
     Classic,
     Centered,
     Compact,
+    /// A rounded pill that floats over the page instead of a bar across the window's foot.
+    Island,
 }
 
 impl PlayerBarLayout {
-    pub const ALL: [Self; 3] = [Self::Classic, Self::Centered, Self::Compact];
+    pub const ALL: [Self; 4] = [Self::Classic, Self::Centered, Self::Compact, Self::Island];
 
     pub fn id(self) -> &'static str {
         match self {
             Self::Classic => "classic",
             Self::Centered => "centered",
             Self::Compact => "compact",
+            Self::Island => "island",
         }
     }
 
@@ -664,6 +671,7 @@ impl PlayerBarLayout {
             Self::Classic => "settings-player-bar-classic",
             Self::Centered => "settings-player-bar-centered",
             Self::Compact => "settings-player-bar-compact",
+            Self::Island => "settings-player-bar-island",
         }
     }
 
@@ -672,6 +680,7 @@ impl PlayerBarLayout {
         match id {
             "centered" => Self::Centered,
             "compact" => Self::Compact,
+            "island" => Self::Island,
             _ => Self::Classic,
         }
     }
@@ -853,10 +862,11 @@ impl Default for Values {
             local_lyrics_offered: false,
             subsonic_lyrics_offered: false,
             jellyfin_lyrics_offered: false,
+            plex_lyrics_offered: false,
             lyrics_enabled: true,
             lyrics_provider_priority: lyrics_priority(&[]),
             // Kugou and NetEase, the last two, start switched off.
-            lyrics_providers: LYRICS_SOURCES[..8]
+            lyrics_providers: LYRICS_SOURCES[..9]
                 .iter()
                 .map(|name| name.to_string())
                 .collect(),
@@ -1149,12 +1159,13 @@ impl AppSettings {
                 log::warn!("settings: cannot parse {}: {error}", path.display());
                 (Values::default().settled(), false, None, Some(error.line()))
             }
-            // The default provider list already has Subsonic and Jellyfin, so a fresh install marks
-            // them offered and a user who turns one off does not get it back on the next launch.
+            // The default provider list already has Subsonic, Jellyfin and Plex, so a fresh install
+            // marks them offered and a user who turns one off does not get it back on the next launch.
             None => {
                 let values = Values {
                     subsonic_lyrics_offered: true,
                     jellyfin_lyrics_offered: true,
+                    plex_lyrics_offered: true,
                     ..Values::default()
                 };
                 (values.settled(), writable, None, None)
@@ -3234,6 +3245,7 @@ fn offer_new_lyrics(mut values: Values) -> Values {
     let sources = [
         (&mut values.subsonic_lyrics_offered, "Subsonic"),
         (&mut values.jellyfin_lyrics_offered, "Jellyfin"),
+        (&mut values.plex_lyrics_offered, "Plex"),
     ];
     for (offered, name) in sources {
         if !*offered {

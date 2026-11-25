@@ -182,12 +182,13 @@ pub enum SettingsPage {
     About,
     LyricsSources,
     MusicFolders,
+    Accounts,
     LrcStudio,
 }
 
 impl SettingsPage {
     /// Every page, the sections first and the drill-ins after them.
-    pub const ALL: [Self; 16] = [
+    pub const ALL: [Self; 17] = [
         Self::Providers,
         Self::General,
         Self::Appearance,
@@ -204,6 +205,7 @@ impl SettingsPage {
         Self::LrcStudio,
         Self::LyricsSources,
         Self::MusicFolders,
+        Self::Accounts,
     ];
 
     pub fn id(self) -> &'static str {
@@ -223,6 +225,7 @@ impl SettingsPage {
             Self::About => "about",
             Self::LyricsSources => "lyrics-sources",
             Self::MusicFolders => "music-folders",
+            Self::Accounts => "accounts",
             Self::LrcStudio => "lrc-studio",
         }
     }
@@ -244,25 +247,32 @@ impl SettingsPage {
             Self::About => "settings-page-about",
             Self::LyricsSources => "settings-page-lyrics-sources",
             Self::MusicFolders => "settings-page-music-folders",
+            Self::Accounts => "settings-accounts",
             Self::LrcStudio => "settings-page-lrc-studio",
         }
     }
 
-    /// The page this one drills into from, when it is a drill-in.
+    /// The page a drill-in returns to, or `None` for a section of a tab.
     pub fn parent(self) -> Option<Self> {
         match self {
             Self::LyricsSources => Some(Self::Lyrics),
-            Self::MusicFolders => Some(Self::General),
+            Self::MusicFolders | Self::Accounts => Some(Self::Providers),
             _ => None,
         }
+    }
+
+    pub fn from_id(id: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|page| page.id() == id)
     }
 
     /// The tab the page shows in. A drill-in belongs to its parent's tab.
     pub fn tab(self) -> SettingsTab {
         match self {
-            Self::Providers | Self::MusicFolders | Self::General | Self::About => {
-                SettingsTab::General
-            }
+            Self::Providers
+            | Self::MusicFolders
+            | Self::Accounts
+            | Self::General
+            | Self::About => SettingsTab::General,
             Self::Appearance | Self::PlayerBar | Self::NowPlaying => SettingsTab::Appearance,
             Self::Lyrics | Self::LyricsSources => SettingsTab::Lyrics,
             Self::Playback | Self::Sound | Self::Storage => SettingsTab::Playback,
