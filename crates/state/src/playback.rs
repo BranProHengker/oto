@@ -9,9 +9,9 @@ use gpui::{App, AppContext as _, Context, Entity, EventEmitter, SharedString, Ta
 use music::connect::{self, Command, Repeat};
 use music::vault::Vault;
 use music::{
-    Analyzer, Capabilities, Meter, MusicApi, PlaybackConfig, PlaybackEvent as BackendEvent,
-    PlaybackEvents, PlaybackFactory, Player, Quality, RadioSeed, Spectrum, Track, TrackSignal,
-    Transcode,
+    Analyzer, Capabilities, Contributor, Meter, MusicApi, PlaybackConfig,
+    PlaybackEvent as BackendEvent, PlaybackEvents, PlaybackFactory, Player, Quality, RadioSeed,
+    Spectrum, Track, TrackSignal, Transcode,
 };
 use ui::{Pin, PinKind};
 
@@ -931,6 +931,29 @@ impl Playback {
             Some((devices, _)) => devices.read(cx).queue_tracks(crate::QueuePosition::Current),
             None => self.track.clone(),
         }
+    }
+
+    /// Who queued the shown track by hand, when the queue knows them by name. A track that plays
+    /// on from an album or a playlist names nobody, even where the playlist credits whoever added
+    /// it, so in a Jam this always answers who picked the song.
+    pub fn shown_adder(&self, cx: &App) -> Option<Arc<Contributor>> {
+        let queued = match self.steering(cx) {
+            Some((_, remote)) => remote
+                .state
+                .track
+                .as_ref()
+                .is_some_and(|track| track.queued),
+            None => {
+                self.queue.read(cx).kind(crate::QueuePosition::Current)
+                    == Some(crate::QueueKind::Queued)
+            }
+        };
+        if !queued {
+            return None;
+        }
+        self.shown_track(cx)?
+            .added_by
+            .filter(|added| !added.name.is_empty() && added.name != added.id)
     }
 
     /// How far into the shown track playback is, and how long that track is.
