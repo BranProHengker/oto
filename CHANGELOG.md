@@ -7,6 +7,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.3.1] - 2026-11-26
+
+### Fixed
+
+- Saving or editing lyrics beside a track now removes stale sibling sidecar files (`.ttml`/`.lrc`) and triggers an immediate live reload so updated lyrics take effect right away without leaving two sidecar files on disk.
+- Avoided redundant toolbar/title bar and aside redraws during page scrolling and playback ticks outside the lyrics view (`#1732`, `#1733`).
+- Deduplicated Tidal browse genres linked from Explore (`#1582`), added clipped queue source tooltips (`#1703`), and kept the search input unfocused when returning from fullscreen (`#1702`).
+
 ## [2.3.0] - 2026-11-25
 
 ### Added
