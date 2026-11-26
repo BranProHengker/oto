@@ -1647,7 +1647,8 @@ impl SettingsView {
             this.update(cx, |this, cx| {
                 match res {
                     Ok(_) => {
-                        state::Sonora::global(cx).lyrics.update(cx, |lyrics, cx| {
+                        let lyrics = state::Sonora::global(cx).lyrics.clone();
+                        lyrics.update(cx, |lyrics, cx| {
                             lyrics.reload_local(cx);
                         });
                         let file_name = target.file_name().unwrap_or_default().to_string_lossy();
