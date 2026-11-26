@@ -28,8 +28,8 @@
         <img alt="Oto Playlists Grid & Dual Preview" src="./.github/screenshots/albums.jpg" />
       </td>
       <td width="50%">
-        <p align="center"><b>High-Density Tracklist & Playback (Catppuccin Mocha)</b></p>
-        <img alt="Oto Local Library Tracklist" src="./.github/screenshots/playlist.jpg" />
+        <p align="center"><b>Settings, Appearance & Island Bar (Gruvbox Dark Hard)</b></p>
+        <img alt="Oto Settings Appearance" src="./.github/screenshots/theme-gruvbox.jpg" />
       </td>
     </tr>
   </table>
