@@ -1026,8 +1026,10 @@ impl Root {
         }
         self.announce_fullscreen(false, cx);
         self.view = RootView::Workspace;
-        self.pending = Some(match destination {
-            Destination::Search => Focus::Search,
+        // Only `open_search` hands the search field the keyboard, so coming back to the page from
+        // fullscreen or through history leaves the field alone.
+        self.pending = Some(match (&destination, self.pending.take()) {
+            (Destination::Search, Some(Focus::Search)) => Focus::Search,
             _ => Focus::Workspace,
         });
 

@@ -9,8 +9,8 @@ use gpui::accesskit::{Role, Toggled};
 use gpui::{
     Animation, AnimationExt as _, App, Bounds, Context, Div, DragMoveEvent, Entity, ExternalPaths,
     FontWeight, MouseDownEvent, MouseUpEvent, Pixels, Point, Render, ScrollHandle, ScrollStrategy,
-    SharedString, Size, SpringConfig, SpringState, Task, UniformListScrollHandle, Window, canvas,
-    div, ease_in_out, px, relative, size, svg, uniform_list,
+    SharedString, Size, SpringConfig, SpringState, StyledText, Task, UniformListScrollHandle,
+    Window, canvas, div, ease_in_out, px, relative, size, svg, uniform_list,
 };
 use i18n::t;
 use music::{Contributor, RadioSeed, Shape, Track, Voice};
@@ -22,9 +22,9 @@ use state::{
 };
 use ui::{
     ActiveTheme as _, Avatar, Button, Card, DraggedPin, Edge, Glowing as _, Initials, Menu,
-    MenuItem, Motion, Motioned as _, PREFETCH_REACH, Pin, Pinnable as _, Popup, Scrollbar,
-    Scroller, Spot, Springs, Tails as _, Text, Vacancy, drop_gap, drop_marker, ease_out_cubic,
-    ease_out_expo, eyebrow, faint, mix, prefetch, snapped, vacant,
+    MenuItem, Motion, Motioned as _, PREFETCH_REACH, Perch, Pin, Pinnable as _, Popup, Scrollbar,
+    Scroller, Spot, Springs, Tails as _, Text, Tipped as _, Vacancy, drop_gap, drop_marker,
+    ease_out_cubic, ease_out_expo, eyebrow, faint, mix, prefetch, snapped, vacant,
 };
 use unicode_bidi::{BidiClass, Direction};
 
@@ -305,9 +305,14 @@ impl Aside {
         })
         .detach();
         cx.observe(&playback, |_, _, cx| cx.notify()).detach();
-        // the lyrics follow the position as it moves
+        // only the lyrics follow the position as it moves (including dual preview)
         let ticks = playback.read(cx).ticks().clone();
-        cx.observe(&ticks, |_, _, cx| cx.notify()).detach();
+        cx.observe(&ticks, |this, _, cx| {
+            if this.tab == SideTab::Lyrics || this.settings.read(cx).dual_preview() {
+                cx.notify();
+            }
+        })
+        .detach();
         let chrome = Chrome::entity(cx);
         cx.observe(&chrome, |_, _, cx| cx.notify()).detach();
 
@@ -1032,6 +1037,19 @@ impl Aside {
 
         match std::fs::write(&target, &content) {
             Ok(_) => {
+                // Remove stale sibling sidecars (e.g. an older .ttml or differently cased .LRC)
+                // so LocalLyrics reads the newly saved file immediately instead of the old one.
+                for other_ext in ["ttml", "TTML", "lrc", "LRC"] {
+                    let sibling = target.with_extension(other_ext);
+                    if sibling != target && sibling.is_file() {
+                        if let Err(err) = std::fs::remove_file(&sibling) {
+                            log::warn!(
+                                "lyrics: cannot remove old sidecar {}: {err}",
+                                sibling.display()
+                            );
+                        }
+                    }
+                }
                 let filename = target
                     .file_name()
                     .unwrap_or_default()
@@ -2567,6 +2585,8 @@ fn track_place(sections: &Sections, position: QueuePosition) -> (usize, usize) {
 
 fn source_link(name: SharedString, to: Destination, cx: &App) -> impl IntoElement {
     let theme = *cx.theme();
+    let text = StyledText::new(name.clone());
+    let layout = text.layout().clone();
 
     div()
         .id("queue-source")
@@ -2582,7 +2602,8 @@ fn source_link(name: SharedString, to: Destination, cx: &App) -> impl IntoElemen
         .cursor_pointer()
         .hover(|style| style.underline())
         .link(to)
-        .child(name)
+        .child(text)
+        .tip_clipped(name, layout, Perch::Above)
         .glowed_text(theme.muted_foreground, theme.foreground)
 }
 

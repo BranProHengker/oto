@@ -1631,13 +1631,25 @@ impl SettingsView {
                     if let Some(parent) = target_clone.parent() {
                         let _ = std::fs::create_dir_all(parent);
                     }
-                    std::fs::write(&target_clone, content)
+                    let res = std::fs::write(&target_clone, content);
+                    if res.is_ok() {
+                        for other_ext in ["ttml", "TTML", "lrc", "LRC"] {
+                            let sibling = target_clone.with_extension(other_ext);
+                            if sibling != target_clone && sibling.is_file() {
+                                let _ = std::fs::remove_file(&sibling);
+                            }
+                        }
+                    }
+                    res
                 })
                 .await;
 
             this.update(cx, |this, cx| {
                 match res {
                     Ok(_) => {
+                        state::Sonora::global(cx).lyrics.update(cx, |lyrics, cx| {
+                            lyrics.reload_local(cx);
+                        });
                         let file_name = target.file_name().unwrap_or_default().to_string_lossy();
                         if has_local_path {
                             this.lrc_studio.status = Some((
