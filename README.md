@@ -24,22 +24,12 @@
     </tr>
     <tr>
       <td width="50%">
-        <p align="center"><b>Local Albums Grid & Dual Preview (Queue + Lyrics)</b></p>
-        <img alt="Oto Local Albums Grid & Dual Preview" src="./.github/screenshots/albums.jpg" />
+        <p align="center"><b>Playlists Grid, Island Bar & Dual Preview (Lyrics + Queue)</b></p>
+        <img alt="Oto Playlists Grid & Dual Preview" src="./.github/screenshots/albums.jpg" />
       </td>
       <td width="50%">
         <p align="center"><b>High-Density Tracklist & Playback (Catppuccin Mocha)</b></p>
         <img alt="Oto Local Library Tracklist" src="./.github/screenshots/playlist.jpg" />
-      </td>
-    </tr>
-    <tr>
-      <td width="50%">
-        <p align="center"><b>Audio Engine, Resampling & Output Chain</b></p>
-        <img alt="Oto Audio Engine Settings" src="./.github/screenshots/settings.jpg" />
-      </td>
-      <td width="50%">
-        <p align="center"><b>Built-in LRC Studio & Romaji Synchronization</b></p>
-        <img alt="Oto Built-in LRC Studio" src="./.github/screenshots/lrc-studio.jpg" />
       </td>
     </tr>
   </table>
