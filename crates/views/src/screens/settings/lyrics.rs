@@ -35,6 +35,7 @@ impl SettingsView {
             Slot::LyricsPreset,
             Slot::Karaoke,
             Slot::BlurLyrics,
+            Slot::ScrollPlainLyrics,
             Slot::Romanized,
             Slot::PanelLyricsSize,
             Slot::FullscreenLyricsSize,
@@ -441,6 +442,21 @@ impl SettingsView {
                 .on_click(cx.listener(move |this, _, _, cx| {
                     this.settings
                         .update(cx, |settings, cx| settings.set_blur_lyrics(!on, cx));
+                }))
+                .into_any_element(),
+        )
+    }
+
+    pub(super) fn scroll_plain_lyrics_row(&self, cx: &mut Context<Self>) -> AnyElement {
+        let on = self.settings.read(cx).scroll_plain_lyrics();
+
+        self.row(
+            t!("settings-scroll-plain-lyrics"),
+            Switch::new("scroll-plain-lyrics", on)
+                .name(t!("settings-scroll-plain-lyrics"))
+                .on_click(cx.listener(move |this, _, _, cx| {
+                    this.settings
+                        .update(cx, |settings, cx| settings.set_scroll_plain_lyrics(!on, cx));
                 }))
                 .into_any_element(),
         )
