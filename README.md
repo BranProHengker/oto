@@ -63,41 +63,22 @@
 </div>
 
 > [!NOTE]
-> **Oto** is an independent fork of [Sonora](https://github.com/sonorahq/sonora). It retains full compatibility with Sonora's native playback engine while adding tailored improvements:
-> - **Wayland Native Background Blur & Dynamic Corner Radius**: Native backdrop blur via Wayland `ext-background-effect` protocol, visual glow hover transitions, and adaptive corner radius on modern Linux compositors (Hyprland, KDE, GNOME, Caelestia).
-> - **Dual Preview Panel (Queue & Lyrics)**: Side-by-side simultaneous Queue and live time-synced / karaoke Lyrics panels with dynamic ordering, 1px divider, and responsive width scaling.
-> - **Hybrid Playlist Caching & Provider Badges**: Seamlessly manage playlists combining local files and streaming tracks with automatic metadata caching in SQLite, provider badge indicators (Spotify, Subsonic, etc.), and organized context menus.
-> - **YouTube Music Videos**: Browse and stream official YouTube Music videos directly from artist discographies and global search.
-> - **Universal Playlist Importer**: Import public playlist links (Spotify, YouTube Music, Apple Music, Deezer) into native hybrid playlists, prioritizing local lossless audio files over streaming.
-> - **Soloist Headless Daemon Integration**: Native support for pairing with `soloistd`, upstream's headless playback daemon. Offload Spotify and audio decoding to a lightweight background daemon and control playback seamlessly without GUI overhead.
-> - **Automix Crossfade**: Smart transition blending with dynamic DJ bass dip (high-pass filter sweep) and leading silence trimming.
-> - **KuGou, NetEase & Word-by-Word Furigana Karaoke**: Native out-of-the-box support for KuGou & NetEase karaoke lyrics, word-by-word karaoke sweep sync on furigana (Japanese Kanji + Ruby annotation sublane), smart twin-timestamp `.lrc` pairing, and GPU-optimized silky 60/120/144+ FPS fullscreen lyrics.
-> - **Oto Android Lyrics Motion Presets, Native VSync & Continuous Wave**: 4 selectable animation presets (Motion, Legacy wave, Boring, Plain) directly ported from Oto Android. Hardware VSync synchronization (60Hz / 120Hz / 144Hz+) eliminates 45 FPS pulldown judder, accompanied by continuous wave ripple physics, baseline anchoring, held-note spring bloom, duet vocal alignments, and real-time live singing preview in Settings.
-> - **Smart Multi-Artist Fallback & Sub-Vocal Preservation**: Automatic lyrics fallback to the primary artist for collaborative releases and anime/game soundtracks (e.g. Persona 5 OSTs), plus complete preservation of backing vocal lines `(Don't let go)` when exporting `.lrc` sidecars.
-> - **Subsonic Internet Radio Stations**: Stream live internet radio stations configured on your Subsonic / Navidrome server directly from a dedicated Radio screen in the navigation sidebar.
-> - **Expanded Volume Control & Instant Mute**: Universal `Ctrl + Up`/`Down` shortcuts that work anywhere in the app, global `Ctrl + Scroll` mouse wheel volume adjustment, and one-key `Ctrl + M` mute toggle.
-> - **Lyrics Provider Switcher & Local Precedence**: Live lyrics source switcher (`[ ⇅ Switch ]`) with hit indicators (Karaoke, Line synced, In use) and strict local synced lyrics precedence over scrapers.
-> - **Flexible Lyrics Save & Export**: One-click minimalist floating lyrics download directly beside local audio files, with configurable export formats in Settings (Standard `.lrc`, Enhanced Karaoke `.lrc` with word timestamps, or Provider Native decoded `.krc`).
-> - **Local Song Details & Lyrics Overview**: Quick overview of local song directory paths and `.lrc` sidecar file existence right on the song details screen.
-> - **Plain Audio Downloads Manager**: Direct DRM-free offline song saving from Subsonic/local shelves with instant "Open downloads" folder access in Settings Storage.
-> - **Sonora Sessions & Social Listening**: Listen together in sync across any streaming service using lightweight 6-digit room codes and member queue control.
-> - **Built-in LRC Studio**: Integrated synced lyrics editor with auto-import from active playback, real-time timestamp tagging, and direct local saving.
-> - **Multi-Source Artwork Cascade & Discord Rich Presence**: Automatic cover art resolver (Deezer → iTunes Global/JP → MusicBrainz → temporary host upload) with album artist display and embedded local artwork uploads for Discord RPC.
-> - **Unlimited Audio Cache**: Option to set disk cache to Unlimited (`∞`), preventing premature cache invalidation for large libraries.
-> - **Clean UI & Settings**: Streamlined interface without upstream updater clutter or redundant links.
-> - **Linux Tray & Desktop Integration**: Native StatusNotifierItem (SNI) tray support optimized for Hyprland, Caelestia shell, and Waybar.
+> **Oto** is an independent fork of [Sonora](https://github.com/sonorahq/sonora) with custom features and fixes built on top of Sonora's engine:
+> - **Automix Crossfade & Volume Boost**: Smooth track crossfading with dynamic DJ bass dip, leading silence trimming, `1.35×` max volume gain headroom, and higher default playback volume.
+> - **Dual Preview Panel (Queue & Lyrics)**: Side-by-side simultaneous Queue and live Lyrics panels in the right sidebar with dynamic ordering and responsive layout.
+> - **Oto Lyrics Motion Presets & Native VSync**: 4 selectable animation presets (`Motion`, `Legacy wave`, `Boring`, `Plain`) synchronized to native display VSync, with continuous wave physics, held-note spring bloom, duet voice alignment (`{agent:v1}`/`{agent:v2}`/`{agent:both}`), and a live singing preview in Settings.
+> - **Furigana Karaoke, Dual-Line LRC & Smart Lookups**: Word-by-word ruby/furigana karaoke sweep, dual-line `.lrc` merging, and compound-title / multi-artist fallback across lyrics providers.
+> - **Live Lyrics Switcher, Export & LRC Studio**: In-panel source switcher, one-click sidecar save/overwrite (`Standard .lrc`, `Enhanced .lrc`, `Native .krc` with backing vocal & duet tag preservation and automatic stale sidecar cleanup), local `.lrc`/path overview on Song Details, and a built-in **LRC Studio** synced lyrics editor.
+> - **Universal Playlist Importer & Subsonic Radio**: Import public playlists (Spotify, YouTube Music, Apple Music, Deezer) into hybrid local/streaming playlists, plus a dedicated **Radio** view for Subsonic/Navidrome internet radio stations.
+> - **Desktop Integration & Discord RPC**: Global `Ctrl + Scroll` volume wheel capture, `Ctrl + Q` quit binding, Linux StatusNotifierItem (SNI) tray support, and provider CDN badges + iTunes/Deezer artwork fallback for Discord Rich Presence.
 
 ---
 
 ## Features
 
-- **Streaming, Local, Radio & Headless**: Apple Music, Spotify, YouTube Music (including music videos), Deezer, Tidal (Hi-Res resolution & format tags), Subsonic/Navidrome streaming, plain downloads & live Internet Radio stations, offline local files, and pairing with headless `soloistd` daemon.
-- **Pure Native UI**: Rendered with GPUI (Zed's GPU-accelerated UI framework) — Wayland `ext-background-effect` blur, adaptive corner radius, hover glow transitions, player bar cut-off title tooltips, zero Electron, zero WebKit, ultra-low memory usage (~170 MB RSS).
-- **Karaoke & Synced Lyrics**: KuGou and NetEase enabled by default, 4 selectable motion animation presets (Motion, Legacy wave, Boring, Plain) ported from Oto Android with live singing preview, on-the-fly lyrics provider switcher, millisecond-accurate local `.lrc` synchronization, configurable export (Standard/Enhanced/Native KRC), built-in LRC Studio editor, time-synced scrolling lyrics, background vocals, and word-by-word furigana/ruby annotations.
-- **Social Listening**: Real-time synchronized playback via Sonora Sessions (cross-service 6-digit room codes) and Spotify Jams with members sidebar.
-- **Audio Engine**: Automix crossfade with DJ bass dip, 5-second relative seek shortcuts (`Shift + Arrows`), gapless playback, PulseAudio leak prevention, audio loudness normalization, parametric equalizer, sleep timer, and unlimited cache option.
-- **Audio Scrobbler**: Built-in support for LastFM, LibreFM, Maloja, and ListenBrainz with custom server URL support and per-provider toggles.
-- **Extensive Theming**: Dynamic adaptive palettes, blur/vibrancy, font adjustments, and interchangeable icon packs.
+- **Streaming, Local & Radio**: Apple Music, Spotify, YouTube Music, Deezer, Tidal, Plex, Subsonic/Navidrome (including internet radio), offline local files, and `soloistd` headless playback.
+- **Native GPUI Interface**: GPU-accelerated UI with floating island or classic player bars, adaptive theming, blur/vibrancy, and customizable icon packs & keybinds.
+- **Audio & Scrobbling**: Automix crossfade, gapless playback, loudness normalization, parametric equalizer, and built-in scrobbling (Last.fm, Libre.fm, ListenBrainz, Maloja, teal.fm).
 
 ---
 
