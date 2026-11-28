@@ -17,8 +17,12 @@
 <div align="center">
   <table>
     <tr>
-      <td colspan="2">
-        <p align="center"><b>Fullscreen Karaoke & Furigana Sweep (Ruby Annotations + Ambient Glow)</b></p>
+      <td width="50%">
+        <p align="center"><b>Fullscreen Furigana & Ruby Karaoke Sweep</b></p>
+        <img alt="Oto Fullscreen Furigana Lyrics View" src="./.github/screenshots/fullscreen-furigana.jpg" />
+      </td>
+      <td width="50%">
+        <p align="center"><b>Fullscreen Karaoke, Backing Vocals & Motion Bloom</b></p>
         <img alt="Oto Fullscreen Lyrics View" src="./.github/screenshots/fullscreen.jpg" />
       </td>
     </tr>
