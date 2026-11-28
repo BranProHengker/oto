@@ -800,7 +800,7 @@ impl DeezerClient {
             .filter_map(|artist| {
                 Some(SavedArtist {
                     id: artist.get("id").and_then(wire::id)?,
-                    name: artist.get("name").and_then(Value::as_str)?.to_owned(),
+                    name: wire::plain(artist, &["name"])?,
                     cover: artist
                         .get("picture_big")
                         .or_else(|| artist.get("picture_medium"))
@@ -836,9 +836,7 @@ impl DeezerClient {
     /// Flow's own page can name it.
     async fn shelves(&self, page: &str) -> Result<(String, Vec<GenreSection>)> {
         let results = self.page(page).await?;
-        let title = wire::text(&results, &["title"])
-            .unwrap_or_default()
-            .to_owned();
+        let title = wire::plain(&results, &["title"]).unwrap_or_default();
         let user_id = self.user_id().await;
         let sections = wire::sections(&results, &user_id, &title);
         let mut flows = lock(&self.inner.flows);
@@ -1063,9 +1061,7 @@ impl MusicApi for DeezerClient {
         );
         let detail = detail.context("cannot load the artist")?;
         let own = ArtistRef {
-            name: wire::text(&detail, &["name"])
-                .unwrap_or_default()
-                .to_owned(),
+            name: wire::plain(&detail, &["name"]).unwrap_or_default(),
             id: Some(artist_id.to_owned()),
             channel: false,
         };
@@ -1198,9 +1194,7 @@ impl MusicApi for DeezerClient {
             .await
             .context("cannot load the artist")?;
         Ok(ArtistProfile {
-            name: wire::text(&detail, &["name"])
-                .unwrap_or_default()
-                .to_owned(),
+            name: wire::plain(&detail, &["name"]).unwrap_or_default(),
             cover_large: detail
                 .get("picture_xl")
                 .or_else(|| detail.get("picture_big"))
@@ -1465,7 +1459,7 @@ impl MusicApi for DeezerClient {
         let own = ArtistRef {
             name: detail
                 .ok()
-                .and_then(|detail| wire::text(&detail, &["name"]).map(str::to_owned))
+                .and_then(|detail| wire::plain(&detail, &["name"]))
                 .unwrap_or_default(),
             id: Some(artist_id.to_owned()),
             channel: false,

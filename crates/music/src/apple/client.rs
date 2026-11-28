@@ -17,7 +17,6 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use anyhow::{Context as _, Result, anyhow, bail};
 use async_trait::async_trait;
-use futures::future::try_join_all;
 use futures::stream::{self, StreamExt as _, TryStreamExt as _};
 use serde::de::IgnoredAny;
 use serde_json::Value;
@@ -47,6 +46,8 @@ const BEACON_BUILD: &str = "AppleMusic/1.0 Linux/0.0 model/Linux x86_64 build/26
 /// The user-agent the web player reports in the beacon body, alongside the build string.
 const BEACON_AGENT: &str = "Mozilla/5.0 (X11; Linux x86_64; rv:156.0) Gecko/20100101 Firefox/156.0";
 
+/// Container type 2 is a playlist, the surface a play from a playlist is reported from.
+const CONTAINER_PLAYLIST: u8 = 2;
 /// Container type 3 is an album: the surface a catalog play is reported from.
 const CONTAINER_ALBUM: u8 = 3;
 
@@ -60,9 +61,10 @@ const CLOCK_SKEW: i64 = 120;
 /// How many search hits to ask for. Apple refuses a search page larger than this outright.
 const HITS: usize = 25;
 
-/// How many pages one listing will walk before it stops. A library of a hundred thousand songs
-/// is not something to pull into memory in one go.
-const PAGES: usize = 40;
+/// How many pages one listing will walk before it stops. Apple keeps at most a hundred thousand
+/// songs in a library, so this reaches the end of any real listing and only stops one whose
+/// `next` link never runs out.
+const PAGES: usize = 1_000;
 
 /// How many pages of one listing are in flight at once, after the first.
 ///
@@ -495,6 +497,32 @@ impl AppleClient {
             .map(|_| ())
     }
 
+    /// The container ids a play from `playlist_id` is reported under. Apple lists a play in the
+    /// recently played only through a catalog playlist id, so a library playlist adds the catalog
+    /// copy it was shared as, and one that was never shared gives `None`.
+    async fn playlist_container(&self, playlist_id: Option<&str>) -> Option<Value> {
+        let playlist_id = playlist_id?;
+        if !Self::is_mine(playlist_id) {
+            return Some(serde_json::json!({ "global-playlist-id": playlist_id }));
+        }
+        let path = format!("/me/library/playlists/{}", escape::component(playlist_id));
+        let body = self.get(&path, &[]).await.ok()?;
+        let answered: wire::Answer = wire::answer(&body);
+        let global = answered
+            .data
+            .first()?
+            .attributes
+            .as_ref()?
+            .play_params
+            .as_ref()?
+            .global_id
+            .as_str()?;
+        Some(serde_json::json!({
+            "global-playlist-id": global,
+            "universal-library-id": playlist_id,
+        }))
+    }
+
     /// Posts a play-activity beacon to Apple's activity service, once. This is a different host
     /// from the amp-api gateway, so it does not go through [`send`](Self::send). It carries the
     /// same bearer and account token every other request does, and neither is ever logged.
@@ -793,7 +821,8 @@ impl AppleClient {
     /// Apple keeps a favorite as a personal rating of 1 on the library resource and never
     /// inlines it into a listing, so it is a second request over the listing's ids, asked
     /// `batch` at a time: `/me/library?ids[library-albums]=…&fields[library-albums]=personalRating`,
-    /// which is how the web player draws its stars. Only the rated resources come back.
+    /// which is how the web player draws its stars. Only the rated resources come back. At most
+    /// [`FAN`] batches are in flight at once, so a huge library does not fire them all together.
     async fn rated<T>(&self, kind: &str, batch: usize, items: Vec<(String, T)>) -> Result<Vec<T>> {
         let key = format!("ids[library-{kind}]");
         let field = format!("fields[library-{kind}]");
@@ -807,14 +836,15 @@ impl AppleClient {
                     .join(",")
             })
             .collect();
-        let answers = try_join_all(batches.iter().map(|ids| {
-            let query = [
-                (key.as_str(), ids.as_str()),
-                (field.as_str(), "personalRating"),
-            ];
-            async move { self.get("/me/library", &query).await }
-        }))
-        .await?;
+        let (key, field) = (key.as_str(), field.as_str());
+        let answers: Vec<String> = stream::iter(batches)
+            .map(|ids| async move {
+                let query = [(key, ids.as_str()), (field, "personalRating")];
+                self.get("/me/library", &query).await
+            })
+            .buffer_unordered(FAN)
+            .try_collect()
+            .await?;
         let mut loved = HashSet::new();
         for body in &answers {
             let answered: wire::Answer = wire::answer(body);
@@ -1449,7 +1479,7 @@ impl MusicApi for AppleClient {
     ///
     /// The field shape is read off music.apple.com's MusicKit rather than documented: the
     /// service silently drops a beacon missing the tokens and client identity it expects.
-    async fn report_play(&self, track_id: &str) -> Result<()> {
+    async fn report_play(&self, track_id: &str, playlist_id: Option<&str>) -> Result<()> {
         if Self::is_mine(track_id) {
             return Ok(());
         }
@@ -1510,8 +1540,11 @@ impl MusicApi for AppleClient {
             "user-token": self.user_token.as_ref(),
             "utc-offset-in-seconds": 0,
         });
-        // The album container is set only when the lookup gave one.
-        if let Some(album) = album {
+        // The playlist a play came from wins over its album, which is reported only without one.
+        if let Some(ids) = self.playlist_container(playlist_id).await {
+            item["container-type"] = serde_json::json!(CONTAINER_PLAYLIST);
+            item["container-ids"] = ids;
+        } else if let Some(album) = album {
             item["container-type"] = serde_json::json!(CONTAINER_ALBUM);
             item["container-ids"] = serde_json::json!({ "album-adam-id": album });
         }
