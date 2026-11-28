@@ -471,7 +471,9 @@ impl Queue {
         self.shuffle = on;
         self.settings
             .update(cx, |settings, cx| settings.set_shuffle(on, cx));
-        self.reorder();
+        if self.current.is_some() || self.past.is_empty() {
+            self.reorder();
+        }
         self.changed(cx);
     }
 
@@ -827,6 +829,9 @@ impl Queue {
     }
 
     pub fn reordered(&self) -> bool {
+        if self.current.is_none() {
+            return false;
+        }
         let sequence = self
             .past
             .iter()
@@ -1226,6 +1231,15 @@ impl Queue {
         }
         self.changed(cx);
         self.current().cloned()
+    }
+
+    /// Puts the last song in history when the queue runs out, leaving nothing as now playing.
+    pub fn finish(&mut self, cx: &mut Context<Self>) {
+        let Some(last) = self.current.take() else {
+            return;
+        };
+        self.past.push(last);
+        self.changed(cx);
     }
 
     /// Starts the queue over from its first song, for repeat all. What was queued by hand joins
