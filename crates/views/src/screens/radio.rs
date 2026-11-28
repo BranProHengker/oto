@@ -135,14 +135,14 @@ impl RadioView {
     fn cards(&self, window: &Window, cx: &App) -> AnyElement {
         let inset = cx.theme().metrics.inset;
         let room = cells::content_width(window, page::reserved(inset), cx);
-        let layout = CardGrid::layout(room);
+        let layout = CardGrid::layout(room, window);
         let stations = self.stations.read(cx).stations();
         let count = stations.len();
         let rows = stations
             .chunks(layout.columns)
             .enumerate()
             .map(|(row, chunk)| {
-                CardGrid::new(room)
+                CardGrid::new(layout)
                     .children(chunk.iter().enumerate().map(|(column, station)| {
                         self.card(station, row * layout.columns + column, count, cx)
                             .tile(layout.card)
