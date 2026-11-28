@@ -7,6 +7,23 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.3.2] - 2026-11-28
+
+### Added
+
+- Unsynced plain lyrics now auto-scroll proportionally along with the song (reaching the last line ten seconds before the track ends, and continuing at the same pace after manual scrolling until Follow is clicked), with a toggle under **Settings → Lyrics → Auto-scroll plain lyrics** (`#1794`).
+- Added a persistent SQLite scrobble retry backlog so listens recorded while offline, during service outages, or right before exit are automatically retried once reconnected (`#1788`).
+
+### Fixed
+
+- Fixed scrollbar wheel-glide state handling so manual scrolling is preserved cleanly across lists and lyrics sheets (`#1811`).
+- Fixed end-of-track sleep timer preloads (`#1803`) and handled finished non-repeating queues cleanly so pressing Play restarts the queue from the beginning (`#1726`).
+- Fixed liked heart toggles across album tracklists by keying buttons by track ID instead of row index (`#1766`).
+- Fixed Apple Music libraries, favorites, and playlists loading past 4,000 tracks (`#1808`) and preserved playlist context in Apple Music play activity reports (`#1757`).
+- Fixed teal.fm now-playing status clearing on pause, stop, or quit and scrobbling strictly by actual listened time (`#1787`).
+- Fixed HTML entity decoding in Deezer and Spotify track, album, playlist, and artist names (`#1713`).
+- Fixed album and card grids dropping their last column at certain window widths and display scales (`#1755`).
+
 ## [2.3.1] - 2026-11-26
 
 ### Fixed
