@@ -362,6 +362,8 @@ pub fn init(
             playback.clone(),
             session.clone(),
             settings.clone(),
+            &network,
+            database.clone(),
             io.clone(),
             cx,
         )
